@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Setup — Tall Guy Builds Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: #F7F5F0; color: #1F2A37; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+  .card { background: #fff; border-radius: 16px; padding: 36px; max-width: 480px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+  .brand { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #C8A96A; font-weight: 700; margin-bottom: 4px; }
+  h1 { font-size: 22px; margin-bottom: 8px; }
+  p { font-size: 14px; color: #8A8A8A; line-height: 1.6; margin-bottom: 20px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 5px; letter-spacing: 0.5px; text-transform: uppercase; }
+  input { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1.5px solid #D0CCCC; font-size: 14px; font-family: inherit; margin-bottom: 14px; outline: none; }
+  input:focus { border-color: #C8A96A; }
+  button { width: 100%; padding: 12px; border-radius: 8px; background: #C8A96A; color: #1F2A37; border: none; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; margin-bottom: 10px; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.secondary { background: transparent; border: 1.5px solid #D0CCCC; color: #1F2A37; }
+  .status { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; display: none; }
+  .status.success { display: block; background: #E8F5E9; color: #4CAF50; }
+  .status.error { display: block; background: #FFEBEE; color: #EF4444; }
+  .status.info { display: block; background: #E3F2FD; color: #3B82F6; }
+  .step { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid #E8E4DD; }
+  .step:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .step-num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 12px; background: #C8A96A; color: #1F2A37; font-size: 12px; font-weight: 700; margin-right: 8px; }
+  h3 { font-size: 15px; margin-bottom: 10px; display: flex; align-items: center; }
+  .done { opacity: 0.5; }
+  .done h3::after { content: ' ✓'; color: #4CAF50; margin-left: 8px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand">Tall Guy Builds</div>
+  <h1>Portal Setup</h1>
+  <p>Run this once to create your admin account and set up the database. After setup, delete this file from your site.</p>
+
+  <div id="status"></div>
+
+  <!-- Step 1: Create Admin Account -->
+  <div class="step" id="step1">
+    <h3><span class="step-num">1</span> Create Admin Account</h3>
+    <p>This will be your login for the admin dashboard.</p>
+    <label>Email</label>
+    <input type="email" id="email" placeholder="evan@tallguybuilds.ca">
+    <label>Password</label>
+    <input type="password" id="password" placeholder="Choose a strong password">
+    <button onclick="createAccount()">Create Account</button>
+  </div>
+
+  <!-- Step 2: Seed Demo Data -->
+  <div class="step" id="step2" style="opacity: 0.4; pointer-events: none;">
+    <h3><span class="step-num">2</span> Seed Sample Projects</h3>
+    <p>Optionally add a couple sample projects so you can test the portal right away.</p>
+    <button onclick="seedData()">Add Sample Projects</button>
+    <button class="secondary" onclick="skipSeed()">Skip — I'll add my own</button>
+  </div>
+
+  <!-- Step 3: Done -->
+  <div class="step" id="step3" style="opacity: 0.4; pointer-events: none;">
+    <h3><span class="step-num">3</span> You're All Set</h3>
+    <p>Your portal is ready. Here are your links:</p>
+    <div style="background: #F7F5F0; border-radius: 8px; padding: 14px; font-size: 13px; line-height: 2;">
+      <strong>Admin Dashboard:</strong><br>
+      <a href="admin/" style="color: #C8A96A;">tallguybuilds.ca/admin</a><br><br>
+      <strong>Client Portal:</strong><br>
+      <span style="color: #8A8A8A;">tallguybuilds.ca/portal?id=<em>[project-share-token]</em></span><br>
+      <span style="font-size: 11px; color: #8A8A8A;">(Each project gets a unique link you send to clients)</span>
+    </div>
+    <br>
+    <p style="color: #EF4444; font-weight: 600; font-size: 12px;">⚠️ Delete this setup.html file from your site after you're done!</p>
+  </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="shared/firebase-config.js"></script>
+<script>
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('status');
+    el.className = 'status ' + type;
+    el.textContent = msg;
+  }
+
+  function generateToken() {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let token = '';
+    for (let i = 0; i < 12; i++) token += chars[Math.floor(Math.random() * chars.length)];
+    return token;
+  }
+
+  async function createAccount() {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+
+    if (!email || !password) { showStatus('Please fill in both fields.', 'error'); return; }
+    if (password.length < 6) { showStatus('Password must be at least 6 characters.', 'error'); return; }
+
+    try {
+      await auth.createUserWithEmailAndPassword(email, password);
+      showStatus('Admin account created!', 'success');
+      document.getElementById('step1').classList.add('done');
+      document.getElementById('step1').style.pointerEvents = 'none';
+      document.getElementById('step2').style.opacity = '1';
+      document.getElementById('step2').style.pointerEvents = 'auto';
+    } catch (err) {
+      if (err.code === 'auth/email-already-in-use') {
+        showStatus('Account already exists — logging in...', 'info');
+        try {
+          await auth.signInWithEmailAndPassword(email, password);
+          showStatus('Logged in to existing account!', 'success');
+          document.getElementById('step1').classList.add('done');
+          document.getElementById('step1').style.pointerEvents = 'none';
+          document.getElementById('step2').style.opacity = '1';
+          document.getElementById('step2').style.pointerEvents = 'auto';
+        } catch (e) {
+          showStatus('Login failed: ' + e.message, 'error');
+        }
+      } else {
+        showStatus('Error: ' + err.message, 'error');
+      }
+    }
+  }
+
+  async function seedData() {
+    try {
+      showStatus('Adding sample projects...', 'info');
+
+      // Project 1: Henderson Deck
+      const token1 = generateToken();
+      const proj1Ref = await db.collection('projects').add({
+        name: 'Henderson Deck Replacement',
+        client: 'Mike Henderson',
+        clientEmail: 'mike.h@email.com',
+        clientPhone: '306-555-0142',
+        type: 'Deck',
+        status: 'In Progress',
+        startDate: '2026-02-10',
+        endDate: '2026-02-28',
+        address: '1245 Victoria Ave, Regina',
+        budget: 18500,
+        notes: 'L-shaped layout, need to address foundation height on south side',
+        shareToken: token1,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      const milestones1 = [
+        { name: 'Demo old deck', status: 'Completed', date: '2026-02-10', order: 1 },
+        { name: 'Foundation & posts', status: 'Completed', date: '2026-02-13', order: 2 },
+        { name: 'Framing & joists', status: 'In Progress', date: '2026-02-17', order: 3 },
+        { name: 'Decking & railings', status: 'Not Started', date: '2026-02-22', order: 4 },
+        { name: 'Stairs & finishing', status: 'Not Started', date: '2026-02-26', order: 5 },
+      ];
+      for (const m of milestones1) {
+        await proj1Ref.collection('milestones').add(m);
+      }
+
+      await proj1Ref.collection('updates').add({
+        message: 'Foundation and posts are set. Concrete cured nicely despite the cold. Moving to framing tomorrow.',
+        date: '2026-02-14',
+        photos: [],
+        emailSent: true
+      });
+      await proj1Ref.collection('updates').add({
+        message: 'Demo complete! Old deck removed and hauled away. Inspected existing footings — two need replacement.',
+        date: '2026-02-11',
+        photos: [],
+        emailSent: true
+      });
+
+      // Project 2: Garcia Basement
+      const token2 = generateToken();
+      const proj2Ref = await db.collection('projects').add({
+        name: 'Garcia Basement Development',
+        client: 'Sarah Garcia',
+        clientEmail: 'sarah.garcia@email.com',
+        clientPhone: '306-555-0287',
+        type: 'Basement',
+        status: 'Not Started',
+        startDate: '2026-03-03',
+        endDate: '2026-05-08',
+        address: '3891 Dewdney Ave, Regina',
+        budget: 45000,
+        notes: 'Full basement finish — 2 bedrooms, bathroom, rec room. Client wants LVP flooring throughout.',
+        shareToken: token2,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      const milestones2 = [
+        { name: 'Framing & rough-in', status: 'Not Started', date: '2026-03-03', order: 1 },
+        { name: 'Electrical rough-in', status: 'Not Started', date: '2026-03-14', order: 2 },
+        { name: 'Plumbing rough-in', status: 'Not Started', date: '2026-03-17', order: 3 },
+        { name: 'Insulation & vapor barrier', status: 'Not Started', date: '2026-03-24', order: 4 },
+        { name: 'Drywall', status: 'Not Started', date: '2026-03-31', order: 5 },
+        { name: 'Flooring & trim', status: 'Not Started', date: '2026-04-14', order: 6 },
+        { name: 'Final finishes & punch list', status: 'Not Started', date: '2026-04-28', order: 7 },
+      ];
+      for (const m of milestones2) {
+        await proj2Ref.collection('milestones').add(m);
+      }
+
+      // Save business settings
+      await db.collection('settings').doc('business').set({
+        companyName: 'Tall Guy Builds Inc.',
+        tagline: 'Built Right. Designed to Last.',
+        email: document.getElementById('email').value.trim(),
+        website: 'tallguybuilds.ca'
+      });
+
+      showStatus(`Done! Sample projects created. Share tokens: "${token1}" and "${token2}"`, 'success');
+      document.getElementById('step2').classList.add('done');
+      document.getElementById('step2').style.pointerEvents = 'none';
+      document.getElementById('step3').style.opacity = '1';
+      document.getElementById('step3').style.pointerEvents = 'auto';
+    } catch (err) {
+      showStatus('Error seeding data: ' + err.message, 'error');
+    }
+  }
+
+  function skipSeed() {
+    showStatus('Skipped sample data. You can add projects from the admin dashboard.', 'info');
+    document.getElementById('step2').classList.add('done');
+    document.getElementById('step2').style.pointerEvents = 'none';
+    document.getElementById('step3').style.opacity = '1';
+    document.getElementById('step3').style.pointerEvents = 'auto';
+  }
+</script>
+</body>
+</html>

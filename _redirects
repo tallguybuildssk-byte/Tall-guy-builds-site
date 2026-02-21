@@ -1,0 +1,5 @@
+# Tall Guy Builds Portal — Netlify Redirects
+# These ensure direct URL access works for the portal and admin pages
+
+/portal/*  /portal/index.html  200
+/admin/*   /admin/index.html   200

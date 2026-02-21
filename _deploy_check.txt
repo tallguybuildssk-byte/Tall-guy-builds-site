@@ -1,0 +1,1 @@
+If you can open /images/project_1.jpg, images deployed correctly.
