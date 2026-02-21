@@ -793,7 +793,7 @@ const NAV = [
 ];
 
 // ─── ROOT ─────────────────────────────────────────────────────────────────────
-function App() {}
+function App() {
   const [page, setPage] = useState("dashboard");
   const [jobs, setJobs] = useState(initJobs);
   const [leads, setLeads] = useState(initLeads);
@@ -845,4 +845,4 @@ function App() {}
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);840
