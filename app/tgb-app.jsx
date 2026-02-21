@@ -799,6 +799,7 @@ function App() {
   const [leads, setLeads] = useState(initLeads);
   const [subs, setSubs] = useState(initSubs);
   const [events, setEvents] = useState(initEvents);
+    const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     const link = document.createElement("link");
@@ -820,28 +821,54 @@ function App() {
   };
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: C.navy, fontFamily: fontBody, color: C.white }}>
-      <div style={{ width: 220, background: "#16212E", borderRight: `1px solid ${C.border}`, flexShrink: 0, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-        <div style={{ padding: "22px 20px 16px", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ fontFamily: font, fontSize: 20, color: C.gold, lineHeight: 1.1 }}>Tall Guy</div>
-          <div style={{ fontFamily: font, fontSize: 20, color: C.white, lineHeight: 1.1 }}>Builds</div>
-          <div style={{ fontSize: 11, color: C.muted, marginTop: 4, letterSpacing: "0.06em" }}>PROJECT MANAGEMENT</div>
-        </div>
-        <nav style={{ flex: 1, padding: "12px 10px" }}>
-          {NAV.map(n => (
-            <button key={n.id} onClick={() => setPage(n.id)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "9px 12px", borderRadius: 7, border: "none", background: page === n.id ? C.gold + "20" : "transparent", color: page === n.id ? C.gold : C.muted, cursor: "pointer", fontFamily: fontBody, fontSize: 14, fontWeight: page === n.id ? 700 : 400, marginBottom: 2, textAlign: "left", transition: "all 0.15s" }}>
-              <span style={{ fontSize: 16 }}>{n.icon}</span>{n.label}
-            </button>
-          ))}
-        </nav>
-        <div style={{ padding: "14px 20px", borderTop: `1px solid ${C.border}`, fontSize: 12, color: C.muted }}>Built Right. Designed to Last.</div>
-      </div>
-      <div style={{ flex: 1, overflow: "auto" }}>
-        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "30px 24px" }}>
-          {renderPage()}
-        </div>
-      </div>
-    </div>
+        <div style={{ display: "flex", minHeight: "100vh", background: C.navy, fontFamily: fontBody, color: C.white }}>
+
+                {/* Mobile overlay - tap to close nav */}
+                      {navOpen && (
+                              <div onClick={() => setNavOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 40 }} />
+                                    )}
+
+                                          {/* Sidebar */}
+                                                <div style={{
+                                                        width: 220, background: "#16212E",
+                                                                borderRight: `1px solid ${C.border}`,
+                                                                        flexShrink: 0, display: "flex", flexDirection: "column", minHeight: "100vh",
+                                                                                position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 50,
+                                                                                        transform: navOpen ? "translateX(0)" : "translateX(-220px)",
+                                                                                                transition: "transform 0.25s ease",
+                                                                                                      }}>
+                                                                                                              <div style={{ padding: "22px 20px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                                                                                                        <div>
+                                                                                                                                    <div style={{ fontFamily: font, fontSize: 20, color: C.gold, lineHeight: 1.1 }}>Tall Guy</div>
+                                                                                                                                                <div style={{ fontFamily: font, fontSize: 20, color: C.white, lineHeight: 1.1 }}>Builds</div>
+                                                                                                                                                            <div style={{ fontSize: 11, color: C.muted, marginTop: 4, letterSpacing: "0.06em" }}>PROJECT MANAGEMENT</div>
+                                                                                                                                                                      </div>
+                                                                                                                                                                                <button onClick={() => setNavOpen(false)} style={{ background: "none", border: "none", color: C.muted, fontSize: 20, cursor: "pointer", marginTop: 2, padding: "2px 6px" }}>✕</button>
+                                                                                                                                                                                        </div>
+                                                                                                                                                                                                <nav style={{ flex: 1, padding: "12px 10px" }}>
+                                                                                                                                                                                                          {NAV.map(n => (
+                                                                                                                                                                                                                      <button key={n.id} onClick={() => { setPage(n.id); setNavOpen(false); }} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "9px 12px", borderRadius: 7, border: "none", background: page === n.id ? C.gold + "20" : "transparent", color: page === n.id ? C.gold : C.muted, cursor: "pointer", fontFamily: fontBody, fontSize: 14, fontWeight: page === n.id ? 700 : 400, marginBottom: 2, textAlign: "left", transition: "all 0.15s" }}>
+                                                                                                                                                                                                                                    <span style={{ fontSize: 16 }}>{n.icon}</span>{n.label}
+                                                                                                                                                                                                                                                </button>
+                                                                                                                                                                                                                                                          ))}
+                                                                                                                                                                                                                                                                  </nav>
+                                                                                                                                                                                                                                                                          <div style={{ padding: "14px 20px", borderTop: `1px solid ${C.border}`, fontSize: 12, color: C.muted }}>Built Right. Designed to Last.</div>
+                                                                                                                                                                                                                                                                                </div>
+
+                                                                                                                                                                                                                                                                                      {/* Main area with top bar */}
+                                                                                                                                                                                                                                                                                            <div style={{ flex: 1, overflow: "auto", display: "flex", flexDirection: "column" }}>
+                                                                                                                                                                                                                                                                                                    {/* Top bar with hamburger */}
+                                                                                                                                                                                                                                                                                                            <div style={{ position: "sticky", top: 0, zIndex: 30, background: C.navy, borderBottom: `1px solid ${C.border}`, padding: "12px 16px", display: "flex", alignItems: "center", gap: 14 }}>
+                                                                                                                                                                                                                                                                                                                      <button onClick={() => setNavOpen(true)} style={{ background: "none", border: "none", color: C.white, fontSize: 24, cursor: "pointer", lineHeight: 1, padding: "2px 4px" }}>☰</button>
+                                                                                                                                                                                                                                                                                                                                <div style={{ fontFamily: font, fontSize: 16, color: C.gold, fontWeight: 700 }}>
+                                                                                                                                                                                                                                                                                                                                            {NAV.find(n => n.id === page)?.icon} {NAV.find(n => n.id === page)?.label}
+                                                                                                                                                                                                                                                                                                                                                      </div>
+                                                                                                                                                                                                                                                                                                                                                              </div>
+                                                                                                                                                                                                                                                                                                                                                                      <div style={{ maxWidth: 1000, margin: "0 auto", padding: "30px 24px", width: "100%" }}>
+                                                                                                                                                                                                                                                                                                                                                                                {renderPage()}
+                                                                                                                                                                                                                                                                                                                                                                                        </div>
+                                                                                                                                                                                                                                                                                                                                                                                              </div>
+                                                                                                                                                                                                                                                                                                                                                                                                  </div>
   );
 }
 
