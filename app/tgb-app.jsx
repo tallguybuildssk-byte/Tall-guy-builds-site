@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+const { useState, useEffect } = React;
 
 const C = {
   navy:    "#1F2A37",
@@ -793,7 +793,7 @@ const NAV = [
 ];
 
 // ─── ROOT ─────────────────────────────────────────────────────────────────────
-export default function App() {
+function App() {}
   const [page, setPage] = useState("dashboard");
   const [jobs, setJobs] = useState(initJobs);
   const [leads, setLeads] = useState(initLeads);
@@ -844,3 +844,5 @@ export default function App() {
     </div>
   );
 }
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
