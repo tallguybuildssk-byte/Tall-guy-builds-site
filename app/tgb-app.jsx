@@ -206,7 +206,7 @@ const initSubs = [
   { id: 2, name: "PipeDream Plumbing", trade: "Plumbing", phone: "780-555-0247", email: "pipedream@email.com", rating: 4, notes: "Slow on paperwork.", active: true },
   { id: 3, name: "AirRight HVAC", trade: "HVAC", phone: "780-555-0381", email: "airright@email.com", rating: 3, notes: "Had issues last jobâmonitor closely.", active: false }
 ];
-const typeColors = { site: "#D4A853", inspection: "#4A9EFF", quote: "#34C778", sub: "#F59E0B", other: "#7B8A9B" };
+// typeColors already declared in Schedule: { site: "#D4A853", inspection: "#4A9EFF", quote: "#34C778", sub: "#F59E0B", other: "#7B8A9B" };
 const initEvents = [
   { id: 1, title: "Site walkthrough", job: "Henderson Residence", date: "2025-04-22", time: "09:00", type: "site", color: "#D4A853" },
   { id: 2, title: "City inspection", job: "Henderson Residence", date: "2025-04-25", time: "14:00", type: "inspection", color: "#4A9EFF" },
