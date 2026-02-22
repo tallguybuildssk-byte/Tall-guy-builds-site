@@ -1,12 +1,8 @@
 [build]
-publish = "."
+  command = "npm run build"
+  publish = "dist"
 
 [[redirects]]
-from = "/thanks"
-to = "/thanks.html"
-status = 200
-
-[[redirects]]
-from = "/app"
-to = "/app/index.html"
-status = 200
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
