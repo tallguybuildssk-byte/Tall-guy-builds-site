@@ -1,17 +1,31 @@
 [build]
-  publish = "."
+publish = "."
 
-  [[redirects]]
-    from = "/thanks"
-      to = "/thanks.html"
-        status = 200
+[[redirects]]
+from = "/thanks"
+to = "/thanks.html"
+status = 200
 
-        [[redirects]]
-          from = "/app"
-            to = "/app/index.html"
-              status = 200
+[[redirects]]
+from = "/app"
+to = "/app/index.html"
+status = 200
 
-              [[redirects]]
-                from = "/app/*"
-                  to = "/app/index.html"
-                    status = 200
+# Static assets pass through BEFORE the SPA catch-all
+[[redirects]]
+from = "/app/*.jsx"
+to = "/app/:splat"
+status = 200
+force = false
+
+[[redirects]]
+from = "/app/*.js"
+to = "/app/:splat"
+status = 200
+force = false
+
+# SPA fallback
+[[redirects]]
+from = "/app/*"
+to = "/app/index.html"
+status = 200
