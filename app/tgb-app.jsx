@@ -459,6 +459,7 @@ function ClientPortal({ jobs }) {
   return <div><h1 style={{fontFamily:font,color:C.white,fontSize:28,marginBottom:4}}>Client Portal Preview</h1><p style={{color:C.muted,marginBottom:20,fontSize:14}}>This is exactly what your clients see when they log in.</p><div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>{jobs.map(j=><button key={j.id} onClick={()=>setSelectedJob(j)} style={{padding:"6px 16px",borderRadius:20,border:"1px solid "+(selectedJob?.id===j.id?C.gold:C.border),background:selectedJob?.id===j.id?C.gold+"22":"transparent",color:selectedJob?.id===j.id?C.gold:C.muted,cursor:"pointer",fontFamily:fontBody,fontSize:13}}>{j.name}</button>)}</div><ClientPortalView job={selectedJob}/></div>;
 }
 const NAV_OWNER=[{id:"dashboard",label:"Dashboard",icon:"â"},{id:"jobs",label:"Projects",icon:"ð"},{id:"leads",label:"Pipeline",icon:"ð¯"},{id:"schedule",label:"Schedule",icon:"ð"},{id:"subs",label:"Subtrades",icon:"ð·"},{id:"client",label:"Client Portal Preview",icon:"ð"}];
+}
 function App() {
   const [user,setUser]=useState(null);const [page,setPage]=useState("dashboard");const [jobs,setJobs]=useState(initJobs);const [leads,setLeads]=useState(initLeads);const [subs,setSubs]=useState(initSubs);const [events,setEvents]=useState(initEvents);const [navOpen,setNavOpen]=useState(false);
   useEffect(()=>{const link=document.createElement("link");link.href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600;700&display=swap";link.rel="stylesheet";document.head.appendChild(link);},[]);
