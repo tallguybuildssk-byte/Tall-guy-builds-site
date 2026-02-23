@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
 import { app } from './firebaseConfig';
+
 const auth = getAuth(app);
+
 const styles = {
   page: { minHeight: '100vh', backgroundColor: '#1f2a37', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Arial, sans-serif', padding: '20px' },
   card: { backgroundColor: '#263445', borderRadius: '12px', padding: '40px 36px', width: '100%', maxWidth: '420px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' },
@@ -15,24 +18,28 @@ const styles = {
   buttonDisabled: { width: '100%', padding: '13px', backgroundColor: '#8a6e25', color: '#1f2a37', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: '700', cursor: 'not-allowed', marginTop: '4px' },
   error: { color: '#fc8181', fontSize: '14px', marginBottom: '14px', backgroundColor: 'rgba(252,129,129,0.1)', padding: '10px 12px', borderRadius: '6px', borderLeft: '3px solid #fc8181' },
 };
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      window.location.href = '/dashboard';
+      navigate('/dashboard');
     } catch (err) {
       setError('Invalid email or password. Please try again.');
     } finally {
       setLoading(false);
     }
   }
+
   return (
     <div style={styles.page}>
       <div style={styles.card}>
