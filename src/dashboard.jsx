@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getAuth, signOut } from 'firebase/auth';
+import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
 import {
   getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc,
   doc, serverTimestamp, orderBy, query
@@ -45,8 +45,6 @@ function formatDate(ts) {
   const d = ts.toDate ? ts.toDate() : new Date(ts);
   return d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' });
 }
-
-// ─── COMPONENTS ───────────────────────────────────────────────
 
 function StatusBadge({ status }) {
   return (
@@ -144,8 +142,6 @@ function Btn({ children, variant = 'primary', ...props }) {
   );
 }
 
-// ─── PROJECT FORM ─────────────────────────────────────────────
-
 function ProjectForm({ initial = {}, onSave, onCancel, saving }) {
   const [form, setForm] = useState({
     name: '', client: '', clientEmail: '', clientPhone: '',
@@ -188,8 +184,6 @@ function ProjectForm({ initial = {}, onSave, onCancel, saving }) {
   );
 }
 
-// ─── MILESTONE PANEL ──────────────────────────────────────────
-
 function MilestonePanel({ project, milestones, onAdd, onToggle, onDelete }) {
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
@@ -206,7 +200,7 @@ function MilestonePanel({ project, milestones, onAdd, onToggle, onDelete }) {
         {milestones.length === 0 && (
           <p style={{ color: BRAND.gray, fontSize: 13, textAlign: 'center', padding: '20px 0' }}>No milestones yet.</p>
         )}
-        {milestones.map((m, i) => (
+        {milestones.map((m) => (
           <div key={m.id} style={{
             display: 'flex', alignItems: 'center', gap: 10,
             padding: '10px 0', borderBottom: `1px solid ${BRAND.grayLight}`,
@@ -233,8 +227,6 @@ function MilestonePanel({ project, milestones, onAdd, onToggle, onDelete }) {
     </div>
   );
 }
-
-// ─── UPDATE PANEL ─────────────────────────────────────────────
 
 function UpdatePanel({ updates, onAdd, onDelete }) {
   const [msg, setMsg] = useState('');
@@ -275,8 +267,6 @@ function UpdatePanel({ updates, onAdd, onDelete }) {
     </div>
   );
 }
-
-// ─── PROJECT DETAIL MODAL ─────────────────────────────────────
 
 function ProjectDetail({ project, onClose, onStatusChange, onDelete }) {
   const [tab, setTab] = useState('milestones');
@@ -325,12 +315,10 @@ function ProjectDetail({ project, onClose, onStatusChange, onDelete }) {
 
   const portalUrl = `${window.location.origin}/portal?id=${project.shareToken}`;
   const pct = milestones.length ? Math.round(milestones.filter(m => m.status === 'Completed').length / milestones.length * 100) : 0;
-
   const TABS = ['milestones', 'updates', 'details'];
 
   return (
     <Modal title={project.name} onClose={onClose}>
-      {/* Header info */}
       <div style={{ background: BRAND.bg, borderRadius: 10, padding: 14, marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
           <StatusBadge status={project.status} />
@@ -350,7 +338,6 @@ function ProjectDetail({ project, onClose, onStatusChange, onDelete }) {
         )}
       </div>
 
-      {/* Client portal link */}
       <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: 12, marginBottom: 16, fontSize: 12 }}>
         <strong style={{ color: BRAND.navy }}>Client Portal Link:</strong>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
@@ -362,7 +349,6 @@ function ProjectDetail({ project, onClose, onStatusChange, onDelete }) {
         </div>
       </div>
 
-      {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: `2px solid ${BRAND.grayLight}`, marginBottom: 16 }}>
         {TABS.map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
@@ -432,12 +418,24 @@ function ProjectDetail({ project, onClose, onStatusChange, onDelete }) {
 export default function Dashboard() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState('All');
 
-  useEffect(() => { loadProjects(); }, []);
+  // Wait for Firebase auth to restore session before rendering anything
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, user => {
+      if (!user) {
+        window.location.href = '/';
+        return;
+      }
+      setAuthReady(true);
+      loadProjects();
+    });
+    return () => unsub();
+  }, []);
 
   async function loadProjects() {
     setLoading(true);
@@ -472,6 +470,20 @@ export default function Dashboard() {
     setSelected(null);
   }
 
+  // Show loading screen while Firebase restores auth session
+  if (!authReady) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: BRAND.navy,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexDirection: 'column', gap: 16,
+      }}>
+        <div style={{ width: 48, height: 48, background: BRAND.gold, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 20, color: BRAND.navy }}>TG</div>
+        <div style={{ color: BRAND.gold, fontFamily: 'system-ui, sans-serif', fontSize: 14 }}>Loading…</div>
+      </div>
+    );
+  }
+
   const FILTERS = ['All', ...STATUS_OPTIONS];
   const filtered = filter === 'All' ? projects : projects.filter(p => p.status === filter);
 
@@ -485,7 +497,6 @@ export default function Dashboard() {
   return (
     <div style={{ minHeight: '100vh', background: BRAND.bg, fontFamily: 'system-ui, -apple-system, sans-serif' }}>
 
-      {/* Header */}
       <div style={{ background: BRAND.navy, padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 32, height: 32, background: BRAND.gold, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 14, color: BRAND.navy }}>TG</div>
@@ -502,7 +513,6 @@ export default function Dashboard() {
 
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 20px' }}>
 
-        {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>
           {[
             { label: 'Total Projects', value: stats.total, color: BRAND.navy },
@@ -517,7 +527,6 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Filter */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
           {FILTERS.map(f => (
             <button key={f} onClick={() => setFilter(f)} style={{
@@ -531,7 +540,6 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Projects Grid */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: 60, color: BRAND.gray }}>Loading projects…</div>
         ) : filtered.length === 0 ? (
@@ -573,7 +581,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Modals */}
       {showAdd && (
         <Modal title="New Project" onClose={() => setShowAdd(false)}>
           <ProjectForm onSave={handleAdd} onCancel={() => setShowAdd(false)} saving={saving} />
