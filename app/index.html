@@ -744,14 +744,17 @@ const MilestonesTab = ({ project, onUpdate }) => {
   // Write directly to localStorage and update local state
   const saveMilestones = (newMilestones) => {
     const allProjects = getLS('tgb_projects', []);
+    console.log('saveMilestones: project.id=', project.id, 'allProjects ids=', allProjects.map(p=>p.id));
     const updated = allProjects.map(p =>
       p.id === project.id ? { ...p, milestones: newMilestones } : p
     );
+    console.log('saveMilestones: updated project has milestones=', updated.find(p=>p.id===project.id)?.milestones?.length);
     setLS('tgb_projects', updated);
     setMilestones([...newMilestones].sort((a,b)=>a.date.localeCompare(b.date)));
     // Also notify parent so App state stays in sync
     const updatedProject = updated.find(p=>p.id===project.id);
     if (updatedProject) onUpdate(updatedProject);
+    else console.error('saveMilestones: project.id not found in allProjects!', project.id);
   };
 
   const addMilestone = () => {
