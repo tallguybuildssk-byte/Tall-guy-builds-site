@@ -92,9 +92,20 @@ try {
 
 // ─── LOCAL STORAGE DATA LAYER ─────────────────────────────────────────────────
 function getLS(key, def) {
-  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; }
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch(e) { console.error('getLS error:', e); return def; }
 }
-function setLS(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+function setLS(key, val) {
+  try {
+    const str = JSON.stringify(val);
+    localStorage.setItem(key, str);
+    // Verify it actually saved
+    const readBack = localStorage.getItem(key);
+    if (!readBack) console.error('setLS: write appeared to succeed but read-back returned null for key:', key);
+  } catch(e) {
+    console.error('setLS FAILED for key:', key, e);
+    alert('Storage error: ' + e.message + '\n\nThis may be caused by private/incognito browsing mode or browser storage being disabled.');
+  }
+}
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
 // ─── ICONS ────────────────────────────────────────────────────────────────────
