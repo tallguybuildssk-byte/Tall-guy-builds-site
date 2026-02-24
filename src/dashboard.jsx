@@ -271,7 +271,7 @@ function Dashboard({jobs,leads,clients,logs,setPage}){
           </div>
         </Card>
       );})}
-    </div></>;}
+    </div></>}
     <h2 style={{fontFamily:font,color:C.white,fontSize:17,marginBottom:10}}>Recent Leads</h2>
     <Card>{leads.slice(0,4).map((l,i)=>(
       <div key={l.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:i<3?'1px solid '+C.border:"none",flexWrap:"wrap",gap:7}}>
