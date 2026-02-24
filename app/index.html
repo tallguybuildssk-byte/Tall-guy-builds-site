@@ -92,20 +92,9 @@ try {
 
 // ─── LOCAL STORAGE DATA LAYER ─────────────────────────────────────────────────
 function getLS(key, def) {
-  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch(e) { console.error('getLS error:', e); return def; }
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; }
 }
-function setLS(key, val) {
-  try {
-    const str = JSON.stringify(val);
-    localStorage.setItem(key, str);
-    // Verify it actually saved
-    const readBack = localStorage.getItem(key);
-    if (!readBack) console.error('setLS: write appeared to succeed but read-back returned null for key:', key);
-  } catch(e) {
-    console.error('setLS FAILED for key:', key, e);
-    alert('Storage error: ' + e.message + '\n\nThis may be caused by private/incognito browsing mode or browser storage being disabled.');
-  }
-}
+function setLS(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
 // ─── ICONS ────────────────────────────────────────────────────────────────────
@@ -731,49 +720,38 @@ const PhotoGallery = ({ logs }) => {
 };
 
 // ─── MILESTONES TAB ──────────────────────────────────────────────────────────
-const MilestonesTab = ({ project, onUpdate }) => {
+const MilestonesTab = ({ project }) => {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title:'', date:'', status:'pending', notes:'' });
   const [confirm, setConfirm] = useState(null);
-  // Keep local milestone state so UI updates immediately
+
+  // Own localStorage key per project - no dependency on projects array at all
+  const msKey = 'tgb_ms_' + project.id;
   const [milestones, setMilestones] = useState(() =>
-    [...((getLS('tgb_projects',[]).find(p=>p.id===project.id)||{}).milestones||[])].sort((a,b)=>a.date.localeCompare(b.date))
+    [...getLS(msKey, [])].sort((a,b)=>a.date.localeCompare(b.date))
   );
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
-  // Write directly to localStorage and update local state
-  const saveMilestones = (newMilestones) => {
-    const allProjects = getLS('tgb_projects', []);
-    console.log('saveMilestones: project.id=', project.id, 'allProjects ids=', allProjects.map(p=>p.id));
-    const updated = allProjects.map(p =>
-      p.id === project.id ? { ...p, milestones: newMilestones } : p
-    );
-    console.log('saveMilestones: updated project has milestones=', updated.find(p=>p.id===project.id)?.milestones?.length);
-    setLS('tgb_projects', updated);
-    setMilestones([...newMilestones].sort((a,b)=>a.date.localeCompare(b.date)));
-    // Also notify parent so App state stays in sync
-    const updatedProject = updated.find(p=>p.id===project.id);
-    if (updatedProject) onUpdate(updatedProject);
-    else console.error('saveMilestones: project.id not found in allProjects!', project.id);
+  const save = (list) => {
+    const sorted = [...list].sort((a,b)=>a.date.localeCompare(b.date));
+    setLS(msKey, sorted);
+    setMilestones(sorted);
   };
 
   const addMilestone = () => {
     if (!form.title || !form.date) { alert('Title and date required'); return; }
-    const m = { ...form, id:genId(), projectId:project.id, projectName:project.name, createdAt:new Date().toISOString() };
-    const current = (getLS('tgb_projects',[]).find(p=>p.id===project.id)||{}).milestones||[];
-    saveMilestones([...current, m]);
+    const m = { ...form, id:genId(), projectId:project.id, projectName:project.name };
+    save([...milestones, m]);
     setForm({ title:'', date:'', status:'pending', notes:'' });
     setShowForm(false);
   };
 
   const updateStatus = (id, status) => {
-    const current = (getLS('tgb_projects',[]).find(p=>p.id===project.id)||{}).milestones||[];
-    saveMilestones(current.map(m=>m.id===id?{...m,status}:m));
+    save(milestones.map(m=>m.id===id?{...m,status}:m));
   };
 
   const deleteMilestone = (id) => {
-    const current = (getLS('tgb_projects',[]).find(p=>p.id===project.id)||{}).milestones||[];
-    saveMilestones(current.filter(m=>m.id!==id));
+    save(milestones.filter(m=>m.id!==id));
     setConfirm(null);
   };
 
@@ -848,13 +826,12 @@ const Schedule = ({ setView, setSelectedProject }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(null);
 
-  // Always read directly from localStorage - bypasses any React state staleness
+  // Read projects and their milestones from separate keys
   const projects = getLS('tgb_projects', []);
-
-  // Collect all milestones from all projects
-  const allMilestones = projects.flatMap(p =>
-    (p.milestones||[]).map(m => ({ ...m, projectName:p.name, projectId:p.id }))
-  );
+  const allMilestones = projects.flatMap(p => {
+    const ms = getLS('tgb_ms_' + p.id, []);
+    return ms.map(m => ({ ...m, projectName:p.name, projectId:p.id }));
+  });
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
