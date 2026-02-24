@@ -811,9 +811,15 @@ const MilestonesTab = ({ project, onUpdate }) => {
 };
 
 // ─── SCHEDULE VIEW ────────────────────────────────────────────────────────────
-const Schedule = ({ projects, setView, setSelectedProject }) => {
+const Schedule = ({ projects: projectsProp, setView, setSelectedProject }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(null);
+  const [projects, setProjects] = useState(() => getLS('tgb_projects', projectsProp));
+
+  // Re-read from localStorage every time this view mounts so new milestones always appear
+  useEffect(() => {
+    setProjects(getLS('tgb_projects', projectsProp));
+  }, []);
 
   // Collect all milestones from all projects
   const allMilestones = projects.flatMap(p =>
