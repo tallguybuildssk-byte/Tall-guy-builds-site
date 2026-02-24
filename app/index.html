@@ -724,23 +724,42 @@ const MilestonesTab = ({ project, onUpdate }) => {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title:'', date:'', status:'pending', notes:'' });
   const [confirm, setConfirm] = useState(null);
-  const milestones = (project.milestones||[]).sort((a,b)=>a.date.localeCompare(b.date));
+  // Keep local milestone state so UI updates immediately
+  const [milestones, setMilestones] = useState(() =>
+    [...((getLS('tgb_projects',[]).find(p=>p.id===project.id)||{}).milestones||[])].sort((a,b)=>a.date.localeCompare(b.date))
+  );
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  // Write directly to localStorage and update local state
+  const saveMilestones = (newMilestones) => {
+    const allProjects = getLS('tgb_projects', []);
+    const updated = allProjects.map(p =>
+      p.id === project.id ? { ...p, milestones: newMilestones } : p
+    );
+    setLS('tgb_projects', updated);
+    setMilestones([...newMilestones].sort((a,b)=>a.date.localeCompare(b.date)));
+    // Also notify parent so App state stays in sync
+    const updatedProject = updated.find(p=>p.id===project.id);
+    if (updatedProject) onUpdate(updatedProject);
+  };
 
   const addMilestone = () => {
     if (!form.title || !form.date) { alert('Title and date required'); return; }
     const m = { ...form, id:genId(), projectId:project.id, projectName:project.name, createdAt:new Date().toISOString() };
-    onUpdate({ ...project, milestones:[...(project.milestones||[]), m] });
+    const current = (getLS('tgb_projects',[]).find(p=>p.id===project.id)||{}).milestones||[];
+    saveMilestones([...current, m]);
     setForm({ title:'', date:'', status:'pending', notes:'' });
     setShowForm(false);
   };
 
   const updateStatus = (id, status) => {
-    onUpdate({ ...project, milestones: milestones.map(m=>m.id===id?{...m,status}:m) });
+    const current = (getLS('tgb_projects',[]).find(p=>p.id===project.id)||{}).milestones||[];
+    saveMilestones(current.map(m=>m.id===id?{...m,status}:m));
   };
 
   const deleteMilestone = (id) => {
-    onUpdate({ ...project, milestones: milestones.filter(m=>m.id!==id) });
+    const current = (getLS('tgb_projects',[]).find(p=>p.id===project.id)||{}).milestones||[];
+    saveMilestones(current.filter(m=>m.id!==id));
     setConfirm(null);
   };
 
