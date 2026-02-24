@@ -811,13 +811,16 @@ const MilestonesTab = ({ project, onUpdate }) => {
 };
 
 // ─── SCHEDULE VIEW ────────────────────────────────────────────────────────────
-const Schedule = ({ projects, setView, setSelectedProject }) => {
+const Schedule = ({ setView, setSelectedProject }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(null);
 
+  // Always read directly from localStorage - bypasses any React state staleness
+  const projects = getLS('tgb_projects', []);
+
   // Collect all milestones from all projects
   const allMilestones = projects.flatMap(p =>
-    (p.milestones||[]).map(m => ({ ...m, projectName:p.name, projectId:p.id, color: p.status==='completed'?'#22c55e':'var(--gold)' }))
+    (p.milestones||[]).map(m => ({ ...m, projectName:p.name, projectId:p.id }))
   );
 
   const year = currentDate.getFullYear();
@@ -840,6 +843,9 @@ const Schedule = ({ projects, setView, setSelectedProject }) => {
     .filter(m => m.date >= today && m.status !== 'completed')
     .sort((a,b)=>a.date.localeCompare(b.date))
     .slice(0,10);
+
+  // ALL milestones sorted by date for the full list
+  const allSorted = [...allMilestones].sort((a,b)=>a.date.localeCompare(b.date));
 
   const dayMs = selectedDay ? getMilestonesForDay(selectedDay) : [];
   const selectedDateStr = selectedDay ? `${year}-${String(month+1).padStart(2,'0')}-${String(selectedDay).padStart(2,'0')}` : '';
@@ -900,6 +906,22 @@ const Schedule = ({ projects, setView, setSelectedProject }) => {
             <h3 style={{fontSize:14,fontWeight:600,marginBottom:12}}>Upcoming Milestones</h3>
             {upcoming.length===0 && <p style={{color:'var(--muted)',fontSize:13}}>No upcoming milestones.</p>}
             {upcoming.map(m=>(
+              <div key={m.id} style={{padding:'8px 0',borderBottom:'1px solid var(--border)',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}} onClick={()=>{setSelectedProject(m.projectId);setView('project-detail');}}>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:500,fontSize:13}}>{m.title}</div>
+                  <div style={{fontSize:12,color:'var(--gold)'}}>{m.projectName}</div>
+                </div>
+                <div style={{fontSize:12,color:'var(--muted)',flexShrink:0,textAlign:'right'}}>
+                  <div>{m.date}</div>
+                  <StatusBadge status={m.status}/>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="card">
+            <h3 style={{fontSize:14,fontWeight:600,marginBottom:12}}>All Milestones ({allSorted.length})</h3>
+            {allSorted.length===0 && <p style={{color:'var(--muted)',fontSize:13}}>No milestones yet.</p>}
+            {allSorted.map(m=>(
               <div key={m.id} style={{padding:'8px 0',borderBottom:'1px solid var(--border)',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}} onClick={()=>{setSelectedProject(m.projectId);setView('project-detail');}}>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:500,fontSize:13}}>{m.title}</div>
@@ -1244,7 +1266,7 @@ const App = () => {
         <div style={{padding:20,maxWidth:1100}}>
           {view==='dashboard' && <Dashboard projects={projects} logs={logs} setView={setView} setSelectedProject={setSelectedProjectId}/>}
           {view==='projects' && <Projects projects={projects} setProjects={setProjects} setView={setView} setSelectedProject={setSelectedProjectId}/>}
-          {view==='schedule' && <Schedule projects={projects} setView={setView} setSelectedProject={setSelectedProjectId}/>}
+          {view==='schedule' && <Schedule key={Date.now()} projects={projects} setView={setView} setSelectedProject={setSelectedProjectId}/>}
           {view==='project-detail' && selectedProject && (
             <ProjectDetail project={selectedProject} projects={projects} setProjects={setProjects} logs={logs} setLogs={setLogs} setView={setView}/>
           )}
