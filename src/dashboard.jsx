@@ -221,7 +221,7 @@ function Gantt({jobs}){
   </div></div>;
 }
 
-function Dashboard({jobs,leads,clients,logs,setPage}){
+function DashHome({jobs,leads,clients,logs,setPage}){
   const active=jobs.filter(j=>j.status==="Active");
   const pipe=leads.filter(l=>!["Won","Lost"].includes(l.stage)).reduce((s,l)=>s+l.value,0);
   const out=jobs.reduce((s,j)=>s+(j.value-j.paid),0);
@@ -1039,7 +1039,7 @@ export default function Dashboard(){
   const enrichedJobs=jobs.map(j=>({...j,_clientName:clients.find(c=>c.id===j.clientId)?.name||""}));
   function navigate(id){setPage(id);setNavOpen(false);}
   const render=()=>{switch(page){
-    case"dashboard":return <Dashboard jobs={enrichedJobs} leads={leads} clients={clients} logs={logs} setPage={setPage}/>;
+    case"dashboard":return <DashHome jobs={enrichedJobs} leads={leads} clients={clients} logs={logs} setPage={setPage}/>;
     case"clients":return <Clients clients={clients} setClients={setClients} jobs={jobs}/>;
     case"jobs":return <Jobs jobs={jobs} setJobs={setJobs} clients={clients} logs={logs} changeOrders={changeOrders} setChangeOrders={setChangeOrders} costs={costs} setCosts={setCosts}/>;
     case"gantt":return <div><h1 style={{fontFamily:font,color:C.white,fontSize:26,marginBottom:4}}>Gantt Chart</h1><p style={{color:C.muted,marginBottom:14,fontSize:12}}>All active & upcoming projects. Diamonds = milestones.</p><Card><Gantt jobs={enrichedJobs}/></Card></div>;
