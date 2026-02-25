@@ -730,11 +730,16 @@ const MilestonesTab = ({ project }) => {
   const [milestones, setMilestones] = useState(() =>
     [...getLS(msKey, [])].sort((a,b)=>a.date.localeCompare(b.date))
   );
+
+  // Persist milestones to localStorage whenever they change
+  useEffect(() => {
+    try { localStorage.setItem(msKey, JSON.stringify(milestones)); } catch(e) { console.error('save milestones failed', e); }
+  }, [milestones]);
+
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
   const save = (list) => {
     const sorted = [...list].sort((a,b)=>a.date.localeCompare(b.date));
-    setLS(msKey, sorted);
     setMilestones(sorted);
   };
 
@@ -1220,6 +1225,11 @@ const App = () => {
   const [logs, setLogs] = useState(() => getLS('tgb_logs', []));
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSetup, setShowSetup] = useState(!firebaseReady && !getLS('tgb_user',null));
+
+  // Persist all state to localStorage whenever it changes
+  useEffect(() => { try { localStorage.setItem('tgb_projects', JSON.stringify(projects)); } catch(e) { console.error('save projects failed', e); } }, [projects]);
+  useEffect(() => { try { localStorage.setItem('tgb_logs', JSON.stringify(logs)); } catch(e) { console.error('save logs failed', e); } }, [logs]);
+  useEffect(() => { try { if (user) { localStorage.setItem('tgb_user', JSON.stringify(user)); } } catch(e) { console.error('save user failed', e); } }, [user]);
 
   const setView = (v) => {
     if (v.startsWith('new-log-')) {
