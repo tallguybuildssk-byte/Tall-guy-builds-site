@@ -13,9 +13,7 @@
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f5f7;color:#1F2A37;}
@@ -70,32 +68,64 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
 
-// ─── FIREBASE CONFIG ─────────────────────────────────────────────────────────
-const FIREBASE_CONFIG = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
-};
+// ─── SUPABASE CONFIG ─────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://ptczgktyxifzbaxcsqan.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_gfhMvzTK5LdOLCEdNO7xVQ_vdGCsSY3';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let db = null, auth = null, firebaseReady = false;
-try {
-  if (!FIREBASE_CONFIG.apiKey.includes('YOUR')) {
-    firebase.initializeApp(FIREBASE_CONFIG);
-    db = firebase.firestore();
-    auth = firebase.auth();
-    firebaseReady = true;
-  }
-} catch(e) { console.log('Firebase not configured, using localStorage'); }
-
-// ─── LOCAL STORAGE DATA LAYER ─────────────────────────────────────────────────
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 function getLS(key, def) {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; }
 }
-function setLS(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
-function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+// ─── SUPABASE DATA HELPERS ────────────────────────────────────────────────────
+const db = {
+  async getProjects() {
+    const { data, error } = await sb.from('projects').select('*').order('created_at', { ascending: false });
+    if (error) { console.error('getProjects:', error); return []; }
+    return data || [];
+  },
+  async saveProject(p) {
+    const row = { id: p.id, name: p.name, client: p.client, address: p.address, type: p.type,
+      status: p.status, contract_value: p.contractValue||0, start_date: p.startDate,
+      end_date: p.endDate, notes: p.notes, progress: p.progress||0 };
+    const { error } = await sb.from('projects').upsert(row, { onConflict: 'id' });
+    if (error) console.error('saveProject:', error);
+  },
+  async deleteProject(id) {
+    await sb.from('projects').delete().eq('id', id);
+  },
+  async getMilestones(projectId) {
+    const { data, error } = await sb.from('milestones').select('*').eq('project_id', projectId).order('date');
+    if (error) { console.error('getMilestones:', error); return []; }
+    return data || [];
+  },
+  async saveMilestone(m) {
+    const row = { id: m.id, project_id: m.projectId, project_name: m.projectName,
+      title: m.title, date: m.date, status: m.status, notes: m.notes };
+    const { error } = await sb.from('milestones').upsert(row, { onConflict: 'id' });
+    if (error) console.error('saveMilestone:', error);
+  },
+  async deleteMilestone(id) {
+    await sb.from('milestones').delete().eq('id', id);
+  },
+  async getLogs() {
+    const { data, error } = await sb.from('daily_logs').select('*').order('date', { ascending: false });
+    if (error) { console.error('getLogs:', error); return []; }
+    return data || [];
+  },
+  async saveLog(l) {
+    const row = { id: l.id, project_id: l.projectId, project_name: l.projectName,
+      date: l.date, crew: l.crew, hours: l.hours, weather: l.weather, notes: l.notes };
+    const { error } = await sb.from('daily_logs').upsert(row, { onConflict: 'id' });
+    if (error) console.error('saveLog:', error);
+  },
+  async getAllMilestones() {
+    const { data, error } = await sb.from('milestones').select('*').order('date');
+    if (error) { console.error('getAllMilestones:', error); return []; }
+    return data || [];
+  },
+};
 
 // ─── ICONS ────────────────────────────────────────────────────────────────────
 const Icon = ({ name, size=18, color='currentColor' }) => {
@@ -179,8 +209,7 @@ const SetupScreen = ({ onSkip }) => (
         <p style={{color:'var(--muted)',fontSize:14,marginTop:4}}>Project Management</p>
       </div>
       <div style={{background:'#fef3c7',border:'1px solid #f59e0b',borderRadius:8,padding:12,marginBottom:20,fontSize:13}}>
-        <strong>Firebase not configured.</strong> The app will work offline using local storage.
-        To enable cloud sync, add your Firebase config in the HTML source.
+        ✅ <strong>Cloud sync active.</strong> Your data is saved to Supabase and works across all devices.
       </div>
       <button className="btn btn-primary" style={{width:'100%',padding:12,fontSize:16}} onClick={onSkip}>
         Continue with Local Storage
@@ -199,17 +228,10 @@ const LoginScreen = ({ onLogin }) => {
   const handleLogin = async () => {
     if (!email || !pass) { setErr('Enter email and password'); return; }
     setLoading(true); setErr('');
-    if (firebaseReady) {
-      try {
-        await auth.signInWithEmailAndPassword(email, pass);
-        onLogin({ email });
-      } catch(e) { setErr(e.message); }
-    } else {
-      const users = getLS('tgb_users', [{ email:'admin@tallguybuilds.ca', pass:'admin123', name:'Evan' }]);
+    const users = getLS('tgb_users', [{ email:'admin@tallguybuilds.ca', pass:'admin123', name:'Evan' }]);
       const u = users.find(u => u.email===email && u.pass===pass);
       if (u) { onLogin(u); }
       else { setErr('Invalid credentials'); }
-    }
     setLoading(false);
   };
 
@@ -236,7 +258,7 @@ const LoginScreen = ({ onLogin }) => {
         <button className="btn btn-primary" style={{width:'100%',padding:12,fontSize:15,marginTop:4}} onClick={handleLogin} disabled={loading}>
           {loading ? 'Signing in…' : 'Sign In'}
         </button>
-        {!firebaseReady && <p style={{textAlign:'center',fontSize:12,color:'var(--muted)',marginTop:12}}>Demo: admin@tallguybuilds.ca / admin123</p>}
+        <p style={{textAlign:'center',fontSize:12,color:'var(--muted)',marginTop:12}}>admin@tallguybuilds.ca / admin123</p>
       </div>
     </div>
   );
@@ -400,22 +422,22 @@ const Projects = ({ projects, setProjects, setView, setSelectedProject }) => {
   const [filter, setFilter] = useState('all');
   const statuses = ['all','active','in-progress','completed','on-hold','cancelled'];
 
-  const saveProject = (data) => {
-    let updated;
+  const saveProject = async (data) => {
+    let project;
     if (editP) {
-      updated = projects.map(p=>p.id===editP.id?{...editP,...data}:p);
+      project = {...editP, ...data};
+      setProjects(prev => prev.map(p=>p.id===editP.id?project:p));
     } else {
-      updated = [...projects, {...data, id:genId(), changeOrders:[], costs:[], createdAt:new Date().toISOString()}];
+      project = {...data, id:genId()};
+      setProjects(prev => [...prev, project]);
     }
-    setProjects(updated);
-    setLS('tgb_projects', updated);
+    await db.saveProject(project);
     setShowForm(false); setEditP(null);
   };
 
-  const deleteProject = (id) => {
-    const updated = projects.filter(p=>p.id!==id);
-    setProjects(updated);
-    setLS('tgb_projects', updated);
+  const deleteProject = async (id) => {
+    setProjects(prev => prev.filter(p=>p.id!==id));
+    await db.deleteProject(id);
     setConfirm(null);
   };
 
@@ -724,45 +746,39 @@ const MilestonesTab = ({ project }) => {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title:'', date:'', status:'pending', notes:'' });
   const [confirm, setConfirm] = useState(null);
+  const [milestones, setMilestones] = useState([]);
 
-  // Own localStorage key per project - no dependency on projects array at all
-  const msKey = 'tgb_ms_' + project.id;
-  const [milestones, setMilestones] = useState(() =>
-    [...getLS(msKey, [])].sort((a,b)=>a.date.localeCompare(b.date))
-  );
-
-
-  // If you switch projects without a full page refresh, reload the correct milestone list
+  // Load milestones from Supabase when project changes
   useEffect(() => {
-    const loaded = [...getLS(msKey, [])].sort((a,b)=>a.date.localeCompare(b.date));
-    setMilestones(loaded);
-  }, [msKey]);
-  // Persist milestones to localStorage whenever they change
-  useEffect(() => {
-    try { localStorage.setItem(msKey, JSON.stringify(milestones)); } catch(e) { console.error('save milestones failed', e); }
-  }, [msKey, milestones]);
+    db.getMilestones(project.id).then(data => {
+      setMilestones(data.map(m => ({
+        id: m.id, projectId: m.project_id, projectName: m.project_name,
+        title: m.title, date: m.date, status: m.status, notes: m.notes
+      })).sort((a,b) => (a.date||'').localeCompare(b.date||'')));
+    });
+  }, [project.id]);
 
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
-  const save = (list) => {
-    const sorted = [...list].sort((a,b)=>a.date.localeCompare(b.date));
-    setMilestones(sorted);
-  };
-
-  const addMilestone = () => {
+  const addMilestone = async () => {
     if (!form.title || !form.date) { alert('Title and date required'); return; }
     const m = { ...form, id:genId(), projectId:project.id, projectName:project.name };
-    save([...milestones, m]);
+    setMilestones(prev => [...prev, m].sort((a,b)=>(a.date||'').localeCompare(b.date||'')));
+    await db.saveMilestone(m);
     setForm({ title:'', date:'', status:'pending', notes:'' });
     setShowForm(false);
   };
 
-  const updateStatus = (id, status) => {
-    save(milestones.map(m=>m.id===id?{...m,status}:m));
+  const updateStatus = async (id, status) => {
+    const updated = milestones.map(m=>m.id===id?{...m,status}:m);
+    setMilestones(updated);
+    const m = updated.find(m=>m.id===id);
+    if (m) await db.saveMilestone(m);
   };
 
-  const deleteMilestone = (id) => {
-    save(milestones.filter(m=>m.id!==id));
+  const deleteMilestone = async (id) => {
+    setMilestones(prev => prev.filter(m=>m.id!==id));
+    await db.deleteMilestone(id);
     setConfirm(null);
   };
 
@@ -836,13 +852,17 @@ const MilestonesTab = ({ project }) => {
 const Schedule = ({ setView, setSelectedProject }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(null);
+  const [allMilestones, setAllMilestones] = useState([]);
 
-  // Read projects and their milestones from separate keys
-  const projects = getLS('tgb_projects', []);
-  const allMilestones = projects.flatMap(p => {
-    const ms = getLS('tgb_ms_' + p.id, []);
-    return ms.map(m => ({ ...m, projectName:p.name, projectId:p.id }));
-  });
+  // Load all milestones from Supabase
+  useEffect(() => {
+    db.getAllMilestones().then(data => {
+      setAllMilestones(data.map(m => ({
+        id: m.id, projectId: m.project_id, projectName: m.project_name,
+        title: m.title, date: m.date, status: m.status, notes: m.notes
+      })));
+    });
+  }, []);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -966,17 +986,14 @@ const ProjectDetail = ({ project, projects, setProjects, logs, setLogs, setView 
   const [tab, setTab] = useState('overview');
   const projLogs = logs.filter(l=>l.projectId===project.id).sort((a,b)=>b.date.localeCompare(a.date));
 
-  const updateProject = (updated) => {
-    setProjects(prev => {
-      const list = prev.map(p=>p.id===updated.id?updated:p);
-      setLS('tgb_projects', list);
-      return list;
-    });
+  const updateProject = async (updated) => {
+    setProjects(prev => prev.map(p=>p.id===updated.id?updated:p));
+    await db.saveProject(updated);
   };
 
   const tabs = [
     { id:'overview', label:'Overview' },
-    { id:'milestones', label:`Milestones (${getLS('tgb_ms_' + project.id, []).length})` },
+    { id:'milestones', label:'Milestones' },
     { id:'logs', label:`Logs (${projLogs.length})` },
     { id:'changeorders', label:`Change Orders (${(project.changeOrders||[]).length})` },
     { id:'costing', label:'Job Costing' },
@@ -1213,7 +1230,7 @@ const Settings = () => {
         <div style={{marginTop:20}}>
           <h3 style={{fontWeight:600,marginBottom:12}}>Data</h3>
           <p style={{fontSize:13,color:'var(--muted)',marginBottom:12}}>
-            {firebaseReady ? '✅ Connected to Firebase (cloud sync active)' : '⚠️ Using local storage. Add Firebase config to enable cloud sync.'}
+            ✅ Connected to Supabase (cloud sync active)
           </p>
           <button className="btn btn-danger btn-sm" onClick={clearData}>Clear All Local Data</button>
         </div>
@@ -1227,15 +1244,30 @@ const App = () => {
   const [user, setUser] = useState(() => getLS('tgb_user', null));
   const [view, setViewRaw] = useState('dashboard');
   const [selectedProjectId, setSelectedProjectId] = useState(null);
-  const [projects, setProjects] = useState(() => getLS('tgb_projects', []));
-  const [logs, setLogs] = useState(() => getLS('tgb_logs', []));
+  const [projects, setProjects] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [showSetup, setShowSetup] = useState(!firebaseReady && !getLS('tgb_user',null));
 
-  // Persist all state to localStorage whenever it changes
-  useEffect(() => { try { localStorage.setItem('tgb_projects', JSON.stringify(projects)); } catch(e) { console.error('save projects failed', e); } }, [projects]);
-  useEffect(() => { try { localStorage.setItem('tgb_logs', JSON.stringify(logs)); } catch(e) { console.error('save logs failed', e); } }, [logs]);
-  useEffect(() => { try { if (user) { localStorage.setItem('tgb_user', JSON.stringify(user)); } } catch(e) { console.error('save user failed', e); } }, [user]);
+  // Load all data from Supabase on mount
+  useEffect(() => {
+    db.getProjects().then(data => {
+      // Map DB columns back to app format
+      setProjects(data.map(p => ({
+        id: p.id, name: p.name, client: p.client, address: p.address,
+        type: p.type, status: p.status, contractValue: p.contract_value,
+        startDate: p.start_date, endDate: p.end_date, notes: p.notes,
+        progress: p.progress || 0
+      })));
+    });
+    db.getLogs().then(data => {
+      setLogs(data.map(l => ({
+        id: l.id, projectId: l.project_id, projectName: l.project_name,
+        date: l.date, crew: l.crew, hours: l.hours, weather: l.weather, notes: l.notes
+      })));
+    });
+    setLoading(false);
+  }, []);
 
   const setView = (v) => {
     if (v.startsWith('new-log-')) {
@@ -1250,24 +1282,21 @@ const App = () => {
   const handleLogin = (u) => {
     setUser(u);
     setLS('tgb_user', u);
-    setShowSetup(false);
   };
 
   const handleLogout = () => {
-    if (firebaseReady && auth) auth.signOut();
     setUser(null);
-    setLS('tgb_user', null);
+    localStorage.removeItem('tgb_user');
   };
 
-  const saveLog = (log) => {
-    const updated = [...logs, log];
-    setLogs(updated);
-    setLS('tgb_logs', updated);
+  const saveLog = async (log) => {
+    await db.saveLog(log);
+    setLogs(prev => [log, ...prev]);
     setView('project-detail');
   };
 
-  if (showSetup) return <SetupScreen onSkip={()=>setShowSetup(false)}/>;
   if (!user) return <LoginScreen onLogin={handleLogin}/>;
+  if (loading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',fontSize:16,color:'var(--muted)'}}>Loading...</div>;
 
   const selectedProject = projects.find(p=>p.id===selectedProjectId);
 
