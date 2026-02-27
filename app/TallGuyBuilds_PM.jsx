@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 
 const C={navy:"#1F2A37",navyLight:"#2C3E50",gold:"#C8A96A",muted:"#6B7280",border:"#2E3D4F",warn:"#F59E0B",danger:"#EF4444",white:"#FFFFFF",bg:"#16212E",success:"#4CAF50"};
-const font="'Georgia',serif";
+const font="system-ui,-apple-system,sans-serif";
 const fb="system-ui,-apple-system,sans-serif";
 const fmt$=v=>`$${Number(v).toLocaleString()}`;
 const fmtDate=d=>d?new Date(d+"T12:00:00").toLocaleDateString("en-CA",{month:"short",day:"numeric",year:"numeric"}):"—";
@@ -753,7 +753,7 @@ function Schedule({events,setEvents,jobs}){
   const firstDay=new Date(yr,mo,1).getDay();
   const dim=new Date(yr,mo+1,0).getDate();
   const MN=["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const fe=pf==="all"?events:pf==="none"?events.filter(e=>!e.jobId):events.filter(e=>e.jobId===+pf);
+  const milestoneEvents=jobs.flatMap(j=>(j.milestones||[]).filter(m=>m.date).map(m=>({id:`ms-${j.id}-${m.id}`,title:`${j.name}: ${m.name}`,date:m.date,time:"00:00",type:"milestone",jobId:j.id})));const allEvents=[...events,...milestoneEvents];const fe=pf==="all"?allEvents:pf==="none"?allEvents.filter(e=>!e.jobId):allEvents.filter(e=>e.jobId===+pf);
   const upcoming=[...fe].sort((a,b)=>a.date.localeCompare(b.date)).filter(e=>e.date>=todayStr()).slice(0,10);
   function openNew(){setForm({title:"",jobId:"",date:todayStr(),time:"09:00",type:"site"});setSel(null);setShowM(true);}
   function openEdit(ev){setForm({...ev,jobId:ev.jobId||""});setSel(ev);setShowM(true);}
