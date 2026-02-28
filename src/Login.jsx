@@ -1,9 +1,6 @@
 import { useState } from 'react';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
-import { app } from './firebaseConfig';
-
-const auth = getAuth(app);
+import { supabase } from './supabase';
 
 const styles = {
   page: { minHeight: '100vh', backgroundColor: '#1f2a37', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Arial, sans-serif', padding: '20px' },
@@ -31,7 +28,8 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      if (authError) throw authError;
       navigate('/dashboard');
     } catch (err) {
       setError('Invalid email or password. Please try again.');
