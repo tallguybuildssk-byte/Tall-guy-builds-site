@@ -23,7 +23,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  async function handleSubmit(e) {
+  function handleSubmit(e) {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -35,7 +35,7 @@ export default function Login() {
       setError('Invalid email or password. Please try again.');
     } finally {
       setLoading(false);
-    }
+    }, 400);
   }
 
   return (
