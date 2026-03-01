@@ -4,6 +4,10 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Login from './Login'
 import Dashboard from './dashboard'
 
+const reset = document.createElement('style')
+reset.textContent = `*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; } body { background: #16212E; }`
+document.head.appendChild(reset)
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
