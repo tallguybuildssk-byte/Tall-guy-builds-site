@@ -27,6 +27,7 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setLoading(true);
+
     try {
       const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
       if (authError) throw authError;
@@ -35,7 +36,8 @@ export default function Login() {
       setError('Invalid email or password. Please try again.');
     } finally {
       setLoading(false);
-    
+    }
+  }  // ← This closing } was missing — now added here!
 
   return (
     <div style={styles.page}>
@@ -47,11 +49,29 @@ export default function Login() {
         </div>
         <form onSubmit={handleSubmit}>
           <label style={styles.label}>Email</label>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@example.com" style={styles.input} />
+          <input 
+            type="email" 
+            value={email} 
+            onChange={e => setEmail(e.target.value)} 
+            required 
+            placeholder="you@example.com" 
+            style={styles.input} 
+          />
           <label style={styles.label}>Password</label>
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="Password" style={styles.input} />
+          <input 
+            type="password" 
+            value={password} 
+            onChange={e => setPassword(e.target.value)} 
+            required 
+            placeholder="Password" 
+            style={styles.input} 
+          />
           {error && <div style={styles.error}>{error}</div>}
-          <button type="submit" disabled={loading} style={loading ? styles.buttonDisabled : styles.button}>
+          <button 
+            type="submit" 
+            disabled={loading} 
+            style={loading ? styles.buttonDisabled : styles.button}
+          >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
