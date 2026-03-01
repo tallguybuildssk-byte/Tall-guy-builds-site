@@ -35,8 +35,7 @@ export default function Login() {
       setError('Invalid email or password. Please try again.');
     } finally {
       setLoading(false);
-    }, 400);
-  }
+    
 
   return (
     <div style={styles.page}>
