@@ -10,37 +10,50 @@ reset.textContent = `*, *::before, *::after { box-sizing: border-box; margin: 0;
 document.head.appendChild(reset)
 
 function ProtectedRoute({ children }) {
-    const [session, setSession] = useState(undefined)
+  const [session, setSession] = useState(undefined)
 
   useEffect(() => {
-        supabase.auth.getSession().then(({ data }) => {
-                setSession(data.session)
-        })
-        const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-                setSession(session)
-        })
-        return () => listener.subscription.unsubscribe()
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+    })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+    return () => listener.subscription.unsubscribe()
   }, [])
 
   if (session === undefined) {
-        return <div style={{ background: '#16212E', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C8A96A', fontSize: 18, fontFamily: 'Georgia, serif' }}>Loading...</div>div>
-          }
+    return (
+      <div style={{
+        background: '#16212E',
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#C8A96A',
+        fontSize: 18,
+        fontFamily: 'Georgia, serif'
+      }}>
+        Loading...
+      </div>
+    )
+  }
 
   if (!session) {
-        return <Navigate to="/login" replace />
+    return <Navigate to="/login" replace />
   }
 
   return children
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-    <React.StrictMode>
-        <BrowserRouter>
-              <Routes>
-                      <Route path="/" element={<Login />} />
-                      <Route path="/login" element={<Login />} />
-                      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>ProtectedRoute>} />
-                      </Route>Routes>
-              </Routes>BrowserRouter>
-        </BrowserRouter>React.StrictMode>
-    )</React.StrictMode>
+  <React.StrictMode>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      </Routes>
+    </BrowserRouter>
+  </React.StrictMode>
+)
