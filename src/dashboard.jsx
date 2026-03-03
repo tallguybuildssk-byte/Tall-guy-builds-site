@@ -388,18 +388,28 @@ function DashboardView({jobs,leads,logs,setPage}){
 }
 
 // ── PROJECTS ──────────────────────────────────────────────────────────────────
-function Jobs({jobs,setJobs}){
+function Jobs({jobs,setJobs,leads}){
   const [showM,setShowM]=useState(false);
   const [sel,setSel]=useState(null);
   const [form,setForm]=useState({});
   const [tab,setTab]=useState("details");
   const f=(k,v)=>setForm(p=>({...p,[k]:v}));
 
+  // Build client list from leads (Won + all others deduplicated by name)
+  const clientNames=[...new Set(leads.map(l=>l.name).filter(Boolean))].sort();
+
   function openNew(){setForm({name:"",client:"",address:"",type:"",status:"Upcoming",value:"",paid:"",start_date:"",end_date:"",progress:0,notes:"",shared_with_client:false});setSel(null);setTab("details");setShowM(true);}
   function openEdit(j){setForm({...j,value:String(j.value||""),paid:String(j.paid||"")});setSel(j);setTab("details");setShowM(true);}
 
+  // When a client is selected from dropdown, also auto-fill address if available
+  function selectClient(name){
+    const lead=leads.find(l=>l.name===name);
+    f("client",name);
+    if(lead?.address&&!form.address)f("address",lead.address||"");
+  }
+
   async function save(){
-  const u={...form,value:+form.value||0,paid:+form.paid||0,progress:+form.progress||0,start_date:form.start_date||null,end_date:form.end_date||null};
+    const u={...form,value:+form.value||0,paid:+form.paid||0,progress:+form.progress||0};
     if(sel){
       const {data}=await supabase.from("jobs").update(u).eq("id",sel.id).select().single();
       if(data)setJobs(js=>js.map(j=>j.id===sel.id?data:j));
@@ -456,7 +466,15 @@ function Jobs({jobs,setJobs}){
       {tab==="details"&&<>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
           <Inp label="Project Name" value={form.name||""} onChange={v=>f("name",v)}/>
-          <Inp label="Client" value={form.client||""} onChange={v=>f("client",v)}/>
+          <div style={{marginBottom:11}}>
+            <label style={{display:"block",fontSize:11,color:C.muted,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.06em"}}>Client</label>
+            <select value={form.client||""} onChange={e=>selectClient(e.target.value)} style={{width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:form.client?C.white:C.muted,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box"}}>
+              <option value="">Select client…</option>
+              {clientNames.map(n=><option key={n} value={n}>{n}</option>)}
+              <option value="__new__">+ Type a new name…</option>
+            </select>
+            {form.client==="__new__"&&<input autoFocus placeholder="Enter client name" style={{width:"100%",marginTop:6,background:C.navy,border:`1px solid ${C.gold}`,borderRadius:6,padding:"8px 11px",color:C.white,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box"}} onChange={e=>f("client",e.target.value||"__new__")}/>}
+          </div>
         </div>
         <Inp label="Address" value={form.address||""} onChange={v=>f("address",v)}/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
@@ -556,8 +574,10 @@ function Leads({leads,setLeads}){
 // ── SCHEDULE ──────────────────────────────────────────────────────────────────
 function Schedule({events,setEvents,jobs}){
   const [showM,setShowM]=useState(false);const [sel,setSel]=useState(null);const [form,setForm]=useState({});
+  const [view,setView]=useState("list");
+  const [calDate,setCalDate]=useState(new Date());
   const f=(k,v)=>setForm(p=>({...p,[k]:v}));
-  function openNew(){setForm({title:"",job_id:"",date:todayStr(),time:"09:00",type:"site"});setSel(null);setShowM(true);}
+  function openNew(dateStr=""){setForm({title:"",job_id:"",date:dateStr||todayStr(),time:"09:00",type:"site"});setSel(null);setShowM(true);}
   function openEdit(e){setForm({...e,job_id:e.job_id||""});setSel(e);setShowM(true);}
   async function save(){
     const u={...form,job_id:form.job_id||null};
@@ -566,28 +586,91 @@ function Schedule({events,setEvents,jobs}){
     setShowM(false);
   }
   async function del(){await supabase.from("events").delete().eq("id",sel.id);setEvents(es=>es.filter(e=>e.id!==sel.id));setShowM(false);}
+
+  // Calendar helpers
+  function calDays(){
+    const y=calDate.getFullYear(),m=calDate.getMonth();
+    const first=new Date(y,m,1).getDay();
+    const total=new Date(y,m+1,0).getDate();
+    const days=[];
+    for(let i=0;i<first;i++)days.push(null);
+    for(let d=1;d<=total;d++)days.push(d);
+    return days;
+  }
+  function calStr(d){
+    if(!d)return"";
+    const y=calDate.getFullYear(),m=String(calDate.getMonth()+1).padStart(2,"0"),dd=String(d).padStart(2,"0");
+    return`${y}-${m}-${dd}`;
+  }
+  function prevMonth(){setCalDate(d=>new Date(d.getFullYear(),d.getMonth()-1,1));}
+  function nextMonth(){setCalDate(d=>new Date(d.getFullYear(),d.getMonth()+1,1));}
+  const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+
   const sorted=[...events].sort((a,b)=>a.date?.localeCompare(b.date));
   const upcoming=sorted.filter(e=>e.date>=todayStr());
   const past=sorted.filter(e=>e.date<todayStr());
+  const today=todayStr();
+
   return <div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
-      <h1 style={{fontFamily:font,color:C.white,fontSize:26,margin:0}}>Schedule</h1><Btn onClick={openNew}>+ Add Event</Btn>
+      <h1 style={{fontFamily:font,color:C.white,fontSize:26,margin:0}}>Schedule</h1>
+      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <div style={{display:"flex",background:C.navy,borderRadius:8,border:`1px solid ${C.border}`,overflow:"hidden"}}>
+          {["list","calendar"].map(v=>(
+            <button key={v} onClick={()=>setView(v)} style={{padding:"6px 14px",border:"none",background:view===v?C.gold:"transparent",color:view===v?C.navy:C.muted,fontFamily:fb,fontSize:12,fontWeight:600,cursor:"pointer",textTransform:"capitalize"}}>{v==="list"?"☰ List":"📅 Calendar"}</button>
+          ))}
+        </div>
+        <Btn onClick={()=>openNew()}>+ Add Event</Btn>
+      </div>
     </div>
-    {upcoming.length===0&&<div style={{color:C.muted,textAlign:"center",padding:"20px 0",fontSize:13}}>No upcoming events.</div>}
-    <div style={{display:"grid",gap:8,marginBottom:24}}>
-      {upcoming.map(ev=>{const job=jobs.find(j=>j.id===ev.job_id);const tc=EC[ev.type]||C.muted;
-        return <Card key={ev.id} onClick={()=>openEdit(ev)} style={{padding:13,borderLeft:`3px solid ${tc}`}}>
-          <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
-            <div><div style={{fontWeight:700,color:C.white,fontSize:13}}>{ev.title}</div>{job&&<div style={{fontSize:11,color:C.muted,marginTop:2}}>📁 {job.name}</div>}</div>
-            <div style={{textAlign:"right"}}><div style={{fontSize:12,color:C.white,fontWeight:600}}>{fmtDate(ev.date)}</div>{ev.time&&<div style={{fontSize:11,color:C.muted}}>{ev.time}</div>}</div>
-          </div>
-        </Card>;
-      })}
-    </div>
-    {past.length>0&&<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",marginBottom:8}}>Past</div>
-    <div style={{display:"grid",gap:6,opacity:0.5}}>{past.slice(-5).reverse().map(ev=>(
-      <Card key={ev.id} onClick={()=>openEdit(ev)} style={{padding:10}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:12,color:C.muted}}>{ev.title}</span><span style={{fontSize:11,color:C.muted}}>{fmtDate(ev.date)}</span></div></Card>
-    ))}</div></>}
+
+    {view==="list"&&<>
+      {upcoming.length===0&&<div style={{color:C.muted,textAlign:"center",padding:"20px 0",fontSize:13}}>No upcoming events.</div>}
+      <div style={{display:"grid",gap:8,marginBottom:24}}>
+        {upcoming.map(ev=>{const job=jobs.find(j=>j.id===ev.job_id);const tc=EC[ev.type]||C.muted;
+          return <Card key={ev.id} onClick={()=>openEdit(ev)} style={{padding:13,borderLeft:`3px solid ${tc}`}}>
+            <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+              <div><div style={{fontWeight:700,color:C.white,fontSize:13}}>{ev.title}</div>{job&&<div style={{fontSize:11,color:C.muted,marginTop:2}}>📁 {job.name}</div>}</div>
+              <div style={{textAlign:"right"}}><div style={{fontSize:12,color:C.white,fontWeight:600}}>{fmtDate(ev.date)}</div>{ev.time&&<div style={{fontSize:11,color:C.muted}}>{ev.time}</div>}</div>
+            </div>
+          </Card>;
+        })}
+      </div>
+      {past.length>0&&<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",marginBottom:8}}>Past</div>
+      <div style={{display:"grid",gap:6,opacity:0.5}}>{past.slice(-5).reverse().map(ev=>(
+        <Card key={ev.id} onClick={()=>openEdit(ev)} style={{padding:10}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:12,color:C.muted}}>{ev.title}</span><span style={{fontSize:11,color:C.muted}}>{fmtDate(ev.date)}</span></div></Card>
+      ))}</div></>}
+    </>}
+
+    {view==="calendar"&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
+      {/* Month nav */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 18px",borderBottom:`1px solid ${C.border}`}}>
+        <button onClick={prevMonth} style={{background:"none",border:"none",color:C.gold,fontSize:18,cursor:"pointer",padding:"0 8px"}}>‹</button>
+        <div style={{fontFamily:font,color:C.white,fontSize:17,fontWeight:700}}>{MONTHS[calDate.getMonth()]} {calDate.getFullYear()}</div>
+        <button onClick={nextMonth} style={{background:"none",border:"none",color:C.gold,fontSize:18,cursor:"pointer",padding:"0 8px"}}>›</button>
+      </div>
+      {/* Day headers */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",borderBottom:`1px solid ${C.border}`}}>
+        {DAYS.map(d=><div key={d} style={{textAlign:"center",padding:"8px 0",fontSize:11,color:C.muted,fontWeight:600}}>{d}</div>)}
+      </div>
+      {/* Day cells */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
+        {calDays().map((d,i)=>{
+          const ds=calStr(d);
+          const dayEvents=events.filter(e=>e.date===ds);
+          const isToday=ds===today;
+          return <div key={i} onClick={()=>d&&openNew(ds)} style={{minHeight:80,padding:"6px 7px",borderRight:`1px solid ${C.border}`,borderBottom:`1px solid ${C.border}`,background:isToday?C.gold+"11":"transparent",cursor:d?"pointer":"default",opacity:d?1:0.2}}>
+            {d&&<div style={{fontSize:12,fontWeight:isToday?700:400,color:isToday?C.gold:C.muted,marginBottom:4}}>{d}</div>}
+            {dayEvents.map(ev=>{
+              const tc=EC[ev.type]||C.muted;
+              return <div key={ev.id} onClick={e=>{e.stopPropagation();openEdit(ev);}} style={{background:tc+"22",borderLeft:`2px solid ${tc}`,borderRadius:3,padding:"2px 5px",marginBottom:2,fontSize:10,color:C.white,fontWeight:600,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",cursor:"pointer"}}>{ev.time?ev.time.slice(0,5)+" ":""}{ev.title}</div>;
+            })}
+          </div>;
+        })}
+      </div>
+    </div>}
+
     {showM&&<Modal title={sel?"Edit Event":"Add Event"} onClose={()=>setShowM(false)}>
       <Inp label="Event Title" value={form.title||""} onChange={v=>f("title",v)}/>
       <Sel label="Project (optional)" value={form.job_id||""} onChange={v=>f("job_id",v)} options={["",...jobs.map(j=>j.id)]} display={["(No project)",...jobs.map(j=>j.name)]}/>
@@ -846,7 +929,7 @@ export default function App(){
     <div style={{marginLeft:220,flex:1,padding:24,boxSizing:"border-box"}}>
       <div style={{maxWidth:900,margin:"0 auto"}}>
         {page==="dashboard"&&<DashboardView jobs={jobs} leads={leads} logs={logs} setPage={setPage}/>}
-        {page==="jobs"&&<Jobs jobs={jobs} setJobs={setJobs}/>}
+        {page==="jobs"&&<Jobs jobs={jobs} setJobs={setJobs} leads={leads}/>}
         {page==="leads"&&<Leads leads={leads} setLeads={setLeads}/>}
         {page==="schedule"&&<Schedule events={events} setEvents={setEvents} jobs={jobs}/>}
         {page==="subs"&&<Subs subs={subs} setSubs={setSubs}/>}
