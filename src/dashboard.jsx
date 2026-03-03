@@ -408,16 +408,16 @@ function Jobs({jobs,setJobs,leads}){
     if(lead?.address&&!form.address)f("address",lead.address||"");
   }
 
-  async function save(){
-    const u={...form,value:+form.value||0,paid:+form.paid||0,progress:+form.progress||0};
+  async function save(switchToMilestones=false){
+    const u={...form,value:+form.value||0,paid:+form.paid||0,progress:+form.progress||0,start_date:form.start_date||null,end_date:form.end_date||null};
     if(sel){
-      const {data}=await supabase.from("jobs").update(u).eq("id",sel.id).select().single();
+      const {data,error}=await supabase.from("jobs").update(u).eq("id",sel.id).select().single();
       if(data)setJobs(js=>js.map(j=>j.id===sel.id?data:j));
     } else {
-      const {data}=await supabase.from("jobs").insert(u).select().single();
-      if(data)setJobs(js=>[data,...js]);
+      const {data,error}=await supabase.from("jobs").insert(u).select().single();
+      if(data){setJobs(js=>[data,...js]);setSel(data);}
     }
-    setShowM(false);
+    if(switchToMilestones){setTab("milestones");}else{setShowM(false);}
   }
 
   async function del(){
@@ -460,7 +460,7 @@ function Jobs({jobs,setJobs,leads}){
     {showM&&<Modal title={sel?"Edit Project":"New Project"} onClose={()=>setShowM(false)} wide>
       <div style={{display:"flex",gap:6,marginBottom:16,borderBottom:`1px solid ${C.border}`,paddingBottom:8}}>
         {["details","milestones"].map(t=>(
-          <button key={t} onClick={()=>setTab(t)} style={{padding:"5px 13px",borderRadius:6,border:"none",fontFamily:fb,fontSize:12,cursor:"pointer",textTransform:"capitalize",background:tab===t?C.gold:"transparent",color:tab===t?C.navy:C.muted,fontWeight:tab===t?700:400}}>{t}</button>
+          <button key={t} onClick={()=>{if(t==="milestones"){save(true);}else{setTab(t);}}} style={{padding:"5px 13px",borderRadius:6,border:"none",fontFamily:fb,fontSize:12,cursor:"pointer",textTransform:"capitalize",background:tab===t?C.gold:"transparent",color:tab===t?C.navy:C.muted,fontWeight:tab===t?700:400}}>{t}</button>
         ))}
       </div>
       {tab==="details"&&<>
