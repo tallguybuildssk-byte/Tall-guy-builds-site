@@ -399,7 +399,7 @@ function Jobs({jobs,setJobs}){
   function openEdit(j){setForm({...j,value:String(j.value||""),paid:String(j.paid||"")});setSel(j);setTab("details");setShowM(true);}
 
   async function save(){
-    const u={...form,value:+form.value||0,paid:+form.paid||0,progress:+form.progress||0};
+  const u={...form,value:+form.value||0,paid:+form.paid||0,progress:+form.progress||0,start_date:form.start_date||null,end_date:form.end_date||null};
     if(sel){
       const {data}=await supabase.from("jobs").update(u).eq("id",sel.id).select().single();
       if(data)setJobs(js=>js.map(j=>j.id===sel.id?data:j));
