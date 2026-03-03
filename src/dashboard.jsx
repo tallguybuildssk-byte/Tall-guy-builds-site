@@ -70,7 +70,7 @@ function Toggle({checked,onChange,label}){
 }
 
 // ── MILESTONES (internal editor) ──────────────────────────────────────────────
-function Milestones({jobId}){
+function Milestones({jobId,onAdd,onDelete}){
   const [items,setItems]=useState([]);
   const [nm,setNm]=useState("");
   const [nd,setNd]=useState("");
@@ -95,12 +95,13 @@ function Milestones({jobId}){
     if(!nm.trim())return;
     const newM={job_id:jobId,name:nm.trim(),date:nd||null,status:"Not Started",order_index:items.length};
     const {data}=await supabase.from("milestones").insert(newM).select().single();
-    if(data)setItems(prev=>[...prev,data]);
+    if(data){setItems(prev=>[...prev,data]);onAdd&&onAdd(data);}
     setNm("");setNd("");
   }
 
   async function del(id){
     setItems(prev=>prev.filter(m=>m.id!==id));
+    onDelete&&onDelete(id);
     await supabase.from("milestones").delete().eq("id",id);
   }
 
@@ -388,7 +389,7 @@ function DashboardView({jobs,leads,logs,setPage}){
 }
 
 // ── PROJECTS ──────────────────────────────────────────────────────────────────
-function Jobs({jobs,setJobs,leads}){
+function Jobs({jobs,setJobs,leads,setMilestonesGlobal}){
   const [showM,setShowM]=useState(false);
   const [sel,setSel]=useState(null);
   const [form,setForm]=useState({});
@@ -505,7 +506,7 @@ function Jobs({jobs,setJobs,leads}){
           </div>
         </div>
       </>}
-      {tab==="milestones"&&sel&&<Milestones jobId={sel.id}/>}
+      {tab==="milestones"&&sel&&<Milestones jobId={sel.id} onAdd={m=>setMilestonesGlobal&&setMilestonesGlobal(prev=>[...prev,m])} onDelete={id=>setMilestonesGlobal&&setMilestonesGlobal(prev=>prev.filter(m=>m.id!==id))}/>}
       {tab==="milestones"&&!sel&&<div style={{color:C.muted,fontSize:12,padding:"20px 0",textAlign:"center"}}>Save the project first, then add milestones.</div>}
       <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:14}}>
         {sel&&<Btn variant="danger" onClick={del}>Delete</Btn>}
@@ -572,7 +573,7 @@ function Leads({leads,setLeads}){
 }
 
 // ── SCHEDULE ──────────────────────────────────────────────────────────────────
-function Schedule({events,setEvents,jobs}){
+function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
   const [showM,setShowM]=useState(false);const [sel,setSel]=useState(null);const [form,setForm]=useState({});
   const [view,setView]=useState("list");
   const [calDate,setCalDate]=useState(new Date());
@@ -612,6 +613,22 @@ function Schedule({events,setEvents,jobs}){
   const filtered=sorted.filter(e=>!filterJob||e.job_id===filterJob);
   const upcoming=filtered.filter(e=>e.date>=todayStr());
   const past=filtered.filter(e=>e.date<todayStr());
+
+  // Milestones with dates shown as read-only schedule items
+  const mFiltered=milestones.filter(m=>m.date&&(!filterJob||m.job_id===filterJob));
+  const mUpcoming=mFiltered.filter(m=>m.date>=todayStr());
+  const mPast=mFiltered.filter(m=>m.date<todayStr());
+
+  // Merge and sort upcoming events + milestones for list view
+  const allUpcoming=[
+    ...upcoming.map(e=>({...e,_type:"event"})),
+    ...mUpcoming.map(m=>({...m,title:m.name,_type:"milestone"}))
+  ].sort((a,b)=>a.date?.localeCompare(b.date));
+  const allPast=[
+    ...past.map(e=>({...e,_type:"event"})),
+    ...mPast.map(m=>({...m,title:m.name,_type:"milestone"}))
+  ].sort((a,b)=>b.date?.localeCompare(a.date));
+
   const today=todayStr();
 
   return <div>
@@ -635,20 +652,32 @@ function Schedule({events,setEvents,jobs}){
     </div>
 
     {view==="list"&&<>
-      {upcoming.length===0&&<div style={{color:C.muted,textAlign:"center",padding:"20px 0",fontSize:13}}>No upcoming events.</div>}
+      {allUpcoming.length===0&&<div style={{color:C.muted,textAlign:"center",padding:"20px 0",fontSize:13}}>No upcoming events or milestones.</div>}
       <div style={{display:"grid",gap:8,marginBottom:24}}>
-        {upcoming.map(ev=>{const job=jobs.find(j=>j.id===ev.job_id);const tc=EC[ev.type]||C.muted;
-          return <Card key={ev.id} onClick={()=>openEdit(ev)} style={{padding:13,borderLeft:`3px solid ${tc}`}}>
+        {allUpcoming.map(ev=>{
+          const job=jobs.find(j=>j.id===ev.job_id);
+          const isMilestone=ev._type==="milestone";
+          const tc=isMilestone?"#C084FC":EC[ev.type]||C.muted;
+          return <Card key={(isMilestone?"m":"e")+ev.id} onClick={isMilestone?undefined:()=>openEdit(ev)} style={{padding:13,borderLeft:`3px solid ${tc}`,cursor:isMilestone?"default":"pointer"}}>
             <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
-              <div><div style={{fontWeight:700,color:C.white,fontSize:13}}>{ev.title}</div>{job&&<div style={{fontSize:11,color:C.muted,marginTop:2}}>📁 {job.name}</div>}</div>
+              <div>
+                <div style={{fontWeight:700,color:C.white,fontSize:13}}>{isMilestone?"🏁 ":""}{ev.title}</div>
+                {job&&<div style={{fontSize:11,color:C.muted,marginTop:2}}>📁 {job.name}</div>}
+                {isMilestone&&<div style={{fontSize:10,color:tc,marginTop:2}}>Milestone · <Badge label={ev.status}/></div>}
+              </div>
               <div style={{textAlign:"right"}}><div style={{fontSize:12,color:C.white,fontWeight:600}}>{fmtDate(ev.date)}</div>{ev.time&&<div style={{fontSize:11,color:C.muted}}>{ev.time}</div>}</div>
             </div>
           </Card>;
         })}
       </div>
-      {past.length>0&&<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",marginBottom:8}}>Past</div>
-      <div style={{display:"grid",gap:6,opacity:0.5}}>{past.slice(-5).reverse().map(ev=>(
-        <Card key={ev.id} onClick={()=>openEdit(ev)} style={{padding:10}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:12,color:C.muted}}>{ev.title}</span><span style={{fontSize:11,color:C.muted}}>{fmtDate(ev.date)}</span></div></Card>
+      {allPast.length>0&&<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",marginBottom:8}}>Past</div>
+      <div style={{display:"grid",gap:6,opacity:0.5}}>{allPast.slice(0,5).map(ev=>(
+        <Card key={(ev._type==="milestone"?"m":"e")+ev.id} style={{padding:10}}>
+          <div style={{display:"flex",justifyContent:"space-between"}}>
+            <span style={{fontSize:12,color:C.muted}}>{ev._type==="milestone"?"🏁 ":""}{ev.title}</span>
+            <span style={{fontSize:11,color:C.muted}}>{fmtDate(ev.date)}</span>
+          </div>
+        </Card>
       ))}</div></>}
     </>}
 
@@ -667,14 +696,18 @@ function Schedule({events,setEvents,jobs}){
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
         {calDays().map((d,i)=>{
           const ds=calStr(d);
-          const dayEvents=events.filter(e=>e.date===ds);
+          const dayEvents=events.filter(e=>e.date===ds&&(!filterJob||e.job_id===filterJob));
+          const dayMilestones=milestones.filter(m=>m.date===ds&&(!filterJob||m.job_id===filterJob));
           const isToday=ds===today;
           return <div key={i} onClick={()=>d&&openNew(ds)} style={{minHeight:80,padding:"6px 7px",borderRight:`1px solid ${C.border}`,borderBottom:`1px solid ${C.border}`,background:isToday?C.gold+"11":"transparent",cursor:d?"pointer":"default",opacity:d?1:0.2}}>
             {d&&<div style={{fontSize:12,fontWeight:isToday?700:400,color:isToday?C.gold:C.muted,marginBottom:4}}>{d}</div>}
             {dayEvents.map(ev=>{
               const tc=EC[ev.type]||C.muted;
-              return <div key={ev.id} onClick={e=>{e.stopPropagation();openEdit(ev);}} style={{background:tc+"22",borderLeft:`2px solid ${tc}`,borderRadius:3,padding:"2px 5px",marginBottom:2,fontSize:10,color:C.white,fontWeight:600,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",cursor:"pointer"}}>{ev.time?ev.time.slice(0,5)+" ":""}{ev.title}</div>;
+              return <div key={"e"+ev.id} onClick={e=>{e.stopPropagation();openEdit(ev);}} style={{background:tc+"22",borderLeft:`2px solid ${tc}`,borderRadius:3,padding:"2px 5px",marginBottom:2,fontSize:10,color:C.white,fontWeight:600,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",cursor:"pointer"}}>{ev.time?ev.time.slice(0,5)+" ":""}{ev.title}</div>;
             })}
+            {dayMilestones.map(m=>(
+              <div key={"m"+m.id} onClick={e=>e.stopPropagation()} style={{background:"#C084FC22",borderLeft:`2px solid #C084FC`,borderRadius:3,padding:"2px 5px",marginBottom:2,fontSize:10,color:"#C084FC",fontWeight:600,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>🏁 {m.name}</div>
+            ))}
           </div>;
         })}
       </div>
@@ -929,6 +962,7 @@ export default function App(){
   const [subs,setSubs]=useState([]);
   const [events,setEvents]=useState([]);
   const [logs,setLogs]=useState([]);
+  const [milestones,setMilestones]=useState([]);
 
   // Auth listener
   useEffect(()=>{
@@ -942,15 +976,16 @@ export default function App(){
     if(!session){setLoading(false);return;} // not logged in
     async function load(){
       try{
-        const [j,l,s,e,lg]=await Promise.all([
+        const [j,l,s,e,lg,ms]=await Promise.all([
           supabase.from("jobs").select("*").order("created_at",{ascending:false}),
           supabase.from("leads").select("*").order("created_at",{ascending:false}),
           supabase.from("subs").select("*").order("name"),
           supabase.from("events").select("*").order("date"),
           supabase.from("daily_logs").select("*").order("date",{ascending:false}),
+          supabase.from("milestones").select("*").order("date"),
         ]);
         if(j.error)throw j.error;
-        setJobs(j.data||[]);setLeads(l.data||[]);setSubs(s.data||[]);setEvents(e.data||[]);setLogs(lg.data||[]);
+        setJobs(j.data||[]);setLeads(l.data||[]);setSubs(s.data||[]);setEvents(e.data||[]);setLogs(lg.data||[]);setMilestones(ms.data||[]);
       }catch(err){setError("Could not connect to database: "+err.message);}
       finally{setLoading(false);}
     }
@@ -985,9 +1020,9 @@ export default function App(){
     <div style={{marginLeft:220,flex:1,padding:24,boxSizing:"border-box"}}>
       <div style={{maxWidth:900,margin:"0 auto"}}>
         {page==="dashboard"&&<DashboardView jobs={jobs} leads={leads} logs={logs} setPage={setPage}/>}
-        {page==="jobs"&&<Jobs jobs={jobs} setJobs={setJobs} leads={leads}/>}
+        {page==="jobs"&&<Jobs jobs={jobs} setJobs={setJobs} leads={leads} setMilestonesGlobal={setMilestones}/>}
         {page==="leads"&&<Leads leads={leads} setLeads={setLeads}/>}
-        {page==="schedule"&&<Schedule events={events} setEvents={setEvents} jobs={jobs}/>}
+        {page==="schedule"&&<Schedule events={events} setEvents={setEvents} jobs={jobs} milestones={milestones} setMilestones={setMilestones}/>}
         {page==="subs"&&<Subs subs={subs} setSubs={setSubs}/>}
         {page==="logs"&&<DailyLog logs={logs} setLogs={setLogs} jobs={jobs}/>}
         {page==="portal"&&<ClientPortal jobs={jobs} logs={logs}/>}
