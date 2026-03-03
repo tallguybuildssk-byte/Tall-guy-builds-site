@@ -379,7 +379,7 @@ function DashboardView({jobs,leads,logs,setPage}){
     </div></>}
     <h2 style={{fontFamily:font,color:C.white,fontSize:17,marginBottom:10}}>Recent Leads</h2>
     <Card>{leads.slice(0,4).map((l,i)=>(
-      <div key={l.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:i<3?`1px solid ${C.border}`:"none",flexWrap:"wrap",gap:7}}>
+      <div key={l.id} onClick={()=>setPage("leads")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:i<3?`1px solid ${C.border}`:"none",flexWrap:"wrap",gap:7,cursor:"pointer"}}>
         <div><span style={{color:C.white,fontWeight:600,fontSize:12}}>{l.name}</span><span style={{color:C.muted,fontSize:11,marginLeft:7}}>{l.type}</span></div>
         <div style={{display:"flex",gap:9,alignItems:"center"}}><span style={{color:C.gold,fontWeight:700,fontSize:12}}>{fmt$(l.value)}</span><Badge label={l.stage}/></div>
       </div>
