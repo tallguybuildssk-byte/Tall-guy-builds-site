@@ -347,7 +347,7 @@ function DashboardView({jobs,leads,logs,setPage}){
     <h1 style={{fontFamily:font,color:C.white,fontSize:26,marginBottom:3}}>Good morning, Evan.</h1>
     <p style={{color:C.muted,marginBottom:22,fontSize:13}}>Here's where things stand today.</p>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10,marginBottom:22}}>
-      {[{label:"Active Jobs",value:active.length,sub:"in progress",color:C.gold},{label:"Pipeline",value:fmt$(pipe),sub:"open leads",color:"#60A5FA"},{label:"Outstanding",value:fmt$(out),sub:"receivable",color:C.warn},{label:"Won",value:fmt$(won),sub:"closed",color:"#4ade80"}].map(k=>(
+      {[{label:"Active Jobs",value:active.length,sub:"in progress",color:C.gold},{label:"Pipeline",value:fmt$(pipe),sub:"open leads",color:"#60A5FA"},{label:"Remaining",value:fmt$(out),sub:"to invoice",color:C.warn},{label:"Won",value:fmt$(won),sub:"closed",color:"#4ade80"}].map(k=>(
         <Card key={k.label}><div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{k.label}</div><div style={{fontSize:22,fontFamily:font,color:k.color,marginBottom:1}}>{k.value}</div><div style={{fontSize:10,color:C.muted}}>{k.sub}</div></Card>
       ))}
     </div>
@@ -607,15 +607,17 @@ function Schedule({events,setEvents,jobs}){
   const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
 
+  const [filterJob,setFilterJob]=useState("");
   const sorted=[...events].sort((a,b)=>a.date?.localeCompare(b.date));
-  const upcoming=sorted.filter(e=>e.date>=todayStr());
-  const past=sorted.filter(e=>e.date<todayStr());
+  const filtered=sorted.filter(e=>!filterJob||e.job_id===filterJob);
+  const upcoming=filtered.filter(e=>e.date>=todayStr());
+  const past=filtered.filter(e=>e.date<todayStr());
   const today=todayStr();
 
   return <div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:10}}>
       <h1 style={{fontFamily:font,color:C.white,fontSize:26,margin:0}}>Schedule</h1>
-      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         <div style={{display:"flex",background:C.navy,borderRadius:8,border:`1px solid ${C.border}`,overflow:"hidden"}}>
           {["list","calendar"].map(v=>(
             <button key={v} onClick={()=>setView(v)} style={{padding:"6px 14px",border:"none",background:view===v?C.gold:"transparent",color:view===v?C.navy:C.muted,fontFamily:fb,fontSize:12,fontWeight:600,cursor:"pointer",textTransform:"capitalize"}}>{v==="list"?"☰ List":"📅 Calendar"}</button>
@@ -623,6 +625,13 @@ function Schedule({events,setEvents,jobs}){
         </div>
         <Btn onClick={()=>openNew()}>+ Add Event</Btn>
       </div>
+    </div>
+    <div style={{marginBottom:16}}>
+      <select value={filterJob} onChange={e=>setFilterJob(e.target.value)} style={{background:C.navy,border:`1px solid ${filterJob?C.gold:C.border}`,borderRadius:6,padding:"7px 12px",color:filterJob?C.white:C.muted,fontSize:12,fontFamily:fb,outline:"none",minWidth:200}}>
+        <option value="">All Projects</option>
+        {jobs.map(j=><option key={j.id} value={j.id}>{j.name}</option>)}
+      </select>
+      {filterJob&&<button onClick={()=>setFilterJob("")} style={{marginLeft:8,background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:12,fontFamily:fb}}>✕ Clear filter</button>}
     </div>
 
     {view==="list"&&<>
@@ -863,6 +872,41 @@ function Settings(){
   </div>;
 }
 
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+function Login(){
+  const [email,setEmail]=useState("");
+  const [password,setPassword]=useState("");
+  const [error,setError]=useState("");
+  const [loading,setLoading]=useState(false);
+
+  async function handleLogin(){
+    if(!email||!password){setError("Please enter your email and password.");return;}
+    setLoading(true);setError("");
+    const {error:err}=await supabase.auth.signInWithPassword({email,password});
+    if(err){setError(err.message);}
+    setLoading(false);
+  }
+
+  return <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:fb,padding:20}}>
+    <div style={{width:"100%",maxWidth:380}}>
+      <div style={{textAlign:"center",marginBottom:32}}>
+        <img src="https://tallguybuilds.ca/assets/img-002.webp" alt="TGB" style={{width:64,height:64,borderRadius:12,objectFit:"cover",marginBottom:16,boxShadow:"0 4px 20px #00000060"}}/>
+        <h1 style={{fontFamily:font,color:C.white,fontSize:24,margin:0}}>Tall Guy Builds</h1>
+        <div style={{color:C.gold,fontSize:10,letterSpacing:2,fontWeight:600,marginTop:6}}>BUILT RIGHT. DESIGNED TO LAST.</div>
+      </div>
+      <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,padding:28}}>
+        <div style={{fontSize:15,color:C.white,fontWeight:700,marginBottom:20}}>Sign in to your dashboard</div>
+        {error&&<div style={{background:"#7f1d1d33",border:`1px solid #ef444444`,borderRadius:7,padding:"10px 14px",color:"#F87171",fontSize:13,marginBottom:14}}>{error}</div>}
+        <Inp label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com"/>
+        <Inp label="Password" type="password" value={password} onChange={setPassword} placeholder="••••••••"/>
+        <Btn onClick={handleLogin} style={{width:"100%",marginTop:6,justifyContent:"center",opacity:loading?0.6:1}}>
+          {loading?"Signing in…":"Sign In"}
+        </Btn>
+      </div>
+    </div>
+  </div>;
+}
+
 // ── ROOT ──────────────────────────────────────────────────────────────────────
 const NAV=[
   {id:"dashboard",label:"Dashboard",icon:"▣"},
@@ -877,6 +921,7 @@ const NAV=[
 
 export default function App(){
   const [page,setPage]=useState("dashboard");
+  const [session,setSession]=useState(undefined);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState(null);
   const [jobs,setJobs]=useState([]);
@@ -885,7 +930,16 @@ export default function App(){
   const [events,setEvents]=useState([]);
   const [logs,setLogs]=useState([]);
 
+  // Auth listener
   useEffect(()=>{
+    supabase.auth.getSession().then(({data:{session}})=>setSession(session));
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((_,session)=>setSession(session));
+    return ()=>subscription.unsubscribe();
+  },[]);
+
+  useEffect(()=>{
+    if(session===undefined)return; // still checking
+    if(!session){setLoading(false);return;} // not logged in
     async function load(){
       try{
         const [j,l,s,e,lg]=await Promise.all([
@@ -901,8 +955,10 @@ export default function App(){
       finally{setLoading(false);}
     }
     load();
-  },[]);
+  },[session]);
 
+  if(session===undefined)return <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:C.gold,fontFamily:font,fontSize:18}}>Loading...</div>;
+  if(!session)return <Login/>;
   if(loading)return <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:C.gold,fontFamily:font,fontSize:18}}>Loading...</div>;
   if(error)return <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:C.danger,fontFamily:fb,fontSize:14,padding:24,textAlign:"center"}}>{error}</div>;
 
