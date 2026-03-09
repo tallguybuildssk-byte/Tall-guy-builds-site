@@ -732,12 +732,30 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
   }
 
   async function save(switchToMilestones=false){
-    const u={...form,value:+form.value||0,paid:+form.paid||0,progress:+form.progress||0,start_date:form.start_date||null,end_date:form.end_date||null,client_email:form.client_email||null,payment_schedule:form.payment_schedule||[]};
+    // Strip any fields that don't exist as columns to avoid RLS/schema errors
+    const u={
+      name:form.name||"",
+      client:form.client||null,
+      client_email:form.client_email||null,
+      address:form.address||null,
+      type:form.type||null,
+      status:form.status||"Upcoming",
+      value:+form.value||0,
+      paid:+form.paid||0,
+      progress:+form.progress||0,
+      start_date:form.start_date||null,
+      end_date:form.end_date||null,
+      notes:form.notes||null,
+      shared_with_client:form.shared_with_client||false,
+      payment_schedule:form.payment_schedule||[],
+    };
     if(sel){
       const {data,error}=await supabase.from("jobs").update(u).eq("id",sel.id).select().single();
+      if(error){alert("Save failed: "+error.message);return;}
       if(data)setJobs(js=>js.map(j=>j.id===sel.id?data:j));
     } else {
       const {data,error}=await supabase.from("jobs").insert(u).select().single();
+      if(error){alert("Save failed: "+error.message);return;}
       if(data){setJobs(js=>[data,...js]);setSel(data);}
     }
     if(switchToMilestones){setTab("milestones");}else{setShowM(false);}
@@ -1145,7 +1163,7 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
                   userSelect:"none",
                 }}
                 title={ev.title+(isMultiDay?` (${fmtDate(ev.date)} – ${fmtDate(ev.date_end)})`:"")}>
-                {isStart?(ev.time?ev.time.slice(0,5)+" ":"")+ev.title:"⋯"}
+                {(ev.time&&isStart?ev.time.slice(0,5)+" ":"")+ev.title}
               </div>;
             })}
             {/* Milestone chips */}
