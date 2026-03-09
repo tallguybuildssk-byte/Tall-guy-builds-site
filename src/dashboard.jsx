@@ -844,7 +844,7 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
       <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:14}}>
         {sel&&<Btn variant="danger" onClick={del}>Delete</Btn>}
         <Btn variant="ghost" onClick={()=>setShowM(false)}>Cancel</Btn>
-        <Btn onClick={save}>Save</Btn>
+        <Btn onClick={()=>save()}>Save</Btn>
       </div>
     </Modal>}
   </div>;
@@ -919,9 +919,16 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
   function openEdit(e){setForm({...e,job_id:e.job_id||""});setSel(e);setShowM(true);}
 
   async function save(){
-    const u={...form,job_id:form.job_id||null,date_end:form.date_end||null};
-    if(sel){const {data}=await supabase.from("events").update(u).eq("id",sel.id).select().single();if(data)setEvents(es=>es.map(e=>e.id===sel.id?data:e));}
-    else{const {data}=await supabase.from("events").insert(u).select().single();if(data)setEvents(es=>[...es,data]);}
+    const u={...form,job_id:form.job_id||null,date_end:form.date_end||null,color:form.color||null};
+    if(sel){
+      const {data,error}=await supabase.from("events").update(u).eq("id",sel.id).select().single();
+      if(error){alert("Save failed: "+error.message);return;}
+      if(data)setEvents(es=>es.map(e=>e.id===sel.id?data:e));
+    }else{
+      const {data,error}=await supabase.from("events").insert(u).select().single();
+      if(error){alert("Save failed: "+error.message);return;}
+      if(data)setEvents(es=>[...es,data]);
+    }
     setShowM(false);
   }
   async function del(){await supabase.from("events").delete().eq("id",sel.id);setEvents(es=>es.filter(e=>e.id!==sel.id));setShowM(false);}
