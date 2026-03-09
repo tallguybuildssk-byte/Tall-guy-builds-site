@@ -973,8 +973,9 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
   // Calendar helpers
   function calDays(){
     const y=calDate.getFullYear(),m=calDate.getMonth();
-    const first=new Date(y,m,1,12,0,0).getDay();
-    const total=new Date(y,m+1,0,12,0,0).getDate();
+    // Use UTC to avoid any DST/timezone shifting the day-of-week
+    const first=new Date(Date.UTC(y,m,1)).getUTCDay();
+    const total=new Date(Date.UTC(y,m+1,0)).getUTCDate();
     const days=[];
     for(let i=0;i<first;i++)days.push(null);
     for(let d=1;d<=total;d++)days.push(d);
