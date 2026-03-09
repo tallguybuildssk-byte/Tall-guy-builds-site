@@ -10,8 +10,37 @@ const todayStr=()=>new Date().toISOString().slice(0,10);
 const WEATHER=["☀️ Sunny","⛅ Partly Cloudy","☁️ Overcast","🌧️ Rain","❄️ Snow","🌨️ Blowing Snow","🌬️ Windy","🌡️ Extreme Cold"];
 const LEAD_STAGES=["New","Quoted","Follow-up","Won","Lost"];
 const JOB_STATUSES=["Upcoming","Active","Completed","On Hold"];
-const EVENT_TYPES=["inspection","site","quote","sub","meeting","other"];
-const EC={inspection:C.warn,site:C.gold,quote:"#60A5FA",sub:C.success,meeting:"#C084FC",other:C.muted};
+const EVENT_TYPES=["site","inspection","quote","sub","meeting","delivery","other"];
+const ET_LABELS={site:"Site Visit",inspection:"Inspection",quote:"Quote",sub:"Subtrade",meeting:"Meeting",delivery:"Delivery",other:"Other"};
+const EC={site:"#F59E0B",inspection:"#3B82F6",quote:"#06B6D4",sub:"#22C55E",meeting:"#A855F7",delivery:"#F97316",other:"#6B7280",milestone:"#EC4899"};
+
+// ── EMAIL HELPER (EmailJS REST — no SDK needed) ───────────────────────────────
+async function sendMilestoneEmail(job, milestoneName){
+  try{
+    const s=JSON.parse(localStorage.getItem("tgb_emailjs")||"{}");
+    if(!s.service_id||!s.template_id||!s.public_key)return;
+    if(!job?.client_email)return;
+    const res=await fetch("https://api.emailjs.com/api/v1.0/email/send",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        service_id:s.service_id,
+        template_id:s.template_id,
+        user_id:s.public_key,
+        template_params:{
+          to_email:job.client_email,
+          client_name:job.client||"",
+          project_name:job.name||"",
+          milestone_name:milestoneName,
+          portal_url:"https://app.tallguybuilds.ca",
+          contractor_name:"Tall Guy Builds Inc.",
+          contractor_phone:"(306)737-5407",
+        }
+      })
+    });
+    if(!res.ok){const text=await res.text();console.warn("EmailJS failed:",res.status,text);}
+  }catch(e){console.warn("Email send failed:",e);}
+}
 
 // ── UI PRIMITIVES ─────────────────────────────────────────────────────────────
 function Badge({label}){
@@ -70,7 +99,7 @@ function Toggle({checked,onChange,label}){
 }
 
 // ── MILESTONES (internal editor) ──────────────────────────────────────────────
-function Milestones({jobId,onAdd,onDelete}){
+function Milestones({jobId,job,onAdd,onDelete}){
   const [items,setItems]=useState([]);
   const [nm,setNm]=useState("");
   const [nd,setNd]=useState("");
@@ -89,6 +118,7 @@ function Milestones({jobId,onAdd,onDelete}){
     setItems(updated);
     const item=updated.find(m=>m.id===id);
     await supabase.from("milestones").update({status:item.status}).eq("id",id);
+    if(item.status==="Completed"&&job)sendMilestoneEmail(job,item.name);
   }
 
   async function add(){
@@ -130,15 +160,73 @@ function Milestones({jobId,onAdd,onDelete}){
   </div>;
 }
 
+// ── PAYMENT SCHEDULE EDITOR ───────────────────────────────────────────────────
+function PaymentScheduleEditor({schedule,contractValue,onChange}){
+  const [form,setForm]=useState({label:"",amount:"",due_date:""});
+  const f=(k,v)=>setForm(p=>({...p,[k]:v}));
+  const totalScheduled=(schedule||[]).reduce((s,p)=>s+(+p.amount||0),0);
+  const remaining=contractValue-totalScheduled;
+
+  function add(){
+    if(!form.label||!form.amount)return;
+    const item={id:Date.now(),label:form.label,amount:+form.amount,due_date:form.due_date||null,paid:false};
+    onChange([...(schedule||[]),item]);
+    setForm({label:"",amount:"",due_date:""});
+  }
+  function togglePaid(id){onChange((schedule||[]).map(p=>p.id===id?{...p,paid:!p.paid}:p));}
+  function remove(id){onChange((schedule||[]).filter(p=>p.id!==id));}
+
+  const PRESETS=["Deposit","Rough-in Complete","Framing Complete","Drywall Complete","Final Payment"];
+
+  return <div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+      <div style={{fontSize:13,color:C.white,fontWeight:700}}>Payment Schedule</div>
+      {contractValue>0&&<div style={{fontSize:11,color:remaining===0?C.success:C.muted}}>
+        {fmt$(totalScheduled)} scheduled of {fmt$(contractValue)} contract
+        {remaining>0&&<span style={{color:C.warn}}> · {fmt$(remaining)} unscheduled</span>}
+      </div>}
+    </div>
+
+    {/* Quick presets */}
+    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+      {PRESETS.map(p=><button key={p} onClick={()=>setForm(prev=>({...prev,label:p}))}
+        style={{fontSize:10,padding:"3px 9px",borderRadius:20,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontFamily:fb}}>{p}</button>)}
+    </div>
+
+    {/* Existing items */}
+    {(schedule||[]).length===0&&<div style={{color:C.muted,fontSize:12,textAlign:"center",padding:"12px 0",marginBottom:8}}>No payments scheduled yet.</div>}
+    {(schedule||[]).map(p=>(
+      <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"9px 12px",borderRadius:8,marginBottom:6,background:p.paid?"#14532d22":C.navy,border:`1px solid ${p.paid?"#4ade8033":C.border}`}}>
+        <button onClick={()=>togglePaid(p.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,padding:0,lineHeight:1,flexShrink:0}}>{p.paid?"✅":"⬜"}</button>
+        <div style={{flex:1}}>
+          <div style={{color:p.paid?C.muted:C.white,fontSize:13,fontWeight:600,textDecoration:p.paid?"line-through":"none"}}>{p.label}</div>
+          {p.due_date&&<div style={{fontSize:10,color:C.muted}}>Due {fmtDate(p.due_date)}</div>}
+        </div>
+        <div style={{fontSize:14,color:p.paid?C.success:C.gold,fontWeight:700}}>{fmt$(p.amount)}</div>
+        <button onClick={()=>remove(p.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:15,lineHeight:1}}>×</button>
+      </div>
+    ))}
+
+    {/* Add row */}
+    <div style={{display:"grid",gridTemplateColumns:"1fr auto auto auto",gap:7,marginTop:8,alignItems:"flex-end"}}>
+      <Inp label="Payment Label" value={form.label} onChange={v=>f("label",v)} placeholder="e.g. Deposit"/>
+      <div style={{width:100}}><Inp label="Amount ($)" type="number" value={form.amount} onChange={v=>f("amount",v)}/></div>
+      <div style={{width:120}}><Inp label="Due Date" type="date" value={form.due_date} onChange={v=>f("due_date",v)}/></div>
+      <Btn onClick={add} style={{marginBottom:11}}>Add</Btn>
+    </div>
+  </div>;
+}
+
 // ── CLIENT PORTAL ─────────────────────────────────────────────────────────────
-function ClientPortal({jobs,logs}){
+function ClientPortal({jobs,logs,clientMode=false,onSignOut}){
   const [selJob,setSelJob]=useState(null);
   const [milestones,setMilestones]=useState([]);
   const [loadingM,setLoadingM]=useState(false);
   const [lightbox,setLightbox]=useState(null);
+  const [portalTab,setPortalTab]=useState("overview");
 
-  // Only show jobs that have been toggled on for client sharing
-  const sharedJobs=jobs.filter(j=>j.shared_with_client);
+  // clientMode: jobs already pre-filtered; admin: use shared_with_client flag
+  const sharedJobs=clientMode?jobs:jobs.filter(j=>j.shared_with_client);
 
   useEffect(()=>{
     if(!selJob)return;
@@ -148,40 +236,44 @@ function ClientPortal({jobs,logs}){
     });
   },[selJob]);
 
-  // Project list / landing
+  // Project list
   if(!selJob){
     return <div>
+      {clientMode&&onSignOut&&<div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
+        <button onClick={onSignOut} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:6,padding:"5px 12px",fontSize:11,cursor:"pointer",fontFamily:fb}}>Sign Out</button>
+      </div>}
       <div style={{textAlign:"center",padding:"24px 0 32px"}}>
         <img src="https://tallguybuilds.ca/assets/img-002.webp" alt="Tall Guy Builds" style={{width:72,height:72,borderRadius:14,objectFit:"cover",marginBottom:14,boxShadow:"0 4px 20px #00000050"}}/>
         <h1 style={{fontFamily:font,color:C.white,fontSize:26,margin:0}}>Tall Guy Builds Inc.</h1>
         <div style={{color:C.gold,fontSize:11,letterSpacing:2,fontWeight:600,marginTop:6}}>BUILT RIGHT. DESIGNED TO LAST.</div>
         <p style={{color:C.muted,fontSize:13,marginTop:12,maxWidth:360,margin:"12px auto 0"}}>Welcome to your project portal. Select your project below to view progress, milestones, and site updates.</p>
       </div>
-
       {sharedJobs.length===0&&(
         <div style={{background:C.navyLight,border:`1px dashed ${C.border}`,borderRadius:12,padding:32,textAlign:"center"}}>
           <div style={{fontSize:28,marginBottom:10}}>📋</div>
           <div style={{color:C.muted,fontSize:13}}>No projects are currently shared with the client portal.</div>
-          <div style={{color:C.muted,fontSize:11,marginTop:6}}>Open a project and enable "Share with Client Portal" to show it here.</div>
         </div>
       )}
-
       <div style={{display:"grid",gap:14}}>
         {sharedJobs.map(job=>{
           const jobLogs=logs.filter(l=>l.job_id===job.id&&l.visible_to_client);
-          return <div key={job.id} onClick={()=>setSelJob(job)} style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden",cursor:"pointer",transition:"border-color 0.15s"}}
+          const allPhotos=jobLogs.flatMap(l=>l.photos||[]);
+          return <div key={job.id} onClick={()=>{setSelJob(job);setPortalTab("overview");}} style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden",cursor:"pointer",transition:"border-color 0.15s"}}
             onMouseEnter={e=>e.currentTarget.style.borderColor=C.gold}
             onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
-            <div style={{padding:"18px 20px"}}>
+            {/* Photo strip preview */}
+            {allPhotos.length>0&&<div style={{display:"flex",gap:3,height:80,overflow:"hidden"}}>
+              {allPhotos.slice(0,5).map((ph,i)=><img key={i} src={ph.url||ph} alt="" style={{flex:1,objectFit:"cover",minWidth:0}}/>)}
+            </div>}
+            <div style={{padding:"16px 20px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10}}>
                 <div>
                   <div style={{fontWeight:700,color:C.white,fontSize:17,fontFamily:font}}>{job.name}</div>
                   <div style={{color:C.muted,fontSize:12,marginTop:3}}>{job.address}</div>
-                  <div style={{color:C.muted,fontSize:11,marginTop:2}}>{fmtDate(job.start_date)} → {fmtDate(job.end_date)}</div>
                 </div>
                 <Badge label={job.status}/>
               </div>
-              <div style={{marginTop:14}}>
+              <div style={{marginTop:12}}>
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted,marginBottom:5}}>
                   <span>Overall Progress</span>
                   <span style={{color:C.gold,fontWeight:700,fontSize:13}}>{job.progress||0}%</span>
@@ -190,8 +282,9 @@ function ClientPortal({jobs,logs}){
               </div>
             </div>
             <div style={{borderTop:`1px solid ${C.border}`,padding:"10px 20px",display:"flex",gap:20}}>
-              <div style={{fontSize:11,color:C.muted}}><span style={{color:C.white,fontWeight:600}}>{jobLogs.length}</span> site update{jobLogs.length!==1?"s":""}</div>
-              <div style={{fontSize:11,color:C.gold,fontWeight:600}}>View project →</div>
+              <div style={{fontSize:11,color:C.muted}}><span style={{color:C.white,fontWeight:600}}>{jobLogs.length}</span> update{jobLogs.length!==1?"s":""}</div>
+              {allPhotos.length>0&&<div style={{fontSize:11,color:C.muted}}><span style={{color:C.white,fontWeight:600}}>{allPhotos.length}</span> photo{allPhotos.length!==1?"s":""}</div>}
+              <div style={{fontSize:11,color:C.gold,fontWeight:600,marginLeft:"auto"}}>View project →</div>
             </div>
           </div>;
         })}
@@ -199,72 +292,171 @@ function ClientPortal({jobs,logs}){
     </div>;
   }
 
-  // Individual project view
+  // ── Individual project view ──
   const jobLogs=logs.filter(l=>l.job_id===selJob.id&&l.visible_to_client).sort((a,b)=>b.date?.localeCompare(a.date));
+  const allPhotos=jobLogs.flatMap(l=>(l.photos||[]).map(ph=>({url:ph.url||ph,date:l.date,notes:l.notes})));
   const done=milestones.filter(m=>m.status==="Completed").length;
   const inProgress=milestones.filter(m=>m.status==="In Progress").length;
   const total=milestones.length;
-  const pct=total>0?Math.round((done/total)*100):selJob.progress||0;
+  const ps=selJob.payment_schedule||[];
+  const totalPaid=ps.filter(p=>p.paid).reduce((s,p)=>s+(+p.amount||0),0);
+  const totalContract=+selJob.value||0;
+  const nextDue=ps.filter(p=>!p.paid&&p.due_date).sort((a,b)=>a.due_date.localeCompare(b.due_date))[0];
+
+  const TABS=["overview","photos","milestones","payments","updates"];
 
   return <div>
     <button onClick={()=>{setSelJob(null);setMilestones([]);}} style={{background:"none",border:"none",color:C.gold,cursor:"pointer",fontSize:13,fontFamily:fb,marginBottom:18,display:"flex",alignItems:"center",gap:6,padding:0}}>← All Projects</button>
 
-    {/* Project header card */}
-    <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,padding:24,marginBottom:20}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,marginBottom:16}}>
-        <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <img src="https://tallguybuilds.ca/assets/img-002.webp" alt="TGB" style={{width:44,height:44,borderRadius:10,objectFit:"cover"}}/>
-          <div>
-            <div style={{fontSize:10,color:C.gold,fontWeight:700,letterSpacing:1.5,marginBottom:3}}>TALL GUY BUILDS INC.</div>
-            <h2 style={{fontFamily:font,color:C.white,fontSize:20,margin:0}}>{selJob.name}</h2>
-            <div style={{color:C.muted,fontSize:12,marginTop:2}}>{selJob.address}</div>
-          </div>
+    {/* ── Project header ── */}
+    <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",marginBottom:6}}>
+      {allPhotos.length>0&&<div style={{height:140,overflow:"hidden",position:"relative"}}>
+        <img src={allPhotos[0].url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+        <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom, transparent 40%, #1F2A37ee)"}}/>
+        <div style={{position:"absolute",bottom:14,left:20,right:20}}>
+          <div style={{fontSize:10,color:C.gold,fontWeight:700,letterSpacing:1.5,marginBottom:3}}>TALL GUY BUILDS INC.</div>
+          <h2 style={{fontFamily:font,color:C.white,fontSize:20,margin:0}}>{selJob.name}</h2>
+          <div style={{color:"#ffffffaa",fontSize:12,marginTop:2}}>{selJob.address}</div>
         </div>
-        <Badge label={selJob.status}/>
-      </div>
-
-      <div style={{fontSize:11,color:C.muted,marginBottom:6}}>
-        {fmtDate(selJob.start_date)} → {fmtDate(selJob.end_date)}
-      </div>
-
-      {/* Big progress bar */}
-      <div style={{marginBottom:6}}>
+      </div>}
+      {allPhotos.length===0&&<div style={{padding:"20px 24px 0"}}>
+        <div style={{fontSize:10,color:C.gold,fontWeight:700,letterSpacing:1.5,marginBottom:3}}>TALL GUY BUILDS INC.</div>
+        <h2 style={{fontFamily:font,color:C.white,fontSize:20,margin:0}}>{selJob.name}</h2>
+        <div style={{color:C.muted,fontSize:12,marginTop:2}}>{selJob.address}</div>
+      </div>}
+      <div style={{padding:"16px 20px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <span style={{color:C.muted,fontSize:12}}>{fmtDate(selJob.start_date)} → {fmtDate(selJob.end_date)}</span>
+          <Badge label={selJob.status}/>
+        </div>
         <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:8}}>
           <span style={{color:C.muted}}>Overall Progress</span>
           <span style={{color:C.gold,fontWeight:700,fontSize:18,fontFamily:font}}>{selJob.progress||0}%</span>
         </div>
         <div style={{background:C.border,borderRadius:8,height:12,overflow:"hidden"}}>
-          <div style={{background:`linear-gradient(90deg, ${C.gold}, #e8c87a)`,borderRadius:8,height:12,width:`${selJob.progress||0}%`,transition:"width 1s",boxShadow:`0 0 8px ${C.gold}66`}}/>
+          <div style={{background:`linear-gradient(90deg,${C.gold},#e8c87a)`,borderRadius:8,height:12,width:`${selJob.progress||0}%`,transition:"width 1s",boxShadow:`0 0 8px ${C.gold}66`}}/>
         </div>
-      </div>
-
-      {/* Stats row */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(90px,1fr))",gap:10,marginTop:18}}>
-        {[{label:"Milestones Done",value:`${done}/${total}`},{label:"In Progress",value:inProgress},{label:"Site Updates",value:jobLogs.length},{label:"Status",value:selJob.status}].map(s=>(
-          <div key={s.label} style={{background:C.navy,borderRadius:8,padding:"10px 12px",border:`1px solid ${C.border}`}}>
-            <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{s.label}</div>
-            <div style={{fontSize:16,color:C.gold,fontWeight:700,fontFamily:font}}>{s.value}</div>
-          </div>
-        ))}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(80px,1fr))",gap:8,marginTop:14}}>
+          {[
+            {label:"Milestones",value:`${done}/${total}`},
+            {label:"In Progress",value:inProgress},
+            {label:"Updates",value:jobLogs.length},
+            {label:"Photos",value:allPhotos.length},
+          ].map(s=>(
+            <div key={s.label} style={{background:C.navy,borderRadius:8,padding:"8px 10px",border:`1px solid ${C.border}`,textAlign:"center"}}>
+              <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>{s.label}</div>
+              <div style={{fontSize:17,color:C.gold,fontWeight:700,fontFamily:font}}>{s.value}</div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
 
-    {/* Milestones */}
-    <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,padding:20,marginBottom:20}}>
-      <h3 style={{fontFamily:font,color:C.white,fontSize:17,margin:"0 0 16px"}}>Project Milestones</h3>
+    {/* ── Tab nav ── */}
+    <div style={{display:"flex",gap:4,marginBottom:18,flexWrap:"wrap"}}>
+      {TABS.map(t=><button key={t} onClick={()=>setPortalTab(t)} style={{padding:"7px 15px",borderRadius:20,border:`1px solid ${portalTab===t?C.gold:C.border}`,background:portalTab===t?C.gold+"22":"transparent",color:portalTab===t?C.gold:C.muted,fontFamily:fb,fontSize:12,fontWeight:portalTab===t?700:400,cursor:"pointer",textTransform:"capitalize"}}>{t}</button>)}
+    </div>
 
+    {/* ── OVERVIEW ── */}
+    {portalTab==="overview"&&<>
+      {/* Payment quick-card */}
+      {totalContract>0&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,padding:20,marginBottom:16}}>
+        <div style={{fontSize:13,color:C.white,fontWeight:700,marginBottom:12}}>💳 Payment Summary</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
+          {[
+            {label:"Contract Total",value:fmt$(totalContract),color:C.white},
+            {label:"Paid to Date",value:fmt$(totalPaid),color:"#4ade80"},
+            {label:"Remaining",value:fmt$(totalContract-totalPaid),color:totalContract-totalPaid===0?"#4ade80":C.warn},
+          ].map(s=><div key={s.label} style={{background:C.navy,borderRadius:8,padding:"10px 12px",border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>{s.label}</div>
+            <div style={{fontSize:15,color:s.color,fontWeight:700}}>{s.value}</div>
+          </div>)}
+        </div>
+        <div style={{background:C.border,borderRadius:6,height:8,marginBottom:8}}>
+          <div style={{background:"#4ade80",borderRadius:6,height:8,width:`${totalContract>0?Math.round((totalPaid/totalContract)*100):0}%`,transition:"width 1s"}}/>
+        </div>
+        {nextDue&&<div style={{fontSize:12,color:C.warn}}>⏰ Next payment due: <strong>{nextDue.label}</strong> — {fmt$(nextDue.amount)} on {fmtDate(nextDue.due_date)}</div>}
+      </div>}
+
+      {/* Recent photos strip */}
+      {allPhotos.length>0&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,padding:20,marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <div style={{fontSize:13,color:C.white,fontWeight:700}}>📷 Recent Photos</div>
+          <button onClick={()=>setPortalTab("photos")} style={{background:"none",border:"none",color:C.gold,fontSize:12,cursor:"pointer",fontFamily:fb}}>View all →</button>
+        </div>
+        <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4}}>
+          {allPhotos.slice(0,8).map((ph,i)=>(
+            <div key={i} onClick={()=>setLightbox(ph.url)} style={{width:90,height:90,flexShrink:0,borderRadius:8,overflow:"hidden",cursor:"zoom-in"}}>
+              <img src={ph.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+            </div>
+          ))}
+        </div>
+      </div>}
+
+      {/* Next milestone */}
+      {milestones.filter(m=>m.status!=="Completed").length>0&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,padding:20,marginBottom:16}}>
+        <div style={{fontSize:13,color:C.white,fontWeight:700,marginBottom:10}}>🎯 Up Next</div>
+        {milestones.filter(m=>m.status!=="Completed").slice(0,3).map(m=>(
+          <div key={m.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${C.border}`}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span>{m.status==="In Progress"?"🔄":"⬜"}</span>
+              <span style={{color:C.white,fontSize:13}}>{m.name}</span>
+            </div>
+            <div style={{textAlign:"right"}}>
+              {m.date&&<div style={{fontSize:11,color:C.muted}}>{fmtDate(m.date)}</div>}
+              <Badge label={m.status}/>
+            </div>
+          </div>
+        ))}
+      </div>}
+    </>}
+
+    {/* ── PHOTO TIMELINE ── */}
+    {portalTab==="photos"&&<div>
+      {allPhotos.length===0&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:40,textAlign:"center"}}>
+        <div style={{fontSize:32,marginBottom:10}}>📷</div>
+        <div style={{color:C.muted,fontSize:13}}>No photos yet. Check back as work progresses.</div>
+      </div>}
+      {/* Group photos by log date */}
+      {Object.entries(jobLogs.reduce((acc,log)=>{
+        const photos=(log.photos||[]);
+        if(photos.length===0)return acc;
+        acc[log.date]={notes:log.notes,photos:photos.map(ph=>ph.url||ph)};
+        return acc;
+      },{})).sort((a,b)=>b[0].localeCompare(a[0])).map(([date,{notes,photos}])=>(
+        <div key={date} style={{marginBottom:24}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+            <div style={{width:10,height:10,borderRadius:"50%",background:C.gold,flexShrink:0}}/>
+            <div style={{fontSize:13,color:C.gold,fontWeight:700}}>{fmtDate(date)}</div>
+            <div style={{flex:1,height:1,background:C.border}}/>
+          </div>
+          {notes&&<p style={{color:C.muted,fontSize:12,lineHeight:1.7,margin:"0 0 10px 20px"}}>{notes.slice(0,180)}{notes.length>180?"…":""}</p>}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:8,marginLeft:20}}>
+            {photos.map((url,i)=>(
+              <div key={i} onClick={()=>setLightbox(url)} style={{aspectRatio:"1",borderRadius:10,overflow:"hidden",cursor:"zoom-in",boxShadow:"0 2px 10px #00000040"}}>
+                <img src={url} alt="" style={{width:"100%",height:"100%",objectFit:"cover",transition:"transform 0.2s"}}
+                  onMouseEnter={e=>e.target.style.transform="scale(1.05)"}
+                  onMouseLeave={e=>e.target.style.transform="scale(1)"}/>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>}
+
+    {/* ── MILESTONES ── */}
+    {portalTab==="milestones"&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,padding:20}}>
       {loadingM&&<div style={{color:C.muted,fontSize:12}}>Loading...</div>}
-      {!loadingM&&milestones.length===0&&<div style={{color:C.muted,fontSize:13,textAlign:"center",padding:"16px 0"}}>Milestones will appear here as they are added.</div>}
-
+      {!loadingM&&milestones.length===0&&<div style={{color:C.muted,fontSize:13,textAlign:"center",padding:"16px 0"}}>Milestones will appear here as work progresses.</div>}
       {milestones.map((m,i)=>{
         const isLast=i===milestones.length-1;
         const statusIcon={"Completed":"✅","In Progress":"🔄","Not Started":"⬜"};
         const lineColor=m.status==="Completed"?"#4ade80":m.status==="In Progress"?C.gold:C.border;
-        return <div key={m.id} style={{display:"flex",gap:14,paddingBottom:isLast?0:18,marginBottom:isLast?0:4,position:"relative"}}>
+        return <div key={m.id} style={{display:"flex",gap:14,paddingBottom:isLast?0:18,position:"relative"}}>
           {!isLast&&<div style={{position:"absolute",left:12,top:28,bottom:0,width:2,background:lineColor,opacity:0.3}}/>}
           <div style={{fontSize:20,flexShrink:0,marginTop:1}}>{statusIcon[m.status]}</div>
           <div style={{flex:1,paddingBottom:4}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:6}}>
+            <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:6}}>
               <div>
                 <div style={{color:m.status==="Completed"?C.muted:C.white,fontSize:14,fontWeight:600,textDecoration:m.status==="Completed"?"line-through":"none"}}>{m.name}</div>
                 {m.date&&<div style={{fontSize:11,color:C.muted,marginTop:2}}>{fmtDate(m.date)}</div>}
@@ -274,64 +466,94 @@ function ClientPortal({jobs,logs}){
           </div>
         </div>;
       })}
-    </div>
+    </div>}
 
-    {/* Site Updates */}
-    <h3 style={{fontFamily:font,color:C.white,fontSize:17,margin:"0 0 14px"}}>Site Updates</h3>
+    {/* ── PAYMENTS ── */}
+    {portalTab==="payments"&&<div>
+      {(!ps||ps.length===0)&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:32,textAlign:"center"}}>
+        <div style={{fontSize:28,marginBottom:8}}>💳</div>
+        <div style={{color:C.muted,fontSize:13}}>No payment schedule has been set up for this project yet.</div>
+      </div>}
+      {ps.length>0&&<>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:20}}>
+          {[
+            {label:"Contract Total",value:fmt$(totalContract),color:C.white},
+            {label:"Paid",value:fmt$(totalPaid),color:"#4ade80"},
+            {label:"Outstanding",value:fmt$(totalContract-totalPaid),color:totalContract-totalPaid===0?"#4ade80":C.warn},
+          ].map(s=><div key={s.label} style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{s.label}</div>
+            <div style={{fontSize:20,color:s.color,fontWeight:700}}>{s.value}</div>
+          </div>)}
+        </div>
+        <div style={{background:C.border,borderRadius:6,height:10,marginBottom:20}}>
+          <div style={{background:"#4ade80",borderRadius:6,height:10,width:`${totalContract>0?Math.round((totalPaid/totalContract)*100):0}%`,transition:"width 1s"}}/>
+        </div>
+        <div style={{display:"grid",gap:8}}>
+          {ps.map(p=>(
+            <div key={p.id} style={{display:"flex",alignItems:"center",gap:12,background:p.paid?"#14532d22":C.navyLight,border:`1px solid ${p.paid?"#4ade8033":C.border}`,borderRadius:10,padding:"12px 16px"}}>
+              <span style={{fontSize:18}}>{p.paid?"✅":"⬜"}</span>
+              <div style={{flex:1}}>
+                <div style={{color:p.paid?C.muted:C.white,fontWeight:600,fontSize:13,textDecoration:p.paid?"line-through":"none"}}>{p.label}</div>
+                {p.due_date&&<div style={{fontSize:11,color:C.muted,marginTop:2}}>Due {fmtDate(p.due_date)}</div>}
+              </div>
+              <div style={{fontSize:16,color:p.paid?"#4ade80":C.gold,fontWeight:700}}>{fmt$(p.amount)}</div>
+              <Badge label={p.paid?"Paid":"Pending"}/>
+            </div>
+          ))}
+        </div>
+      </>}
+    </div>}
 
-    {jobLogs.length===0&&(
-      <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:32,textAlign:"center"}}>
+    {/* ── SITE UPDATES ── */}
+    {portalTab==="updates"&&<div>
+      {jobLogs.length===0&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:32,textAlign:"center"}}>
         <div style={{fontSize:28,marginBottom:8}}>🏗️</div>
         <div style={{color:C.muted,fontSize:13}}>No site updates yet. Check back soon!</div>
+      </div>}
+      <div style={{display:"grid",gap:16}}>
+        {jobLogs.map(log=>(
+          <div key={log.id} style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
+            <div style={{padding:"14px 18px",borderBottom:`1px solid ${C.border}`,background:C.navy+"88"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                <div style={{fontFamily:font,color:C.white,fontSize:15,fontWeight:700}}>{fmtDate(log.date)}</div>
+                <div style={{display:"flex",gap:14,fontSize:12,color:C.muted}}>
+                  <span>{log.weather}</span>
+                  <span>👷 {log.crew} on site</span>
+                  <span>⏱ {log.hours}h</span>
+                </div>
+              </div>
+            </div>
+            <div style={{padding:"14px 18px"}}>
+              <p style={{color:C.muted,fontSize:13,lineHeight:1.8,margin:0,whiteSpace:"pre-wrap"}}>{log.notes}</p>
+            </div>
+            {log.photos&&log.photos.length>0&&(
+              <div style={{padding:"0 18px 18px"}}>
+                <div style={{fontSize:11,color:C.muted,marginBottom:8,textTransform:"uppercase",letterSpacing:"0.05em"}}>Photos ({log.photos.length})</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))",gap:8}}>
+                  {log.photos.map((photo,pi)=>(
+                    <div key={pi} onClick={()=>setLightbox(photo.url||photo)} style={{cursor:"zoom-in",borderRadius:8,overflow:"hidden",aspectRatio:"1",background:C.border}}>
+                      <img src={photo.url||photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover",transition:"transform 0.2s"}}
+                        onMouseEnter={e=>e.target.style.transform="scale(1.05)"}
+                        onMouseLeave={e=>e.target.style.transform="scale(1)"}/>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
-    )}
-
-    <div style={{display:"grid",gap:16}}>
-      {jobLogs.map(log=>(
-        <div key={log.id} style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
-          {/* Log header */}
-          <div style={{padding:"14px 18px",borderBottom:`1px solid ${C.border}`,background:C.navy+"88"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-              <div style={{fontFamily:font,color:C.white,fontSize:15,fontWeight:700}}>{fmtDate(log.date)}</div>
-              <div style={{display:"flex",gap:14,fontSize:12,color:C.muted}}>
-                <span>{log.weather}</span>
-                <span>👷 {log.crew} on site</span>
-                <span>⏱ {log.hours}h</span>
-              </div>
-            </div>
-          </div>
-          {/* Log body */}
-          <div style={{padding:"14px 18px"}}>
-            <p style={{color:C.muted,fontSize:13,lineHeight:1.8,margin:0,whiteSpace:"pre-wrap"}}>{log.notes}</p>
-          </div>
-          {/* Photos */}
-          {log.photos&&log.photos.length>0&&(
-            <div style={{padding:"0 18px 18px"}}>
-              <div style={{fontSize:11,color:C.muted,marginBottom:8,textTransform:"uppercase",letterSpacing:"0.05em"}}>Photos ({log.photos.length})</div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))",gap:8}}>
-                {log.photos.map((photo,pi)=>(
-                  <div key={pi} onClick={()=>setLightbox(photo)} style={{cursor:"zoom-in",borderRadius:8,overflow:"hidden",aspectRatio:"1",background:C.border,boxShadow:"0 2px 8px #00000040"}}>
-                    <img src={photo.url||photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block",transition:"transform 0.2s"}}
-                      onMouseEnter={e=>e.target.style.transform="scale(1.05)"}
-                      onMouseLeave={e=>e.target.style.transform="scale(1)"}/>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
+    </div>}
 
     {/* Footer */}
     <div style={{textAlign:"center",padding:"32px 0 16px",borderTop:`1px solid ${C.border}`,marginTop:32}}>
       <div style={{fontSize:11,color:C.gold,letterSpacing:1.5,fontWeight:600}}>BUILT RIGHT. DESIGNED TO LAST.</div>
-      <div style={{fontSize:11,color:C.muted,marginTop:4}}>Tall Guy Builds Inc. · Regina, Saskatchewan</div>
+      <div style={{fontSize:11,color:C.muted,marginTop:4}}>Tall Guy Builds Inc. · (306)737-5407 · Regina, Saskatchewan</div>
     </div>
 
     {/* Lightbox */}
     {lightbox&&<div onClick={()=>setLightbox(null)} style={{position:"fixed",inset:0,background:"#000000DD",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:20,cursor:"zoom-out"}}>
-      <img src={lightbox.url||lightbox} alt="" style={{maxWidth:"100%",maxHeight:"90vh",borderRadius:10,boxShadow:"0 0 80px #000"}}/>
+      <img src={lightbox} alt="" style={{maxWidth:"100%",maxHeight:"90vh",borderRadius:10,boxShadow:"0 0 80px #000"}}/>
       <div style={{position:"absolute",bottom:24,left:"50%",transform:"translateX(-50%)",color:C.muted,fontSize:12}}>click anywhere to close</div>
     </div>}
   </div>;
@@ -388,8 +610,108 @@ function DashboardView({jobs,leads,logs,setPage}){
   </div>;
 }
 
+// ── CLIENT ASSIGNMENT (in Jobs modal) ────────────────────────────────────────
+function ClientAssignment({jobId,allClients,onClientsChange}){
+  const [assigned,setAssigned]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [adding,setAdding]=useState(false);
+  const [newForm,setNewForm]=useState({name:"",email:"",phone:""});
+  const [saving,setSaving]=useState(false);
+  const nf=(k,v)=>setNewForm(p=>({...p,[k]:v}));
+
+  useEffect(()=>{
+    if(!jobId){setLoading(false);return;}
+    supabase.from("client_jobs").select("client_id, clients(id,name,email,phone)").eq("job_id",jobId).then(({data})=>{
+      setAssigned((data||[]).map(r=>r.clients).filter(Boolean));
+      setLoading(false);
+    });
+  },[jobId]);
+
+  async function addExisting(clientId){
+    const client=allClients.find(c=>c.id===clientId);
+    if(!client||assigned.find(a=>a.id===clientId))return;
+    await supabase.from("client_jobs").insert({job_id:jobId,client_id:clientId});
+    const updated=[...assigned,client];
+    setAssigned(updated);
+    onClientsChange&&onClientsChange(updated);
+  }
+
+  async function createAndAssign(){
+    if(!newForm.name.trim()||!newForm.email.trim())return;
+    setSaving(true);
+    // Upsert client by email (in case they already exist)
+    let {data:client}=await supabase.from("clients").upsert({name:newForm.name.trim(),email:newForm.email.trim().toLowerCase(),phone:newForm.phone||null},{onConflict:"email"}).select().single();
+    if(!client){
+      // If upsert returned nothing, fetch by email
+      const res=await supabase.from("clients").select("*").eq("email",newForm.email.trim().toLowerCase()).single();
+      client=res.data;
+    }
+    if(client&&!assigned.find(a=>a.id===client.id)){
+      await supabase.from("client_jobs").insert({job_id:jobId,client_id:client.id});
+      const updated=[...assigned,client];
+      setAssigned(updated);
+      onClientsChange&&onClientsChange(updated);
+    }
+    setNewForm({name:"",email:"",phone:""});
+    setAdding(false);
+    setSaving(false);
+  }
+
+  async function remove(clientId){
+    await supabase.from("client_jobs").delete().eq("job_id",jobId).eq("client_id",clientId);
+    const updated=assigned.filter(a=>a.id!==clientId);
+    setAssigned(updated);
+    onClientsChange&&onClientsChange(updated);
+  }
+
+  const unassigned=allClients.filter(c=>!assigned.find(a=>a.id===c.id));
+
+  if(loading)return <div style={{color:C.muted,fontSize:12,padding:"8px 0"}}>Loading...</div>;
+  if(!jobId)return <div style={{color:C.muted,fontSize:12,padding:"8px 0"}}>Save the project first to assign clients.</div>;
+
+  return <div style={{marginBottom:4}}>
+    {/* Assigned chips */}
+    <div style={{display:"flex",flexWrap:"wrap",gap:7,marginBottom:10}}>
+      {assigned.length===0&&<div style={{color:C.muted,fontSize:12}}>No clients assigned yet.</div>}
+      {assigned.map(c=>(
+        <div key={c.id} style={{display:"flex",alignItems:"center",gap:6,background:C.gold+"22",border:`1px solid ${C.gold}44`,borderRadius:20,padding:"4px 10px 4px 12px"}}>
+          <div>
+            <div style={{fontSize:12,color:C.gold,fontWeight:600}}>{c.name}</div>
+            <div style={{fontSize:10,color:C.muted}}>{c.email}</div>
+          </div>
+          <button onClick={()=>remove(c.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:14,lineHeight:1,padding:"0 2px"}}>×</button>
+        </div>
+      ))}
+    </div>
+
+    {/* Add existing client */}
+    {unassigned.length>0&&<div style={{marginBottom:8}}>
+      <select onChange={e=>{if(e.target.value)addExisting(e.target.value);e.target.value="";}}
+        style={{background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"7px 10px",color:C.muted,fontSize:12,fontFamily:fb,outline:"none",maxWidth:240}}>
+        <option value="">+ Assign existing client…</option>
+        {unassigned.map(c=><option key={c.id} value={c.id}>{c.name} — {c.email}</option>)}
+      </select>
+    </div>}
+
+    {/* Add new client inline */}
+    {!adding&&<button onClick={()=>setAdding(true)} style={{background:"none",border:`1px dashed ${C.border}`,color:C.muted,borderRadius:6,padding:"6px 14px",fontSize:12,cursor:"pointer",fontFamily:fb}}>+ New client</button>}
+    {adding&&<div style={{background:C.navy,borderRadius:8,padding:"12px",border:`1px solid ${C.border}`,marginTop:6}}>
+      <div style={{fontSize:11,color:C.muted,marginBottom:8,fontWeight:600,textTransform:"uppercase",letterSpacing:1}}>New Client</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
+        <Inp label="Name" value={newForm.name} onChange={v=>nf("name",v)} placeholder="Jane Smith"/>
+        <Inp label="Email" type="email" value={newForm.email} onChange={v=>nf("email",v)} placeholder="jane@email.com"/>
+      </div>
+      <Inp label="Phone (optional)" value={newForm.phone} onChange={v=>nf("phone",v)} placeholder="(306) 555-0000"/>
+      <div style={{display:"flex",gap:8,marginTop:4}}>
+        <Btn onClick={createAndAssign} style={{opacity:saving?0.6:1}}>{saving?"Saving…":"Add & Assign"}</Btn>
+        <Btn variant="ghost" onClick={()=>{setAdding(false);setNewForm({name:"",email:"",phone:""});}}>Cancel</Btn>
+      </div>
+    </div>}
+  </div>;
+}
+
 // ── PROJECTS ──────────────────────────────────────────────────────────────────
-function Jobs({jobs,setJobs,leads,setMilestonesGlobal}){
+function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
   const [showM,setShowM]=useState(false);
   const [sel,setSel]=useState(null);
   const [form,setForm]=useState({});
@@ -399,18 +721,18 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal}){
   // Build client list from leads (Won + all others deduplicated by name)
   const clientNames=[...new Set(leads.map(l=>l.name).filter(Boolean))].sort();
 
-  function openNew(){setForm({name:"",client:"",address:"",type:"",status:"Upcoming",value:"",paid:"",start_date:"",end_date:"",progress:0,notes:"",shared_with_client:false});setSel(null);setTab("details");setShowM(true);}
-  function openEdit(j){setForm({...j,value:String(j.value||""),paid:String(j.paid||"")});setSel(j);setTab("details");setShowM(true);}
+  function openNew(){setForm({name:"",client:"",client_email:"",address:"",type:"",status:"Upcoming",value:"",paid:"",start_date:"",end_date:"",progress:0,notes:"",shared_with_client:false,payment_schedule:[]});setSel(null);setTab("details");setShowM(true);}
+  function openEdit(j){setForm({...j,value:String(j.value||""),paid:String(j.paid||""),client_email:j.client_email||"",payment_schedule:j.payment_schedule||[]});setSel(j);setTab("details");setShowM(true);}
 
-  // When a client is selected from dropdown, also auto-fill address if available
+  // When a client is selected from dropdown, also pull email if the lead has one
   function selectClient(name){
     const lead=leads.find(l=>l.name===name);
     f("client",name);
-    if(lead?.address&&!form.address)f("address",lead.address||"");
+    if(lead?.email&&!form.client_email)f("client_email",lead.email||"");
   }
 
   async function save(switchToMilestones=false){
-    const u={...form,value:+form.value||0,paid:+form.paid||0,progress:+form.progress||0,start_date:form.start_date||null,end_date:form.end_date||null};
+    const u={...form,value:+form.value||0,paid:+form.paid||0,progress:+form.progress||0,start_date:form.start_date||null,end_date:form.end_date||null,client_email:form.client_email||null,payment_schedule:form.payment_schedule||[]};
     if(sel){
       const {data,error}=await supabase.from("jobs").update(u).eq("id",sel.id).select().single();
       if(data)setJobs(js=>js.map(j=>j.id===sel.id?data:j));
@@ -460,8 +782,12 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal}){
 
     {showM&&<Modal title={sel?"Edit Project":"New Project"} onClose={()=>setShowM(false)} wide>
       <div style={{display:"flex",gap:6,marginBottom:16,borderBottom:`1px solid ${C.border}`,paddingBottom:8}}>
-        {["details","milestones"].map(t=>(
-          <button key={t} onClick={()=>{if(t==="milestones"){save(true);}else{setTab(t);}}} style={{padding:"5px 13px",borderRadius:6,border:"none",fontFamily:fb,fontSize:12,cursor:"pointer",textTransform:"capitalize",background:tab===t?C.gold:"transparent",color:tab===t?C.navy:C.muted,fontWeight:tab===t?700:400}}>{t}</button>
+        {["details","milestones","payments"].map(t=>(
+          <button key={t} onClick={()=>{
+            if((t==="milestones"||t==="payments")&&!sel){save(true);}
+            else if(t==="milestones"){save(true);}
+            else{setTab(t);}
+          }} style={{padding:"5px 13px",borderRadius:6,border:"none",fontFamily:fb,fontSize:12,cursor:"pointer",textTransform:"capitalize",background:tab===t?C.gold:"transparent",color:tab===t?C.navy:C.muted,fontWeight:tab===t?700:400}}>{t}</button>
         ))}
       </div>
       {tab==="details"&&<>
@@ -477,6 +803,7 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal}){
             {form.client==="__new__"&&<input autoFocus placeholder="Enter client name" style={{width:"100%",marginTop:6,background:C.navy,border:`1px solid ${C.gold}`,borderRadius:6,padding:"8px 11px",color:C.white,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box"}} onChange={e=>f("client",e.target.value||"__new__")}/>}
           </div>
         </div>
+        <Inp label="Client Email (for milestone notifications)" type="email" value={form.client_email||""} onChange={v=>f("client_email",v)} placeholder="client@email.com"/>
         <Inp label="Address" value={form.address||""} onChange={v=>f("address",v)}/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
           <Inp label="Type" value={form.type||""} onChange={v=>f("type",v)} placeholder="Basement, Deck, Garage..."/>
@@ -495,7 +822,6 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal}){
           <input type="range" min="0" max="100" value={form.progress||0} onChange={e=>f("progress",+e.target.value)} style={{width:"100%",accentColor:C.gold}}/>
         </div>
         <Txtarea label="Notes" value={form.notes||""} onChange={v=>f("notes",v)} rows={3}/>
-        {/* Client portal toggle */}
         <div style={{padding:"14px 16px",background:C.navy,borderRadius:10,border:`1px solid ${C.border}`,marginBottom:4}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
@@ -505,9 +831,16 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal}){
             <Toggle checked={form.shared_with_client||false} onChange={v=>f("shared_with_client",v)}/>
           </div>
         </div>
+        {/* Client assignment */}
+        <div style={{background:C.navy,borderRadius:10,border:`1px solid ${C.border}`,padding:"14px 16px",marginTop:10}}>
+          <div style={{fontSize:13,color:C.white,fontWeight:600,marginBottom:10}}>Assigned Clients</div>
+          <div style={{fontSize:11,color:C.muted,marginBottom:10}}>Clients below can log in and see this project in their portal.</div>
+          <ClientAssignment jobId={sel?.id} allClients={clients}/>
+        </div>
       </>}
-      {tab==="milestones"&&sel&&<Milestones jobId={sel.id} onAdd={m=>setMilestonesGlobal&&setMilestonesGlobal(prev=>[...prev,m])} onDelete={id=>setMilestonesGlobal&&setMilestonesGlobal(prev=>prev.filter(m=>m.id!==id))}/>}
+      {tab==="milestones"&&sel&&<Milestones jobId={sel.id} job={{...sel,...form}} onAdd={m=>setMilestonesGlobal&&setMilestonesGlobal(prev=>[...prev,m])} onDelete={id=>setMilestonesGlobal&&setMilestonesGlobal(prev=>prev.filter(m=>m.id!==id))}/>}
       {tab==="milestones"&&!sel&&<div style={{color:C.muted,fontSize:12,padding:"20px 0",textAlign:"center"}}>Save the project first, then add milestones.</div>}
+      {tab==="payments"&&<PaymentScheduleEditor schedule={form.payment_schedule||[]} contractValue={+form.value||0} onChange={v=>f("payment_schedule",v)}/>}
       <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:14}}>
         {sel&&<Btn variant="danger" onClick={del}>Delete</Btn>}
         <Btn variant="ghost" onClick={()=>setShowM(false)}>Cancel</Btn>
@@ -575,18 +908,39 @@ function Leads({leads,setLeads}){
 // ── SCHEDULE ──────────────────────────────────────────────────────────────────
 function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
   const [showM,setShowM]=useState(false);const [sel,setSel]=useState(null);const [form,setForm]=useState({});
-  const [view,setView]=useState("list");
+  const [view,setView]=useState("calendar");
   const [calDate,setCalDate]=useState(new Date());
+  const [filterJob,setFilterJob]=useState("");
+  const [dragId,setDragId]=useState(null);
+  const [dragOver,setDragOver]=useState(null);
   const f=(k,v)=>setForm(p=>({...p,[k]:v}));
-  function openNew(dateStr=""){setForm({title:"",job_id:"",date:dateStr||todayStr(),time:"09:00",type:"site"});setSel(null);setShowM(true);}
+
+  function openNew(dateStr=""){setForm({title:"",job_id:"",date:dateStr||todayStr(),date_end:"",time:"09:00",type:"site",color:""});setSel(null);setShowM(true);}
   function openEdit(e){setForm({...e,job_id:e.job_id||""});setSel(e);setShowM(true);}
+
   async function save(){
-    const u={...form,job_id:form.job_id||null};
+    const u={...form,job_id:form.job_id||null,date_end:form.date_end||null};
     if(sel){const {data}=await supabase.from("events").update(u).eq("id",sel.id).select().single();if(data)setEvents(es=>es.map(e=>e.id===sel.id?data:e));}
     else{const {data}=await supabase.from("events").insert(u).select().single();if(data)setEvents(es=>[...es,data]);}
     setShowM(false);
   }
   async function del(){await supabase.from("events").delete().eq("id",sel.id);setEvents(es=>es.filter(e=>e.id!==sel.id));setShowM(false);}
+
+  // ── Drag handlers (events only, not milestones) ──
+  function onDragStart(e,evId){e.stopPropagation();setDragId(evId);e.dataTransfer.effectAllowed="move";}
+  function onDragOver(e,ds){e.preventDefault();e.dataTransfer.dropEffect="move";setDragOver(ds);}
+  function onDragLeave(){setDragOver(null);}
+  async function onDrop(e,ds){
+    e.preventDefault();setDragOver(null);
+    if(!dragId||!ds)return;
+    const ev=events.find(x=>x.id===dragId);
+    if(!ev||ev.date===ds)return;
+    const updated={...ev,date:ds};
+    setEvents(es=>es.map(x=>x.id===dragId?updated:x));
+    await supabase.from("events").update({date:ds}).eq("id",dragId);
+    setDragId(null);
+  }
+  function onDragEnd(){setDragId(null);setDragOver(null);}
 
   // Calendar helpers
   function calDays(){
@@ -596,6 +950,7 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
     const days=[];
     for(let i=0;i<first;i++)days.push(null);
     for(let d=1;d<=total;d++)days.push(d);
+    while(days.length%7!==0)days.push(null);
     return days;
   }
   function calStr(d){
@@ -608,122 +963,222 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
   const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-  const [filterJob,setFilterJob]=useState("");
+  const today=todayStr();
   const sorted=[...events].sort((a,b)=>a.date?.localeCompare(b.date));
   const filtered=sorted.filter(e=>!filterJob||e.job_id===filterJob);
-  const upcoming=filtered.filter(e=>e.date>=todayStr());
-  const past=filtered.filter(e=>e.date<todayStr());
-
-  // Milestones with dates shown as read-only schedule items
+  const upcoming=filtered.filter(e=>e.date>=today);
+  const past=filtered.filter(e=>e.date<today);
   const mFiltered=milestones.filter(m=>m.date&&(!filterJob||m.job_id===filterJob));
-  const mUpcoming=mFiltered.filter(m=>m.date>=todayStr());
-  const mPast=mFiltered.filter(m=>m.date<todayStr());
+  const allUpcoming=[...upcoming.map(e=>({...e,_type:"event"})),...mFiltered.filter(m=>m.date>=today).map(m=>({...m,title:m.name,_type:"milestone"}))].sort((a,b)=>a.date?.localeCompare(b.date));
+  const allPast=[...past.map(e=>({...e,_type:"event"})),...mFiltered.filter(m=>m.date<today).map(m=>({...m,title:m.name,_type:"milestone"}))].sort((a,b)=>b.date?.localeCompare(a.date));
 
-  // Merge and sort upcoming events + milestones for list view
-  const allUpcoming=[
-    ...upcoming.map(e=>({...e,_type:"event"})),
-    ...mUpcoming.map(m=>({...m,title:m.name,_type:"milestone"}))
-  ].sort((a,b)=>a.date?.localeCompare(b.date));
-  const allPast=[
-    ...past.map(e=>({...e,_type:"event"})),
-    ...mPast.map(m=>({...m,title:m.name,_type:"milestone"}))
-  ].sort((a,b)=>b.date?.localeCompare(a.date));
-
-  const today=todayStr();
+  function evColor(ev){return ev.color||(EC[ev.type]||C.muted);}
 
   return <div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:10}}>
-      <h1 style={{fontFamily:font,color:C.white,fontSize:26,margin:0}}>Schedule</h1>
+    {/* ── Header ── */}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
+      <h1 style={{fontFamily:fb,fontWeight:800,color:C.white,fontSize:24,margin:0}}>Schedule</h1>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         <div style={{display:"flex",background:C.navy,borderRadius:8,border:`1px solid ${C.border}`,overflow:"hidden"}}>
           {["list","calendar"].map(v=>(
-            <button key={v} onClick={()=>setView(v)} style={{padding:"6px 14px",border:"none",background:view===v?C.gold:"transparent",color:view===v?C.navy:C.muted,fontFamily:fb,fontSize:12,fontWeight:600,cursor:"pointer",textTransform:"capitalize"}}>{v==="list"?"☰ List":"📅 Calendar"}</button>
+            <button key={v} onClick={()=>setView(v)} style={{padding:"7px 16px",border:"none",background:view===v?C.gold:"transparent",color:view===v?C.navy:C.muted,fontFamily:fb,fontSize:12,fontWeight:700,cursor:"pointer",letterSpacing:"0.03em"}}>{v==="list"?"☰  List":"▦  Calendar"}</button>
           ))}
         </div>
         <Btn onClick={()=>openNew()}>+ Add Event</Btn>
       </div>
     </div>
-    <div style={{marginBottom:16}}>
-      <select value={filterJob} onChange={e=>setFilterJob(e.target.value)} style={{background:C.navy,border:`1px solid ${filterJob?C.gold:C.border}`,borderRadius:6,padding:"7px 12px",color:filterJob?C.white:C.muted,fontSize:12,fontFamily:fb,outline:"none",minWidth:200}}>
+
+    {/* ── Toolbar: project filter + legend ── */}
+    <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:12,marginBottom:16}}>
+      <select value={filterJob} onChange={e=>setFilterJob(e.target.value)} style={{background:C.navy,border:`1px solid ${filterJob?C.gold:C.border}`,borderRadius:6,padding:"7px 12px",color:filterJob?C.white:C.muted,fontSize:12,fontFamily:fb,outline:"none",minWidth:180}}>
         <option value="">All Projects</option>
         {jobs.map(j=><option key={j.id} value={j.id}>{j.name}</option>)}
       </select>
-      {filterJob&&<button onClick={()=>setFilterJob("")} style={{marginLeft:8,background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:12,fontFamily:fb}}>✕ Clear filter</button>}
+      {filterJob&&<button onClick={()=>setFilterJob("")} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:12,fontFamily:fb}}>✕ Clear</button>}
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginLeft:4}}>
+        {Object.entries(ET_LABELS).map(([k,lbl])=>(
+          <div key={k} style={{display:"flex",alignItems:"center",gap:4}}>
+            <div style={{width:10,height:10,borderRadius:2,background:EC[k]}}/>
+            <span style={{fontSize:11,color:C.muted,fontFamily:fb}}>{lbl}</span>
+          </div>
+        ))}
+        <div style={{display:"flex",alignItems:"center",gap:4}}>
+          <div style={{width:10,height:10,borderRadius:2,background:EC.milestone}}/>
+          <span style={{fontSize:11,color:C.muted,fontFamily:fb}}>Milestone</span>
+        </div>
+      </div>
     </div>
 
+    {/* ── LIST VIEW ── */}
     {view==="list"&&<>
-      {allUpcoming.length===0&&<div style={{color:C.muted,textAlign:"center",padding:"20px 0",fontSize:13}}>No upcoming events or milestones.</div>}
+      {allUpcoming.length===0&&<div style={{color:C.muted,textAlign:"center",padding:"28px 0",fontSize:13}}>No upcoming events.</div>}
       <div style={{display:"grid",gap:8,marginBottom:24}}>
         {allUpcoming.map(ev=>{
           const job=jobs.find(j=>j.id===ev.job_id);
           const isMilestone=ev._type==="milestone";
-          const tc=isMilestone?"#C084FC":EC[ev.type]||C.muted;
-          return <Card key={(isMilestone?"m":"e")+ev.id} onClick={isMilestone?undefined:()=>openEdit(ev)} style={{padding:13,borderLeft:`3px solid ${tc}`,cursor:isMilestone?"default":"pointer"}}>
-            <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+          const tc=isMilestone?EC.milestone:evColor(ev);
+          return <Card key={(isMilestone?"m":"e")+ev.id} onClick={isMilestone?undefined:()=>openEdit(ev)} style={{padding:"12px 14px",borderLeft:`4px solid ${tc}`,cursor:isMilestone?"default":"pointer"}}>
+            <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8,alignItems:"center"}}>
               <div>
-                <div style={{fontWeight:700,color:C.white,fontSize:13}}>{isMilestone?"🏁 ":""}{ev.title}</div>
-                {job&&<div style={{fontSize:11,color:C.muted,marginTop:2}}>📁 {job.name}</div>}
-                {isMilestone&&<div style={{fontSize:10,color:tc,marginTop:2}}>Milestone · <Badge label={ev.status}/></div>}
+                <div style={{display:"flex",alignItems:"center",gap:7}}>
+                  <div style={{width:8,height:8,borderRadius:2,background:tc,flexShrink:0}}/>
+                  <span style={{fontWeight:700,color:C.white,fontSize:13}}>{isMilestone?"🏁 ":""}{ev.title}</span>
+                  <span style={{fontSize:10,color:tc,background:tc+"22",padding:"1px 7px",borderRadius:10,fontWeight:600}}>{isMilestone?"Milestone":ET_LABELS[ev.type]||ev.type}</span>
+                </div>
+                {job&&<div style={{fontSize:11,color:C.muted,marginTop:3,marginLeft:15}}>📁 {job.name}</div>}
               </div>
-              <div style={{textAlign:"right"}}><div style={{fontSize:12,color:C.white,fontWeight:600}}>{fmtDate(ev.date)}</div>{ev.time&&<div style={{fontSize:11,color:C.muted}}>{ev.time}</div>}</div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:12,color:C.white,fontWeight:600}}>
+                  {fmtDate(ev.date)}{ev.date_end&&ev.date_end>ev.date?` → ${fmtDate(ev.date_end)}`:""}
+                </div>
+                {ev.time&&!ev.date_end&&<div style={{fontSize:11,color:C.muted}}>{ev.time}</div>}
+              </div>
             </div>
           </Card>;
         })}
       </div>
-      {allPast.length>0&&<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",marginBottom:8}}>Past</div>
-      <div style={{display:"grid",gap:6,opacity:0.5}}>{allPast.slice(0,5).map(ev=>(
-        <Card key={(ev._type==="milestone"?"m":"e")+ev.id} style={{padding:10}}>
-          <div style={{display:"flex",justifyContent:"space-between"}}>
-            <span style={{fontSize:12,color:C.muted}}>{ev._type==="milestone"?"🏁 ":""}{ev.title}</span>
-            <span style={{fontSize:11,color:C.muted}}>{fmtDate(ev.date)}</span>
-          </div>
-        </Card>
-      ))}</div></>}
+      {allPast.length>0&&<>
+        <div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Past</div>
+        <div style={{display:"grid",gap:6,opacity:0.55}}>
+          {allPast.slice(0,5).map(ev=>(
+            <Card key={(ev._type==="milestone"?"m":"e")+ev.id} style={{padding:"9px 14px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:12,color:C.muted}}>{ev._type==="milestone"?"🏁 ":""}{ev.title}</span>
+                <span style={{fontSize:11,color:C.muted}}>{fmtDate(ev.date)}</span>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </>}
     </>}
 
-    {view==="calendar"&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
+    {/* ── CALENDAR VIEW ── */}
+    {view==="calendar"&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden"}}>
       {/* Month nav */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 18px",borderBottom:`1px solid ${C.border}`}}>
-        <button onClick={prevMonth} style={{background:"none",border:"none",color:C.gold,fontSize:18,cursor:"pointer",padding:"0 8px"}}>‹</button>
-        <div style={{fontFamily:font,color:C.white,fontSize:17,fontWeight:700}}>{MONTHS[calDate.getMonth()]} {calDate.getFullYear()}</div>
-        <button onClick={nextMonth} style={{background:"none",border:"none",color:C.gold,fontSize:18,cursor:"pointer",padding:"0 8px"}}>›</button>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 22px",borderBottom:`1px solid ${C.border}`,background:C.navy}}>
+        <button onClick={prevMonth} style={{background:"none",border:"none",color:C.gold,fontSize:22,cursor:"pointer",lineHeight:1,padding:"0 10px"}}>‹</button>
+        <div style={{fontFamily:fb,fontWeight:800,color:C.white,fontSize:18,letterSpacing:"0.02em"}}>{MONTHS[calDate.getMonth()]} {calDate.getFullYear()}</div>
+        <button onClick={nextMonth} style={{background:"none",border:"none",color:C.gold,fontSize:22,cursor:"pointer",lineHeight:1,padding:"0 10px"}}>›</button>
       </div>
-      {/* Day headers */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",borderBottom:`1px solid ${C.border}`}}>
-        {DAYS.map(d=><div key={d} style={{textAlign:"center",padding:"8px 0",fontSize:11,color:C.muted,fontWeight:600}}>{d}</div>)}
+      {/* Day-of-week headers */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",borderBottom:`1px solid ${C.border}`,background:C.navy}}>
+        {DAYS.map((d,i)=><div key={d} style={{textAlign:"center",padding:"10px 0",fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:i===0||i===6?"#4B5563":C.muted}}>{d}</div>)}
       </div>
-      {/* Day cells */}
+      {/* Cells — full-height rows */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
         {calDays().map((d,i)=>{
           const ds=calStr(d);
-          const dayEvents=events.filter(e=>e.date===ds&&(!filterJob||e.job_id===filterJob));
+          const dayEvents=events.filter(e=>{
+            if(!d||!ds)return false;
+            if(filterJob&&e.job_id!==filterJob)return false;
+            if(e.date_end&&e.date_end>e.date)return ds>=e.date&&ds<=e.date_end;
+            return e.date===ds;
+          });
           const dayMilestones=milestones.filter(m=>m.date===ds&&(!filterJob||m.job_id===filterJob));
           const isToday=ds===today;
-          return <div key={i} onClick={()=>d&&openNew(ds)} style={{minHeight:80,padding:"6px 7px",borderRight:`1px solid ${C.border}`,borderBottom:`1px solid ${C.border}`,background:isToday?C.gold+"11":"transparent",cursor:d?"pointer":"default",opacity:d?1:0.2}}>
-            {d&&<div style={{fontSize:12,fontWeight:isToday?700:400,color:isToday?C.gold:C.muted,marginBottom:4}}>{d}</div>}
-            {dayEvents.map(ev=>{
-              const tc=EC[ev.type]||C.muted;
-              return <div key={"e"+ev.id} onClick={e=>{e.stopPropagation();openEdit(ev);}} style={{background:tc+"22",borderLeft:`2px solid ${tc}`,borderRadius:3,padding:"2px 5px",marginBottom:2,fontSize:10,color:C.white,fontWeight:600,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",cursor:"pointer"}}>{ev.time?ev.time.slice(0,5)+" ":""}{ev.title}</div>;
+          const isDragOver=dragOver===ds&&ds!=="";
+          const isWeekend=i%7===0||i%7===6;
+          return <div
+            key={i}
+            onDragOver={d?e=>onDragOver(e,ds):undefined}
+            onDragLeave={onDragLeave}
+            onDrop={d?e=>onDrop(e,ds):undefined}
+            onClick={()=>d&&openNew(ds)}
+            style={{
+              minHeight:120,
+              padding:"8px 8px 6px",
+              borderRight:`1px solid ${C.border}`,
+              borderBottom:`1px solid ${C.border}`,
+              background:isDragOver?C.gold+"18":isToday?C.gold+"0D":isWeekend?"#1a2535":"transparent",
+              cursor:d?"pointer":"default",
+              opacity:d?1:0.3,
+              transition:"background 0.1s",
+              verticalAlign:"top",
+            }}>
+            {d&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+              <div style={{
+                width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",
+                borderRadius:"50%",fontSize:13,fontWeight:isToday?800:400,
+                background:isToday?C.gold:"transparent",
+                color:isToday?C.navy:C.muted,
+              }}>{d}</div>
+              {(dayEvents.length+dayMilestones.length)>3&&<span style={{fontSize:9,color:C.muted}}>+{dayEvents.length+dayMilestones.length-3}</span>}
+            </div>}
+            {/* Event chips */}
+            {dayEvents.slice(0,3).map(ev=>{
+              const tc=evColor(ev);
+              const isDragging=dragId===ev.id;
+              const isMultiDay=ev.date_end&&ev.date_end>ev.date;
+              const isStart=ev.date===ds;
+              const isEnd=ev.date_end===ds;
+              const chipStyle=isMultiDay?{
+                background:tc,borderRadius:isStart?"4px 0 0 4px":isEnd?"0 4px 4px 0":"0",
+                marginLeft:isStart?0:-1,marginRight:isEnd?0:-1,
+                borderLeft:isStart?`3px solid ${tc+"BB"}`:"none",
+              }:{background:tc,borderRadius:4};
+              return <div
+                key={"e"+ev.id}
+                draggable={!isMultiDay}
+                onDragStart={!isMultiDay?e=>onDragStart(e,ev.id):undefined}
+                onDragEnd={onDragEnd}
+                onClick={e=>{e.stopPropagation();openEdit(ev);}}
+                style={{
+                  ...chipStyle,
+                  padding:"3px 7px",
+                  marginBottom:3,
+                  fontSize:11,
+                  fontWeight:600,
+                  color:"#fff",
+                  overflow:"hidden",
+                  whiteSpace:"nowrap",
+                  textOverflow:"ellipsis",
+                  cursor:isMultiDay?"pointer":"grab",
+                  opacity:isDragging?0.4:1,
+                  transition:"opacity 0.15s",
+                  userSelect:"none",
+                }}
+                title={ev.title+(isMultiDay?` (${fmtDate(ev.date)} – ${fmtDate(ev.date_end)})`:"")}>
+                {isStart?(ev.time?ev.time.slice(0,5)+" ":"")+ev.title:"⋯"}
+              </div>;
             })}
-            {dayMilestones.map(m=>(
-              <div key={"m"+m.id} onClick={e=>e.stopPropagation()} style={{background:"#C084FC22",borderLeft:`2px solid #C084FC`,borderRadius:3,padding:"2px 5px",marginBottom:2,fontSize:10,color:"#C084FC",fontWeight:600,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>🏁 {m.name}</div>
+            {/* Milestone chips */}
+            {dayMilestones.slice(0,3-Math.min(dayEvents.length,3)).map(m=>(
+              <div key={"m"+m.id} onClick={e=>e.stopPropagation()} style={{background:EC.milestone,borderRadius:4,padding:"3px 7px",marginBottom:3,fontSize:11,fontWeight:600,color:"#fff",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",cursor:"default",userSelect:"none"}} title={m.name}>🏁 {m.name}</div>
             ))}
           </div>;
         })}
       </div>
     </div>}
 
+    {/* ── ADD / EDIT MODAL ── */}
     {showM&&<Modal title={sel?"Edit Event":"Add Event"} onClose={()=>setShowM(false)}>
       <Inp label="Event Title" value={form.title||""} onChange={v=>f("title",v)}/>
       <Sel label="Project (optional)" value={form.job_id||""} onChange={v=>f("job_id",v)} options={["",...jobs.map(j=>j.id)]} display={["(No project)",...jobs.map(j=>j.name)]}/>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
-        <Inp label="Date" type="date" value={form.date||""} onChange={v=>f("date",v)}/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9}}>
+        <Inp label="Start Date" type="date" value={form.date||""} onChange={v=>f("date",v)}/>
+        <Inp label="End Date (optional)" type="date" value={form.date_end||""} onChange={v=>f("date_end",v)}/>
         <Inp label="Time" type="time" value={form.time||""} onChange={v=>f("time",v)}/>
       </div>
-      <Sel label="Type" value={form.type||"site"} onChange={v=>f("type",v)} options={EVENT_TYPES}/>
-      <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:10}}>
+      <Sel label="Type" value={form.type||"site"} onChange={v=>f("type",v)} options={EVENT_TYPES} display={EVENT_TYPES.map(t=>ET_LABELS[t]||t)}/>
+      {/* Colour picker */}
+      <div style={{marginBottom:11}}>
+        <label style={{display:"block",fontSize:11,color:C.muted,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.06em"}}>Chip Colour (optional — overrides type default)</label>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+          {["","#F59E0B","#3B82F6","#22C55E","#EC4899","#A855F7","#06B6D4","#F97316","#EF4444","#6B7280"].map(clr=>(
+            <div key={clr||"default"} onClick={()=>f("color",clr)}
+              style={{width:22,height:22,borderRadius:4,background:clr||EC[form.type||"site"],border:`2px solid ${(form.color||"")===(clr)?"#fff":"transparent"}`,cursor:"pointer",flexShrink:0,boxSizing:"border-box",position:"relative"}}
+              title={clr?"Custom colour":"Use type default"}>
+              {!clr&&<span style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#fff",fontWeight:700}}>↺</span>}
+            </div>
+          ))}
+          <input type="color" value={form.color||EC[form.type||"site"]} onChange={e=>f("color",e.target.value)}
+            style={{width:28,height:28,border:"none",borderRadius:4,cursor:"pointer",background:"none",padding:0}} title="Pick any colour"/>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}>
         {sel&&<Btn variant="danger" onClick={del}>Delete</Btn>}
-        <Btn variant="ghost" onClick={()=>setShowM(false)}>Cancel</Btn><Btn onClick={save}>Save</Btn>
+        <Btn variant="ghost" onClick={()=>setShowM(false)}>Cancel</Btn>
+        <Btn onClick={save}>Save</Btn>
       </div>
     </Modal>}
   </div>;
@@ -889,15 +1344,40 @@ function DailyLog({logs,setLogs,jobs}){
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
 function Settings(){
+  const [ej,setEj]=useState(()=>JSON.parse(localStorage.getItem("tgb_emailjs")||"{}"));
+  const [saved,setSaved]=useState(false);
+  function saveEj(){localStorage.setItem("tgb_emailjs",JSON.stringify(ej));setSaved(true);setTimeout(()=>setSaved(false),2000);}
   async function handleSignOut(){await supabase.auth.signOut();window.location.href="/";}
   return <div>
     <h1 style={{fontFamily:font,color:C.white,fontSize:26,marginBottom:20}}>Settings</h1>
     <Card style={{marginBottom:16}}>
       <div style={{fontWeight:700,color:C.white,fontSize:15,marginBottom:6}}>Tall Guy Builds Inc.</div>
-      <div style={{fontSize:12,color:C.gold,fontWeight:600,letterSpacing:1}}>BUILT RIGHT.</div>
-      <div style={{fontSize:12,color:C.gold,fontWeight:600,letterSpacing:1}}>DESIGNED TO LAST.</div>
-      <div style={{fontSize:11,color:C.muted,marginTop:8}}>Regina, Saskatchewan</div>
+      <div style={{fontSize:12,color:C.gold,fontWeight:600,letterSpacing:1}}>BUILT RIGHT. DESIGNED TO LAST.</div>
+      <div style={{fontSize:11,color:C.muted,marginTop:8}}>Regina, Saskatchewan · (306)737-5407</div>
     </Card>
+
+    {/* EmailJS config */}
+    <Card style={{marginBottom:16}}>
+      <div style={{fontWeight:700,color:C.white,fontSize:15,marginBottom:4}}>📧 Milestone Email Notifications</div>
+      <div style={{fontSize:11,color:C.muted,marginBottom:14,lineHeight:1.6}}>
+        Automatically emails your client when you mark a milestone complete. Uses <a href="https://www.emailjs.com" target="_blank" rel="noreferrer" style={{color:C.gold}}>EmailJS</a> (free — 200 emails/month).
+        <br/>Setup: emailjs.com → Add Service (Gmail) → Create Template → copy your IDs here.
+        <br/>Template variables: <span style={{color:C.gold,fontFamily:"monospace"}}>{"{{to_email}} {{client_name}} {{project_name}} {{milestone_name}} {{portal_url}}"}</span>
+      </div>
+      <div style={{display:"grid",gap:9}}>
+        <Inp label="Service ID" value={ej.service_id||""} onChange={v=>setEj(p=>({...p,service_id:v}))} placeholder="service_xxxxxxx"/>
+        <Inp label="Template ID" value={ej.template_id||""} onChange={v=>setEj(p=>({...p,template_id:v}))} placeholder="template_xxxxxxx"/>
+        <Inp label="Public Key" value={ej.public_key||""} onChange={v=>setEj(p=>({...p,public_key:v}))} placeholder="your public key"/>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginTop:12}}>
+        <Btn onClick={saveEj}>Save Email Settings</Btn>
+        {saved&&<span style={{color:"#4ade80",fontSize:12}}>✓ Saved</span>}
+      </div>
+      <div style={{marginTop:12,padding:"10px 14px",background:C.navy,borderRadius:8,fontSize:11,color:C.muted}}>
+        💡 <strong style={{color:C.white}}>To enable emails:</strong> Go to each project → add the client's email address in the Client Email field. Emails fire automatically when you tick a milestone as Complete.
+      </div>
+    </Card>
+
     <Card>
       <div style={{fontWeight:600,color:C.white,fontSize:14,marginBottom:10}}>Account</div>
       <Btn variant="danger" onClick={handleSignOut}>Sign Out</Btn>
@@ -906,7 +1386,7 @@ function Settings(){
 }
 
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
-function Login(){
+function Login({onSwitchToClient}){
   const [email,setEmail]=useState("");
   const [password,setPassword]=useState("");
   const [error,setError]=useState("");
@@ -928,7 +1408,7 @@ function Login(){
         <div style={{color:C.gold,fontSize:10,letterSpacing:2,fontWeight:600,marginTop:6}}>BUILT RIGHT. DESIGNED TO LAST.</div>
       </div>
       <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,padding:28}}>
-        <div style={{fontSize:15,color:C.white,fontWeight:700,marginBottom:20}}>Sign in to your dashboard</div>
+        <div style={{fontSize:15,color:C.white,fontWeight:700,marginBottom:20}}>Admin sign in</div>
         {error&&<div style={{background:"#7f1d1d33",border:`1px solid #ef444444`,borderRadius:7,padding:"10px 14px",color:"#F87171",fontSize:13,marginBottom:14}}>{error}</div>}
         <Inp label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com"/>
         <Inp label="Password" type="password" value={password} onChange={setPassword} placeholder="••••••••"/>
@@ -936,6 +1416,104 @@ function Login(){
           {loading?"Signing in…":"Sign In"}
         </Btn>
       </div>
+      {onSwitchToClient&&<div style={{textAlign:"center",marginTop:20}}>
+        <button onClick={onSwitchToClient} style={{background:"none",border:"none",color:C.muted,fontSize:11,cursor:"pointer",fontFamily:fb}}>Client? Sign in to your project portal</button>
+      </div>}
+    </div>
+  </div>;
+}
+
+// ── CLIENT LOGIN (magic link) ─────────────────────────────────────────────────
+function ClientLogin({onSwitch}){
+  const [email,setEmail]=useState("");
+  const [sent,setSent]=useState(false);
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
+
+  async function sendLink(){
+    if(!email.trim()){setError("Please enter your email.");return;}
+    setLoading(true);setError("");
+    const {error:err}=await supabase.auth.signInWithOtp({
+      email:email.trim().toLowerCase(),
+      options:{emailRedirectTo:window.location.href}
+    });
+    if(err){setError(err.message);setLoading(false);}
+    else{setSent(true);setLoading(false);}
+  }
+
+  return <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:fb,padding:20}}>
+    <div style={{width:"100%",maxWidth:380}}>
+      <div style={{textAlign:"center",marginBottom:32}}>
+        <img src="https://tallguybuilds.ca/assets/img-002.webp" alt="TGB" style={{width:64,height:64,borderRadius:12,objectFit:"cover",marginBottom:16,boxShadow:"0 4px 20px #00000060"}}/>
+        <h1 style={{fontFamily:font,color:C.white,fontSize:24,margin:0}}>Tall Guy Builds</h1>
+        <div style={{color:C.gold,fontSize:10,letterSpacing:2,fontWeight:600,marginTop:6}}>CLIENT PORTAL</div>
+      </div>
+      <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,padding:28}}>
+        {!sent?<>
+          <div style={{fontSize:15,color:C.white,fontWeight:700,marginBottom:8}}>Sign in to your portal</div>
+          <div style={{fontSize:12,color:C.muted,marginBottom:20}}>We'll email you a one-click sign-in link. No password needed.</div>
+          {error&&<div style={{background:"#7f1d1d33",border:"1px solid #ef444444",borderRadius:7,padding:"10px 14px",color:"#F87171",fontSize:13,marginBottom:14}}>{error}</div>}
+          <Inp label="Email" type="email" value={email} onChange={setEmail} placeholder="your@email.com"/>
+          <Btn onClick={sendLink} style={{width:"100%",marginTop:6,justifyContent:"center",opacity:loading?0.6:1}}>
+            {loading?"Sending…":"Send Sign-In Link"}
+          </Btn>
+        </>:<>
+          <div style={{textAlign:"center"}}>
+            <div style={{fontSize:32,marginBottom:14}}>📬</div>
+            <div style={{fontSize:16,color:C.white,fontWeight:700,marginBottom:8}}>Check your email</div>
+            <div style={{fontSize:13,color:C.muted,lineHeight:1.7}}>We sent a sign-in link to <strong style={{color:C.gold}}>{email}</strong>. Click the link to access your project portal.</div>
+            <button onClick={()=>{setSent(false);setEmail("");}} style={{marginTop:18,background:"none",border:"none",color:C.muted,fontSize:12,cursor:"pointer",fontFamily:fb}}>Use a different email</button>
+          </div>
+        </>}
+      </div>
+      <div style={{textAlign:"center",marginTop:20}}>
+        <button onClick={onSwitch} style={{background:"none",border:"none",color:C.muted,fontSize:11,cursor:"pointer",fontFamily:fb}}>Admin? Sign in here</button>
+      </div>
+    </div>
+  </div>;
+}
+
+// ── CLIENT PORTAL WRAPPER (client auth mode) ──────────────────────────────────
+function ClientPortalWrapper({session,onSignOut}){
+  const [jobs,setJobs]=useState([]);
+  const [logs,setLogs]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState(null);
+
+  useEffect(()=>{
+    async function load(){
+      try{
+        // Find this client's record by email
+        const {data:client}=await supabase.from("clients").select("id").eq("email",session.user.email).single();
+        if(!client){setError("Your account isn't linked to any projects yet. Contact Tall Guy Builds at (306)737-5407.");setLoading(false);return;}
+        // Get their job IDs
+        const {data:cj}=await supabase.from("client_jobs").select("job_id").eq("client_id",client.id);
+        const jobIds=(cj||[]).map(r=>r.job_id);
+        if(jobIds.length===0){setJobs([]);setLogs([]);setLoading(false);return;}
+        // Fetch those jobs + their logs
+        const [j,lg]=await Promise.all([
+          supabase.from("jobs").select("*").in("id",jobIds),
+          supabase.from("daily_logs").select("*").in("job_id",jobIds).eq("visible_to_client",true).order("date",{ascending:false}),
+        ]);
+        setJobs(j.data||[]);setLogs(lg.data||[]);
+      }catch(err){setError("Could not load your projects: "+err.message);}
+      finally{setLoading(false);}
+    }
+    load();
+  },[session]);
+
+  if(loading)return <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:C.gold,fontFamily:font,fontSize:18}}>Loading your portal…</div>;
+  if(error)return <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+    <div style={{maxWidth:400,textAlign:"center"}}>
+      <div style={{fontSize:32,marginBottom:12}}>⚠️</div>
+      <div style={{color:C.danger,fontFamily:fb,fontSize:14,marginBottom:20}}>{error}</div>
+      <Btn variant="ghost" onClick={onSignOut}>Sign Out</Btn>
+    </div>
+  </div>;
+
+  return <div style={{background:C.bg,minHeight:"100vh",fontFamily:fb}}>
+    <div style={{maxWidth:760,margin:"0 auto",padding:"24px 16px"}}>
+      <ClientPortal jobs={jobs} logs={logs} clientMode={true} onSignOut={onSignOut}/>
     </div>
   </div>;
 }
@@ -955,6 +1533,8 @@ const NAV=[
 export default function App(){
   const [page,setPage]=useState("dashboard");
   const [session,setSession]=useState(undefined);
+  const [isClient,setIsClient]=useState(false); // true if logged-in user is a portal client
+  const [clientMode,setClientMode]=useState(false); // UI toggle: client login vs admin login
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState(null);
   const [jobs,setJobs]=useState([]);
@@ -963,6 +1543,7 @@ export default function App(){
   const [events,setEvents]=useState([]);
   const [logs,setLogs]=useState([]);
   const [milestones,setMilestones]=useState([]);
+  const [clients,setClients]=useState([]);
 
   // Auth listener
   useEffect(()=>{
@@ -976,26 +1557,39 @@ export default function App(){
     if(!session){setLoading(false);return;} // not logged in
     async function load(){
       try{
-        const [j,l,s,e,lg,ms]=await Promise.all([
+        // Check if this user is a client (email in clients table)
+        const {data:clientRow}=await supabase.from("clients").select("id").eq("email",session.user.email).maybeSingle();
+        if(clientRow){
+          // This is a client user — portal-only mode
+          setIsClient(true);setLoading(false);return;
+        }
+        // Admin: load all data
+        const [j,l,s,e,lg,ms,cl]=await Promise.all([
           supabase.from("jobs").select("*").order("created_at",{ascending:false}),
           supabase.from("leads").select("*").order("created_at",{ascending:false}),
           supabase.from("subs").select("*").order("name"),
           supabase.from("events").select("*").order("date"),
           supabase.from("daily_logs").select("*").order("date",{ascending:false}),
           supabase.from("milestones").select("*").order("date"),
+          supabase.from("clients").select("*").order("name"),
         ]);
         if(j.error)throw j.error;
-        setJobs(j.data||[]);setLeads(l.data||[]);setSubs(s.data||[]);setEvents(e.data||[]);setLogs(lg.data||[]);setMilestones(ms.data||[]);
+        setJobs(j.data||[]);setLeads(l.data||[]);setSubs(s.data||[]);setEvents(e.data||[]);setLogs(lg.data||[]);setMilestones(ms.data||[]);setClients(cl.data||[]);
       }catch(err){setError("Could not connect to database: "+err.message);}
       finally{setLoading(false);}
     }
     load();
   },[session]);
 
+  async function handleSignOut(){await supabase.auth.signOut();setIsClient(false);setClientMode(false);}
+
   if(session===undefined)return <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:C.gold,fontFamily:font,fontSize:18}}>Loading...</div>;
-  if(!session)return <Login/>;
+  if(!session)return clientMode
+    ?<ClientLogin onSwitch={()=>setClientMode(false)}/>
+    :<Login onSwitchToClient={()=>setClientMode(true)}/>;
   if(loading)return <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:C.gold,fontFamily:font,fontSize:18}}>Loading...</div>;
   if(error)return <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:C.danger,fontFamily:fb,fontSize:14,padding:24,textAlign:"center"}}>{error}</div>;
+  if(isClient)return <ClientPortalWrapper session={session} onSignOut={handleSignOut}/>;
 
   return <div style={{background:C.bg,minHeight:"100vh",display:"flex",fontFamily:fb}}>
     <div style={{width:220,background:C.navy,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",position:"fixed",top:0,left:0,height:"100vh",zIndex:100}}>
@@ -1020,7 +1614,7 @@ export default function App(){
     <div style={{marginLeft:220,flex:1,padding:24,boxSizing:"border-box"}}>
       <div style={{maxWidth:900,margin:"0 auto"}}>
         {page==="dashboard"&&<DashboardView jobs={jobs} leads={leads} logs={logs} setPage={setPage}/>}
-        {page==="jobs"&&<Jobs jobs={jobs} setJobs={setJobs} leads={leads} setMilestonesGlobal={setMilestones}/>}
+        {page==="jobs"&&<Jobs jobs={jobs} setJobs={setJobs} leads={leads} setMilestonesGlobal={setMilestones} clients={clients}/>}
         {page==="leads"&&<Leads leads={leads} setLeads={setLeads}/>}
         {page==="schedule"&&<Schedule events={events} setEvents={setEvents} jobs={jobs} milestones={milestones} setMilestones={setMilestones}/>}
         {page==="subs"&&<Subs subs={subs} setSubs={setSubs}/>}
