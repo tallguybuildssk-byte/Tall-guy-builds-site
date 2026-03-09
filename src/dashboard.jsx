@@ -927,10 +927,11 @@ function Leads({leads,setLeads}){
 function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
   const [showM,setShowM]=useState(false);const [sel,setSel]=useState(null);const [form,setForm]=useState({});
   const [view,setView]=useState("calendar");
-  const [calDate,setCalDate]=useState(new Date());
+  const [calDate,setCalDate]=useState(()=>{const n=new Date();return new Date(n.getFullYear(),n.getMonth(),1,12,0,0);});
   const [filterJob,setFilterJob]=useState("");
   const [dragId,setDragId]=useState(null);
   const [dragOver,setDragOver]=useState(null);
+  const dragJustHappened=useRef(false);
   const f=(k,v)=>setForm(p=>({...p,[k]:v}));
 
   function openNew(dateStr=""){setForm({title:"",job_id:"",date:dateStr||todayStr(),date_end:"",time:"09:00",type:"site",color:""});setSel(null);setShowM(true);}
@@ -956,10 +957,12 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
   function onDragOver(e,ds){e.preventDefault();e.dataTransfer.dropEffect="move";setDragOver(ds);}
   function onDragLeave(){setDragOver(null);}
   async function onDrop(e,ds){
-    e.preventDefault();setDragOver(null);
+    e.preventDefault();e.stopPropagation();setDragOver(null);
     if(!dragId||!ds)return;
     const ev=events.find(x=>x.id===dragId);
-    if(!ev||ev.date===ds)return;
+    if(!ev||ev.date===ds){setDragId(null);return;}
+    dragJustHappened.current=true;
+    setTimeout(()=>{dragJustHappened.current=false;},200);
     const updated={...ev,date:ds};
     setEvents(es=>es.map(x=>x.id===dragId?updated:x));
     await supabase.from("events").update({date:ds}).eq("id",dragId);
@@ -970,8 +973,8 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
   // Calendar helpers
   function calDays(){
     const y=calDate.getFullYear(),m=calDate.getMonth();
-    const first=new Date(y,m,1).getDay();
-    const total=new Date(y,m+1,0).getDate();
+    const first=new Date(y,m,1,12,0,0).getDay();
+    const total=new Date(y,m+1,0,12,0,0).getDate();
     const days=[];
     for(let i=0;i<first;i++)days.push(null);
     for(let d=1;d<=total;d++)days.push(d);
@@ -983,8 +986,8 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
     const y=calDate.getFullYear(),m=String(calDate.getMonth()+1).padStart(2,"0"),dd=String(d).padStart(2,"0");
     return`${y}-${m}-${dd}`;
   }
-  function prevMonth(){setCalDate(d=>new Date(d.getFullYear(),d.getMonth()-1,1));}
-  function nextMonth(){setCalDate(d=>new Date(d.getFullYear(),d.getMonth()+1,1));}
+  function prevMonth(){setCalDate(d=>new Date(d.getFullYear(),d.getMonth()-1,1,12,0,0));}
+  function nextMonth(){setCalDate(d=>new Date(d.getFullYear(),d.getMonth()+1,1,12,0,0));}
   const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -1108,7 +1111,7 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
             onDragOver={d?e=>onDragOver(e,ds):undefined}
             onDragLeave={onDragLeave}
             onDrop={d?e=>onDrop(e,ds):undefined}
-            onClick={()=>d&&openNew(ds)}
+            onClick={()=>d&&!dragJustHappened.current&&openNew(ds)}
             style={{
               minHeight:120,
               padding:"8px 8px 6px",
