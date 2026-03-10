@@ -927,7 +927,7 @@ function Leads({leads,setLeads}){
 function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
   const [showM,setShowM]=useState(false);const [sel,setSel]=useState(null);const [form,setForm]=useState({});
   const [view,setView]=useState("calendar");
-  const [calDate,setCalDate]=useState(()=>{const n=new Date();return new Date(n.getFullYear(),n.getMonth(),1,12,0,0);});
+  const [calDate,setCalDate]=useState(()=>{const n=new Date();return new Date(Date.UTC(n.getFullYear(),n.getMonth(),1));});
   const [filterJob,setFilterJob]=useState("");
   const [dragId,setDragId]=useState(null);
   const [dragOver,setDragOver]=useState(null);
@@ -971,24 +971,37 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
   function onDragEnd(){setDragId(null);setDragOver(null);}
 
   // Calendar helpers
+  // calYear/calMonth derived purely from state — no local Date math
+  const calYear=calDate.getUTCFullYear();
+  const calMonth=calDate.getUTCMonth();
+
   function calDays(){
-    const y=calDate.getFullYear(),m=calDate.getMonth();
-    // Use UTC to avoid any DST/timezone shifting the day-of-week
-    const first=new Date(Date.UTC(y,m,1)).getUTCDay();
-    const total=new Date(Date.UTC(y,m+1,0)).getUTCDate();
+    // Build ISO string for first of month — parsed as UTC, getUTCDay() is timezone-proof
+    const mm=String(calMonth+1).padStart(2,"0");
+    const firstDay=new Date(`${calYear}-${mm}-01T00:00:00Z`).getUTCDay();
+    // Last day of month: first of NEXT month minus 1ms
+    const nextMm=String(calMonth===11?1:calMonth+2).padStart(2,"0");
+    const nextYy=calMonth===11?calYear+1:calYear;
+    const total=new Date(Date.UTC(calYear,calMonth+1,0)).getUTCDate();
     const days=[];
-    for(let i=0;i<first;i++)days.push(null);
+    for(let i=0;i<firstDay;i++)days.push(null);
     for(let d=1;d<=total;d++)days.push(d);
     while(days.length%7!==0)days.push(null);
     return days;
   }
   function calStr(d){
     if(!d)return"";
-    const y=calDate.getFullYear(),m=String(calDate.getMonth()+1).padStart(2,"0"),dd=String(d).padStart(2,"0");
-    return`${y}-${m}-${dd}`;
+    const mm=String(calMonth+1).padStart(2,"0"),dd=String(d).padStart(2,"0");
+    return`${calYear}-${mm}-${dd}`;
   }
-  function prevMonth(){setCalDate(d=>new Date(d.getFullYear(),d.getMonth()-1,1,12,0,0));}
-  function nextMonth(){setCalDate(d=>new Date(d.getFullYear(),d.getMonth()+1,1,12,0,0));}
+  function prevMonth(){
+    const d=new Date(Date.UTC(calYear,calMonth-1,1));
+    setCalDate(d);
+  }
+  function nextMonth(){
+    const d=new Date(Date.UTC(calYear,calMonth+1,1));
+    setCalDate(d);
+  }
   const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -1086,7 +1099,7 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
       {/* Month nav */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 22px",borderBottom:`1px solid ${C.border}`,background:C.navy}}>
         <button onClick={prevMonth} style={{background:"none",border:"none",color:C.gold,fontSize:22,cursor:"pointer",lineHeight:1,padding:"0 10px"}}>‹</button>
-        <div style={{fontFamily:fb,fontWeight:800,color:C.white,fontSize:18,letterSpacing:"0.02em"}}>{MONTHS[calDate.getMonth()]} {calDate.getFullYear()}</div>
+        <div style={{fontFamily:fb,fontWeight:800,color:C.white,fontSize:18,letterSpacing:"0.02em"}}>{MONTHS[calMonth]} {calYear}</div>
         <button onClick={nextMonth} style={{background:"none",border:"none",color:C.gold,fontSize:22,cursor:"pointer",lineHeight:1,padding:"0 10px"}}>›</button>
       </div>
       {/* Day-of-week headers */}
