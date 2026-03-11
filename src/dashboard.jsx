@@ -217,6 +217,110 @@ function PaymentScheduleEditor({schedule,contractValue,onChange}){
   </div>;
 }
 
+// ── CLIENT CALENDAR (read-only calendar view for portal) ─────────────────────
+function ClientCalendar({events,milestones,loading}){
+  const [calDate,setCalDate]=useState(()=>new Date(Date.UTC(new Date().getFullYear(),new Date().getMonth(),1)));
+  const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const calYear=calDate.getUTCFullYear();
+  const calMonth=calDate.getUTCMonth();
+  const today=new Date().toISOString().slice(0,10);
+
+  function calDays(){
+    const mm=String(calMonth+1).padStart(2,"0");
+    const firstDay=new Date(Date.UTC(calYear,calMonth,1)).getUTCDay();
+    const total=new Date(Date.UTC(calYear,calMonth+1,0)).getUTCDate();
+    const days=[];
+    for(let i=0;i<firstDay;i++)days.push(null);
+    for(let d=1;d<=total;d++)days.push(d);
+    while(days.length%7!==0)days.push(null);
+    return days;
+  }
+  function calStr(d){
+    if(!d)return"";
+    const mm=String(calMonth+1).padStart(2,"0"),dd=String(d).padStart(2,"0");
+    return`${calYear}-${mm}-${dd}`;
+  }
+  function evColor(ev){return ev.color||(EC[ev.type]||C.muted);}
+
+  if(loading)return <div style={{color:C.muted,fontSize:12,padding:"20px 0",textAlign:"center"}}>Loading schedule...</div>;
+  if(!events.length&&!milestones.length)return(
+    <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:40,textAlign:"center"}}>
+      <div style={{fontSize:32,marginBottom:10}}>📅</div>
+      <div style={{color:C.muted,fontSize:13}}>No schedule items yet.</div>
+    </div>
+  );
+
+  return <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden"}}>
+    {/* Month nav */}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${C.border}`,background:C.navy}}>
+      <button onClick={()=>setCalDate(new Date(Date.UTC(calYear,calMonth-1,1)))} style={{background:"none",border:"none",color:C.gold,fontSize:22,cursor:"pointer",padding:"0 8px"}}>‹</button>
+      <div style={{fontWeight:800,color:C.white,fontSize:17}}>{MONTHS[calMonth]} {calYear}</div>
+      <button onClick={()=>setCalDate(new Date(Date.UTC(calYear,calMonth+1,1)))} style={{background:"none",border:"none",color:C.gold,fontSize:22,cursor:"pointer",padding:"0 8px"}}>›</button>
+    </div>
+    {/* Legend */}
+    <div style={{display:"flex",gap:12,flexWrap:"wrap",padding:"10px 16px",borderBottom:`1px solid ${C.border}`,background:C.navy}}>
+      {Object.entries(ET_LABELS).map(([k,lbl])=>(
+        <div key={k} style={{display:"flex",alignItems:"center",gap:4}}>
+          <div style={{width:8,height:8,borderRadius:2,background:EC[k]}}/>
+          <span style={{fontSize:10,color:C.muted}}>{lbl}</span>
+        </div>
+      ))}
+      <div style={{display:"flex",alignItems:"center",gap:4}}>
+        <div style={{width:8,height:8,borderRadius:2,background:EC.milestone}}/>
+        <span style={{fontSize:10,color:C.muted}}>Milestone</span>
+      </div>
+    </div>
+    {/* Day headers */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",background:C.navy,borderBottom:`1px solid ${C.border}`}}>
+      {DAYS.map((d,i)=><div key={d} style={{textAlign:"center",padding:"8px 0",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:i===0||i===6?"#4B5563":C.muted}}>{d}</div>)}
+    </div>
+    {/* Cells */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
+      {calDays().map((d,i)=>{
+        const ds=calStr(d);
+        const isToday=ds===today;
+        const isWeekend=i%7===0||i%7===6;
+        const dayEvents=events.filter(e=>{
+          if(!d)return false;
+          if(e.date_end&&e.date_end>e.date)return ds>=e.date&&ds<=e.date_end;
+          return e.date===ds;
+        });
+        const dayMilestones=milestones.filter(m=>m.date===ds);
+        const total=dayEvents.length+dayMilestones.length;
+        return <div key={i} style={{
+          minHeight:90,padding:"6px 6px 4px",
+          borderRight:`1px solid ${C.border}`,borderBottom:`1px solid ${C.border}`,
+          background:isToday?C.gold+"0D":isWeekend?"#1a2535":"transparent",
+          opacity:d?1:0.3,
+        }}>
+          {d&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+            <div style={{width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"50%",fontSize:12,fontWeight:isToday?800:400,background:isToday?C.gold:"transparent",color:isToday?C.navy:C.muted}}>{d}</div>
+            {total>2&&<span style={{fontSize:9,color:C.muted}}>+{total-2}</span>}
+          </div>}
+          {dayEvents.slice(0,2).map(ev=>{
+            const tc=evColor(ev);
+            const isStart=ev.date===ds;
+            const isMultiDay=ev.date_end&&ev.date_end>ev.date;
+            return <div key={"e"+ev.id} style={{
+              background:tc,borderRadius:isMultiDay?(isStart?"4px 0 0 4px":"0 4px 4px 0"):4,
+              padding:"2px 6px",marginBottom:2,fontSize:10,fontWeight:600,color:"#fff",
+              overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",
+            }}>
+              {(ev.time&&isStart?ev.time.slice(0,5)+" ":"")+ev.title}
+            </div>;
+          })}
+          {dayMilestones.slice(0,2-Math.min(dayEvents.length,2)).map(m=>(
+            <div key={"m"+m.id} style={{background:EC.milestone,borderRadius:4,padding:"2px 6px",marginBottom:2,fontSize:10,fontWeight:600,color:"#fff",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>
+              🏁 {m.name}
+            </div>
+          ))}
+        </div>;
+      })}
+    </div>
+  </div>;
+}
+
 // ── CLIENT PORTAL ─────────────────────────────────────────────────────────────
 function ClientPortal({jobs,logs,clientMode=false,onSignOut}){
   const [selJob,setSelJob]=useState(null);
@@ -458,42 +562,7 @@ function ClientPortal({jobs,logs,clientMode=false,onSignOut}){
     </div>}
 
     {/* ── MILESTONES ── */}
-    {portalTab==="schedule"&&<div>
-      {loadingM&&<div style={{color:C.muted,fontSize:12,padding:"16px 0"}}>Loading...</div>}
-      {!loadingM&&events.length===0&&milestones.length===0&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:32,textAlign:"center"}}>
-        <div style={{fontSize:28,marginBottom:8}}>📅</div>
-        <div style={{color:C.muted,fontSize:13}}>No schedule items yet.</div>
-      </div>}
-      {!loadingM&&(events.length>0||milestones.length>0)&&<>
-        {/* Combine events + milestones, sort by date */}
-        {[
-          ...events.map(e=>({...e,_kind:"event"})),
-          ...milestones.filter(m=>m.date).map(m=>({...m,title:m.name,_kind:"milestone"}))
-        ].sort((a,b)=>a.date?.localeCompare(b.date)).map(item=>{
-          const isMilestone=item._kind==="milestone";
-          const color=isMilestone?EC.milestone:(item.color||EC[item.type]||C.muted);
-          const statusIcon={"Completed":"✅","In Progress":"🔄","Not Started":"⬜"};
-          return <div key={(isMilestone?"m":"e")+item.id} style={{display:"flex",gap:14,padding:"12px 0",borderBottom:`1px solid ${C.border}`}}>
-            <div style={{width:4,borderRadius:2,background:color,flexShrink:0,alignSelf:"stretch"}}/>
-            <div style={{width:56,flexShrink:0}}>
-              <div style={{fontSize:12,color:C.gold,fontWeight:700}}>{item.date?new Date(item.date+"T12:00:00").toLocaleDateString("en-CA",{month:"short",day:"numeric"}):""}</div>
-              {item.date_end&&item.date_end>item.date&&<div style={{fontSize:10,color:C.muted}}>→ {new Date(item.date_end+"T12:00:00").toLocaleDateString("en-CA",{month:"short",day:"numeric"})}</div>}
-            </div>
-            <div style={{flex:1}}>
-              <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
-                {isMilestone&&<span style={{fontSize:13}}>{statusIcon[item.status]||"⬜"}</span>}
-                <span style={{color:C.white,fontWeight:600,fontSize:13}}>{item.title}</span>
-                <span style={{fontSize:10,color:color,background:color+"22",padding:"1px 7px",borderRadius:10,fontWeight:600}}>
-                  {isMilestone?"Milestone":ET_LABELS[item.type]||item.type}
-                </span>
-              </div>
-              {item.time&&!isMilestone&&<div style={{fontSize:11,color:C.muted,marginTop:3}}>🕐 {item.time}</div>}
-              {isMilestone&&<div style={{marginTop:3}}><Badge label={item.status}/></div>}
-            </div>
-          </div>;
-        })}
-      </>}
-    </div>}
+    {portalTab==="schedule"&&<ClientCalendar events={events} milestones={milestones} loading={loadingM}/>}
 
     {/* ── PAYMENTS ── */}
     {portalTab==="payments"&&<div>
