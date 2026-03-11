@@ -221,6 +221,7 @@ function PaymentScheduleEditor({schedule,contractValue,onChange}){
 function ClientPortal({jobs,logs,clientMode=false,onSignOut}){
   const [selJob,setSelJob]=useState(null);
   const [milestones,setMilestones]=useState([]);
+  const [events,setEvents]=useState([]);
   const [loadingM,setLoadingM]=useState(false);
   const [lightbox,setLightbox]=useState(null);
   const [portalTab,setPortalTab]=useState("overview");
@@ -231,8 +232,13 @@ function ClientPortal({jobs,logs,clientMode=false,onSignOut}){
   useEffect(()=>{
     if(!selJob)return;
     setLoadingM(true);
-    supabase.from("milestones").select("*").eq("job_id",selJob.id).order("order_index").then(({data})=>{
-      setMilestones(data||[]);setLoadingM(false);
+    Promise.all([
+      supabase.from("milestones").select("*").eq("job_id",selJob.id).order("order_index"),
+      supabase.from("events").select("*").eq("job_id",selJob.id).order("date"),
+    ]).then(([ms,ev])=>{
+      setMilestones(ms.data||[]);
+      setEvents(ev.data||[]);
+      setLoadingM(false);
     });
   },[selJob]);
 
@@ -303,7 +309,7 @@ function ClientPortal({jobs,logs,clientMode=false,onSignOut}){
   const totalContract=+selJob.value||0;
   const nextDue=ps.filter(p=>!p.paid&&p.due_date).sort((a,b)=>a.due_date.localeCompare(b.due_date))[0];
 
-  const TABS=["overview","photos","milestones","payments","updates"];
+  const TABS=["overview","photos","schedule","payments","updates"];
 
   return <div>
     <button onClick={()=>{setSelJob(null);setMilestones([]);}} style={{background:"none",border:"none",color:C.gold,cursor:"pointer",fontSize:13,fontFamily:fb,marginBottom:18,display:"flex",alignItems:"center",gap:6,padding:0}}>← All Projects</button>
@@ -393,21 +399,28 @@ function ClientPortal({jobs,logs,clientMode=false,onSignOut}){
         </div>
       </div>}
 
-      {/* Next milestone */}
-      {milestones.filter(m=>m.status!=="Completed").length>0&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,padding:20,marginBottom:16}}>
-        <div style={{fontSize:13,color:C.white,fontWeight:700,marginBottom:10}}>🎯 Up Next</div>
-        {milestones.filter(m=>m.status!=="Completed").slice(0,3).map(m=>(
-          <div key={m.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${C.border}`}}>
+      {/* Up Next — upcoming events + milestones combined */}
+      {(events.filter(e=>e.date>=new Date().toISOString().slice(0,10)).length>0||milestones.filter(m=>m.status!=="Completed").length>0)&&
+      <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,padding:20,marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <div style={{fontSize:13,color:C.white,fontWeight:700}}>🎯 Up Next</div>
+          <button onClick={()=>setPortalTab("schedule")} style={{background:"none",border:"none",color:C.gold,fontSize:12,cursor:"pointer",fontFamily:fb}}>Full schedule →</button>
+        </div>
+        {[
+          ...events.filter(e=>e.date>=new Date().toISOString().slice(0,10)).map(e=>({...e,_kind:"event"})),
+          ...milestones.filter(m=>m.status!=="Completed"&&m.date).map(m=>({...m,title:m.name,_kind:"milestone"}))
+        ].sort((a,b)=>a.date?.localeCompare(b.date)).slice(0,4).map(item=>{
+          const isMilestone=item._kind==="milestone";
+          const color=isMilestone?EC.milestone:(item.color||EC[item.type]||C.muted);
+          return <div key={(isMilestone?"m":"e")+item.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${C.border}`}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <span>{m.status==="In Progress"?"🔄":"⬜"}</span>
-              <span style={{color:C.white,fontSize:13}}>{m.name}</span>
+              <div style={{width:8,height:8,borderRadius:2,background:color,flexShrink:0}}/>
+              <span style={{color:C.white,fontSize:13}}>{item.title}</span>
+              {isMilestone&&<Badge label={item.status}/>}
             </div>
-            <div style={{textAlign:"right"}}>
-              {m.date&&<div style={{fontSize:11,color:C.muted}}>{fmtDate(m.date)}</div>}
-              <Badge label={m.status}/>
-            </div>
-          </div>
-        ))}
+            <div style={{fontSize:11,color:C.muted}}>{fmtDate(item.date)}</div>
+          </div>;
+        })}
       </div>}
     </>}
 
@@ -445,27 +458,41 @@ function ClientPortal({jobs,logs,clientMode=false,onSignOut}){
     </div>}
 
     {/* ── MILESTONES ── */}
-    {portalTab==="milestones"&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,padding:20}}>
-      {loadingM&&<div style={{color:C.muted,fontSize:12}}>Loading...</div>}
-      {!loadingM&&milestones.length===0&&<div style={{color:C.muted,fontSize:13,textAlign:"center",padding:"16px 0"}}>Milestones will appear here as work progresses.</div>}
-      {milestones.map((m,i)=>{
-        const isLast=i===milestones.length-1;
-        const statusIcon={"Completed":"✅","In Progress":"🔄","Not Started":"⬜"};
-        const lineColor=m.status==="Completed"?"#4ade80":m.status==="In Progress"?C.gold:C.border;
-        return <div key={m.id} style={{display:"flex",gap:14,paddingBottom:isLast?0:18,position:"relative"}}>
-          {!isLast&&<div style={{position:"absolute",left:12,top:28,bottom:0,width:2,background:lineColor,opacity:0.3}}/>}
-          <div style={{fontSize:20,flexShrink:0,marginTop:1}}>{statusIcon[m.status]}</div>
-          <div style={{flex:1,paddingBottom:4}}>
-            <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:6}}>
-              <div>
-                <div style={{color:m.status==="Completed"?C.muted:C.white,fontSize:14,fontWeight:600,textDecoration:m.status==="Completed"?"line-through":"none"}}>{m.name}</div>
-                {m.date&&<div style={{fontSize:11,color:C.muted,marginTop:2}}>{fmtDate(m.date)}</div>}
-              </div>
-              <Badge label={m.status}/>
+    {portalTab==="schedule"&&<div>
+      {loadingM&&<div style={{color:C.muted,fontSize:12,padding:"16px 0"}}>Loading...</div>}
+      {!loadingM&&events.length===0&&milestones.length===0&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:32,textAlign:"center"}}>
+        <div style={{fontSize:28,marginBottom:8}}>📅</div>
+        <div style={{color:C.muted,fontSize:13}}>No schedule items yet.</div>
+      </div>}
+      {!loadingM&&(events.length>0||milestones.length>0)&&<>
+        {/* Combine events + milestones, sort by date */}
+        {[
+          ...events.map(e=>({...e,_kind:"event"})),
+          ...milestones.filter(m=>m.date).map(m=>({...m,title:m.name,_kind:"milestone"}))
+        ].sort((a,b)=>a.date?.localeCompare(b.date)).map(item=>{
+          const isMilestone=item._kind==="milestone";
+          const color=isMilestone?EC.milestone:(item.color||EC[item.type]||C.muted);
+          const statusIcon={"Completed":"✅","In Progress":"🔄","Not Started":"⬜"};
+          return <div key={(isMilestone?"m":"e")+item.id} style={{display:"flex",gap:14,padding:"12px 0",borderBottom:`1px solid ${C.border}`}}>
+            <div style={{width:4,borderRadius:2,background:color,flexShrink:0,alignSelf:"stretch"}}/>
+            <div style={{width:56,flexShrink:0}}>
+              <div style={{fontSize:12,color:C.gold,fontWeight:700}}>{item.date?new Date(item.date+"T12:00:00").toLocaleDateString("en-CA",{month:"short",day:"numeric"}):""}</div>
+              {item.date_end&&item.date_end>item.date&&<div style={{fontSize:10,color:C.muted}}>→ {new Date(item.date_end+"T12:00:00").toLocaleDateString("en-CA",{month:"short",day:"numeric"})}</div>}
             </div>
-          </div>
-        </div>;
-      })}
+            <div style={{flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
+                {isMilestone&&<span style={{fontSize:13}}>{statusIcon[item.status]||"⬜"}</span>}
+                <span style={{color:C.white,fontWeight:600,fontSize:13}}>{item.title}</span>
+                <span style={{fontSize:10,color:color,background:color+"22",padding:"1px 7px",borderRadius:10,fontWeight:600}}>
+                  {isMilestone?"Milestone":ET_LABELS[item.type]||item.type}
+                </span>
+              </div>
+              {item.time&&!isMilestone&&<div style={{fontSize:11,color:C.muted,marginTop:3}}>🕐 {item.time}</div>}
+              {isMilestone&&<div style={{marginTop:3}}><Badge label={item.status}/></div>}
+            </div>
+          </div>;
+        })}
+      </>}
     </div>}
 
     {/* ── PAYMENTS ── */}
