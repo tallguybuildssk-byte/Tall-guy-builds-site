@@ -1095,7 +1095,7 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
     </>}
 
     {/* ── CALENDAR VIEW ── */}
-    {view==="calendar"&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden"}}>
+    {view==="calendar"&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",width:"100%",boxSizing:"border-box"}}>
       {/* Month nav */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 22px",borderBottom:`1px solid ${C.border}`,background:C.navy}}>
         <button onClick={prevMonth} style={{background:"none",border:"none",color:C.gold,fontSize:22,cursor:"pointer",lineHeight:1,padding:"0 10px"}}>‹</button>
@@ -1103,11 +1103,11 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
         <button onClick={nextMonth} style={{background:"none",border:"none",color:C.gold,fontSize:22,cursor:"pointer",lineHeight:1,padding:"0 10px"}}>›</button>
       </div>
       {/* Day-of-week headers */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",borderBottom:`1px solid ${C.border}`,background:C.navy}}>
-        {DAYS.map((d,i)=><div key={d} style={{textAlign:"center",padding:"10px 0",fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:i===0||i===6?"#4B5563":C.muted}}>{d}</div>)}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,minmax(0,1fr))",borderBottom:`1px solid ${C.border}`,background:C.navy,width:"100%"}}>
+        {DAYS.map((d,i)=><div key={d} style={{textAlign:"center",padding:"10px 0",fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:i===0||i===6?"#4B5563":C.muted,overflow:"hidden"}}>{d}</div>)}
       </div>
       {/* Cells — full-height rows */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,minmax(0,1fr))",width:"100%"}}>
         {calDays().map((d,i)=>{
           const ds=calStr(d);
           const dayEvents=events.filter(e=>{
@@ -1129,13 +1129,15 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
             style={{
               minHeight:120,
               padding:"8px 8px 6px",
-              borderRight:`1px solid ${C.border}`,
+              borderRight:i%7!==6?`1px solid ${C.border}`:"none",
               borderBottom:`1px solid ${C.border}`,
               background:isDragOver?C.gold+"18":isToday?C.gold+"0D":isWeekend?"#1a2535":"transparent",
               cursor:d?"pointer":"default",
               opacity:d?1:0.3,
               transition:"background 0.1s",
               verticalAlign:"top",
+              boxSizing:"border-box",
+              overflow:"hidden",
             }}>
             {d&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
               <div style={{
