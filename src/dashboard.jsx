@@ -1027,7 +1027,9 @@ function Estimator(){
     const summary=fields.map(f=>`${f.label}: ${inputs[f.key]||"not specified"}`).join("\n");
     try{
       const res=await fetch("/.netlify/functions/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:`You are a construction estimator for Tall Guy Builds Inc. in Regina, Saskatchewan. Generate a realistic estimate using 2025-2026 Regina pricing. Labour $75-85/hr.\n\nProject: ${projectType}\nClient: ${clientName||"TBD"}, Address: ${address||"TBD"}\nDetails:\n${summary}\n\nReturn ONLY valid JSON, no markdown:\n{"summary":"one sentence scope","estimatedDays":5,"lineItems":[{"category":"Labour","description":"item","qty":40,"unit":"hrs","rate":80,"total":3200}],"assumptions":["string"],"exclusions":["string"]}`}]})});
-      const data=await res.json();
+      const rawText=await res.text();
+      if(!res.ok){alert("API error "+res.status+": "+rawText.slice(0,200));setLoading(false);return;}
+      let data;try{data=JSON.parse(rawText);}catch(je){alert("Bad response (status "+res.status+"): "+rawText.slice(0,300));setLoading(false);return;}
       const text=data.content?.find(b=>b.type==="text")?.text||"";
       const parsed=JSON.parse(text.replace(/```json|```/g,"").trim());
       setQuote(parsed);setEstStep(3);
