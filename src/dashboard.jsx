@@ -964,6 +964,235 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
   </div>;
 }
 
+
+// ── ESTIMATOR ─────────────────────────────────────────────────────────────────
+const EST_FIELDS={
+  "Deck":[
+    {key:"length",label:"Length (ft)",type:"number",placeholder:"e.g. 20"},
+    {key:"width",label:"Width (ft)",type:"number",placeholder:"e.g. 12"},
+    {key:"height",label:"Height off ground (ft)",type:"number",placeholder:"e.g. 3"},
+    {key:"material",label:"Decking Material",type:"select",options:["Pressure Treated","Cedar","Composite (Trex/Fiberon)"]},
+    {key:"stairs",label:"Stairs",type:"select",options:["None","1 set","2 sets"]},
+    {key:"railing",label:"Railing",type:"select",options:["None","Wood railing","Glass/aluminum railing"]},
+    {key:"demo",label:"Demo existing deck?",type:"select",options:["No","Yes — small","Yes — large"]},
+    {key:"notes",label:"Additional Notes",type:"textarea",placeholder:"Fascia boards, lighting, pergola, etc."},
+  ],
+  "Basement Development":[
+    {key:"sqft",label:"Total Sq Ft to Develop",type:"number",placeholder:"e.g. 900"},
+    {key:"bedrooms",label:"Bedrooms",type:"select",options:["0","1","2","3"]},
+    {key:"bathrooms",label:"Bathrooms",type:"select",options:["0","1 — 3pc","1 — 4pc","2"]},
+    {key:"laundry",label:"Laundry Room",type:"select",options:["No","Yes — rough-in only","Yes — finished"]},
+    {key:"wetbar",label:"Wet Bar",type:"select",options:["No","Yes — basic","Yes — full"]},
+    {key:"egress",label:"Egress Window",type:"select",options:["No","Yes — 1 window","Yes — 2 windows"]},
+    {key:"ceiling",label:"Ceiling Type",type:"select",options:["Drywall","Drop ceiling (T-bar)","Mix of both"]},
+    {key:"flooring",label:"Flooring",type:"select",options:["LVP/Laminate","Carpet","Tile","Mix"]},
+    {key:"notes",label:"Additional Notes",type:"textarea",placeholder:"Existing framing? Mechanical room?"},
+  ],
+  "Garage":[
+    {key:"length",label:"Length (ft)",type:"number",placeholder:"e.g. 24"},
+    {key:"width",label:"Width (ft)",type:"number",placeholder:"e.g. 26"},
+    {key:"stalls",label:"Stalls",type:"select",options:["1 car","2 car","3 car"]},
+    {key:"doors",label:"Garage Doors",type:"select",options:["1 standard","2 standard","1 oversized","2 oversized"]},
+    {key:"sidedoor",label:"Side Entry Door",type:"select",options:["No","Yes — 1","Yes — 2"]},
+    {key:"finish",label:"Interior Finish",type:"select",options:["Framed only","Insulated + drywalled","Fully finished with heat"]},
+    {key:"electrical",label:"Electrical",type:"select",options:["Basic (lights + outlets)","Heavy (220V, panel, EV plug)","None — rough-in only"]},
+    {key:"roof",label:"Roof Style",type:"select",options:["Standard gable","Hip roof","Gable with dormer"]},
+    {key:"notes",label:"Additional Notes",type:"textarea",placeholder:"Heated slab? RV door? Extra height?"},
+  ]
+};
+
+function EstFieldInput({field,value,onChange}){
+  const s={width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:C.white,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box"};
+  if(field.type==="select")return<select value={value||""} onChange={e=>onChange(field.key,e.target.value)} style={s}><option value="">Select...</option>{field.options.map(o=><option key={o} value={o}>{o}</option>)}</select>;
+  if(field.type==="textarea")return<textarea value={value||""} onChange={e=>onChange(field.key,e.target.value)} placeholder={field.placeholder} rows={3} style={{...s,resize:"vertical"}}/>;
+  return<input type="number" value={value||""} onChange={e=>onChange(field.key,e.target.value)} placeholder={field.placeholder} style={s}/>;
+}
+
+function Estimator(){
+  const [estStep,setEstStep]=useState(1);
+  const [projectType,setProjectType]=useState("");
+  const [clientName,setClientName]=useState("");
+  const [address,setAddress]=useState("");
+  const [inputs,setInputs]=useState({});
+  const [loading,setLoading]=useState(false);
+  const [quote,setQuote]=useState(null);
+  const [editingItem,setEditingItem]=useState(null);
+  const [markup,setMarkup]=useState(15);
+  function setField(k,v){setInputs(p=>({...p,[k]:v}));}
+  function resetEst(){setEstStep(1);setProjectType("");setClientName("");setAddress("");setInputs({});setQuote(null);setEditingItem(null);}
+
+  async function generate(){
+    setLoading(true);setQuote(null);
+    const fields=EST_FIELDS[projectType];
+    const summary=fields.map(f=>`${f.label}: ${inputs[f.key]||"not specified"}`).join("\n");
+    try{
+      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:`You are a construction estimator for Tall Guy Builds Inc. in Regina, Saskatchewan. Generate a realistic estimate using 2025-2026 Regina pricing. Labour $75-85/hr.\n\nProject: ${projectType}\nClient: ${clientName||"TBD"}, Address: ${address||"TBD"}\nDetails:\n${summary}\n\nReturn ONLY valid JSON, no markdown:\n{"summary":"one sentence scope","estimatedDays":5,"lineItems":[{"category":"Labour","description":"item","qty":40,"unit":"hrs","rate":80,"total":3200}],"assumptions":["string"],"exclusions":["string"]}`}]})});
+      const data=await res.json();
+      const text=data.content?.find(b=>b.type==="text")?.text||"";
+      const parsed=JSON.parse(text.replace(/```json|```/g,"").trim());
+      setQuote(parsed);setEstStep(3);
+    }catch(e){alert("Error generating estimate: "+e.message);}
+    setLoading(false);
+  }
+
+  function updateItem(idx,field,val){setQuote(q=>{const items=[...q.lineItems];items[idx]={...items[idx],[field]:field==="description"||field==="unit"?val:parseFloat(val)||0};if(field==="qty"||field==="rate")items[idx].total=items[idx].qty*items[idx].rate;return{...q,lineItems:items};});}
+  function removeItem(idx){setQuote(q=>({...q,lineItems:q.lineItems.filter((_,i)=>i!==idx)}));}
+  function addItem(cat){setQuote(q=>({...q,lineItems:[...q.lineItems,{category:cat,description:"New item",qty:1,unit:"ls",rate:0,total:0}]}));}
+
+  const subtotal=quote?.lineItems?.reduce((s,i)=>s+i.total,0)||0;
+  const markupAmt=subtotal*(markup/100);
+  const gst=(subtotal+markupAmt)*0.05;
+  const total=subtotal+markupAmt+gst;
+  const fmt$=n=>"$"+n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,",");
+
+  function printQuote(){
+    const w=window.open("","_blank");
+    const today=new Date().toLocaleDateString("en-CA");
+    const labourItems=quote.lineItems.filter(i=>i.category==="Labour");
+    const matItems=quote.lineItems.filter(i=>i.category==="Materials");
+    const tr=items=>items.map(i=>`<tr><td>${i.description}</td><td>${i.qty}</td><td>${i.unit}</td><td>${fmt$(i.rate)}</td><td style="font-weight:700">${fmt$(i.total)}</td></tr>`).join("");
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Estimate — ${clientName||projectType}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#1F2A37}.hdr{background:#1F2A37;padding:28px 40px}.co{font-size:22px;font-weight:700;color:#C8A96A}.sub{font-size:11px;color:#aaa;margin-top:4px}.body{padding:28px 40px}.meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;background:#f5f5f5;padding:16px;border-radius:8px;margin-bottom:24px}.ml{font-size:10px;text-transform:uppercase;color:#888;margin-bottom:2px}.mv{font-size:13px;font-weight:600}h3{font-size:12px;text-transform:uppercase;color:#C8A96A;margin:20px 0 8px;border-bottom:2px solid #C8A96A;padding-bottom:4px}table{width:100%;border-collapse:collapse}th{background:#1F2A37;color:#fff;padding:8px 10px;font-size:11px;text-align:left}td{padding:8px 10px;font-size:12px;border-bottom:1px solid #eee}tr:nth-child(even) td{background:#fafafa}.totals{display:flex;justify-content:flex-end;margin-top:20px}.tbox{min-width:280px}.trow{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px solid #eee}.tfinal{display:flex;justify-content:space-between;padding:10px 0 0;font-size:17px;font-weight:700;border-top:2px solid #C8A96A;margin-top:4px}.notes{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px}.nbox{background:#f5f5f5;padding:14px;border-radius:6px}.nbox h4{font-size:10px;text-transform:uppercase;color:#888;margin-bottom:8px}.nbox li{font-size:11px;color:#555;margin-bottom:4px;list-style:disc;margin-left:14px}.disc{margin-top:24px;background:#fff8ee;border:1px solid #C8A96A;border-radius:6px;padding:12px;font-size:11px;color:#777}.ftr{background:#1F2A37;color:#888;text-align:center;padding:14px;font-size:11px;margin-top:32px}.ftr span{color:#C8A96A}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><div class="hdr"><div class="co">TALL GUY BUILDS INC.</div><div class="sub">Built Right. Designed to Last. | tallguybuilds.ca | 306-737-5407 | Regina, SK</div></div><div class="body"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><div><div style="font-size:22px;font-weight:700">ESTIMATE</div><div style="color:#666;font-size:13px;margin-top:4px">${quote.summary}</div></div><div style="text-align:right"><div style="font-size:10px;color:#888">Date</div><div style="font-weight:600">${today}</div></div></div><div class="meta"><div><div class="ml">Client</div><div class="mv">${clientName||"—"}</div></div><div><div class="ml">Address</div><div class="mv">${address||"—"}</div></div><div><div class="ml">Project</div><div class="mv">${projectType}</div></div><div><div class="ml">Duration</div><div class="mv">${quote.estimatedDays} working days</div></div></div>${labourItems.length?`<h3>Labour</h3><table><thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Rate</th><th>Total</th></tr></thead><tbody>${tr(labourItems)}</tbody></table>`:""}${matItems.length?`<h3>Materials</h3><table><thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Rate</th><th>Total</th></tr></thead><tbody>${tr(matItems)}</tbody></table>`:""}<div class="totals"><div class="tbox"><div class="trow"><span>Subtotal</span><span>${fmt$(subtotal)}</span></div><div class="trow"><span>Overhead &amp; Profit (${markup}%)</span><span>${fmt$(markupAmt)}</span></div><div class="trow"><span>GST (5%)</span><span>${fmt$(gst)}</span></div><div class="tfinal"><span>TOTAL</span><span>${fmt$(total)}</span></div></div></div><div class="notes">${quote.assumptions?.length?`<div class="nbox"><h4>Assumptions</h4><ul>${quote.assumptions.map(a=>`<li>${a}</li>`).join("")}</ul></div>`:""}${quote.exclusions?.length?`<div class="nbox"><h4>Exclusions</h4><ul>${quote.exclusions.map(e=>`<li>${e}</li>`).join("")}</ul></div>`:""}</div><div class="disc"><strong>Note:</strong> Preliminary estimate only. Final pricing subject to site visit. Valid 30 days. All prices CAD.</div></div><div class="ftr"><span>Tall Guy Builds Inc.</span> | Regina, SK | 306-737-5407 | tallguybuilds.ca | @tallguybuildssk</div><script>window.onload=()=>window.print();</script></body></html>`);
+    w.document.close();
+  }
+
+  const IS=s=>({width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:C.white,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",...s});
+  const TYPES=["Deck","Basement Development","Garage"];
+  const ICONS={"Deck":"🪵","Basement Development":"🏗️","Garage":"🚗"};
+
+  return <div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
+      <h1 style={{fontFamily:font,color:C.white,fontSize:26,margin:0}}>Estimator</h1>
+      {estStep>1&&<div style={{display:"flex",gap:6,alignItems:"center"}}>
+        {["Type","Details","Quote"].map((s,i)=><div key={s} style={{display:"flex",alignItems:"center",gap:5}}>
+          <div style={{width:22,height:22,borderRadius:"50%",background:estStep>=i+1?C.gold:C.border,color:estStep>=i+1?C.navy:C.muted,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700}}>{estStep>i+1?"✓":i+1}</div>
+          <span style={{fontSize:11,color:estStep===i+1?C.gold:C.muted}}>{s}</span>
+          {i<2&&<span style={{color:C.border,fontSize:10}}>›</span>}
+        </div>)}
+      </div>}
+      {estStep>1&&<Btn variant="ghost" onClick={resetEst}>+ New Estimate</Btn>}
+    </div>
+
+    {estStep===1&&<div>
+      <p style={{color:C.muted,fontSize:13,marginBottom:20}}>Select a project type to get started</p>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:24}}>
+        {TYPES.map(type=><div key={type} onClick={()=>setProjectType(type)} style={{background:projectType===type?C.navyLight:C.navy,border:`2px solid ${projectType===type?C.gold:C.border}`,borderRadius:12,padding:"24px 16px",cursor:"pointer",textAlign:"center",transition:"all 0.15s"}}>
+          <div style={{fontSize:32,marginBottom:10}}>{ICONS[type]}</div>
+          <div style={{color:C.white,fontWeight:700,fontSize:14,marginBottom:4}}>{type}</div>
+        </div>)}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:20}}>
+        <div><label style={{color:C.muted,fontSize:11,fontWeight:700,display:"block",marginBottom:5,textTransform:"uppercase"}}>Client Name (optional)</label><input value={clientName} onChange={e=>setClientName(e.target.value)} placeholder="e.g. John Smith" style={IS()}/></div>
+        <div><label style={{color:C.muted,fontSize:11,fontWeight:700,display:"block",marginBottom:5,textTransform:"uppercase"}}>Project Address (optional)</label><input value={address} onChange={e=>setAddress(e.target.value)} placeholder="e.g. 123 Main St, Regina" style={IS()}/></div>
+      </div>
+      <div style={{display:"flex",justifyContent:"flex-end"}}><Btn onClick={()=>setEstStep(2)} disabled={!projectType}>Next: Project Details →</Btn></div>
+    </div>}
+
+    {estStep===2&&<div>
+      <div style={{marginBottom:20}}>
+        <button onClick={()=>setEstStep(1)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,padding:0,marginBottom:8}}>← Back</button>
+        <h2 style={{color:C.white,fontFamily:font,fontSize:20,margin:"0 0 4px"}}>{projectType}</h2>
+        <p style={{color:C.muted,fontSize:13,margin:0}}>Fill in what you know — AI will estimate anything left blank</p>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        {EST_FIELDS[projectType].map(field=><div key={field.key} style={field.type==="textarea"?{gridColumn:"1 / -1"}:{}}>
+          <label style={{color:C.muted,fontSize:11,fontWeight:700,display:"block",marginBottom:5,textTransform:"uppercase"}}>{field.label}</label>
+          <EstFieldInput field={field} value={inputs[field.key]} onChange={setField}/>
+        </div>)}
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",marginTop:24}}>
+        <Btn variant="ghost" onClick={()=>setEstStep(1)}>← Back</Btn>
+        <Btn onClick={generate} disabled={loading} style={{minWidth:200}}>{loading?"⚙️ Generating...":"✨ Generate Estimate"}</Btn>
+      </div>
+    </div>}
+
+    {estStep===3&&quote&&<div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18,flexWrap:"wrap",gap:10}}>
+        <div>
+          <button onClick={()=>setEstStep(2)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,padding:0,marginBottom:6}}>← Edit Details</button>
+          <h2 style={{color:C.white,fontFamily:font,fontSize:20,margin:"0 0 4px"}}>{projectType} Estimate</h2>
+          <p style={{color:C.muted,fontSize:12,margin:0}}>{quote.summary}</p>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <Btn variant="ghost" onClick={generate} disabled={loading}>{loading?"...":"↺ Regenerate"}</Btn>
+          <Btn onClick={printQuote}>🖨 Print / PDF</Btn>
+        </div>
+      </div>
+
+      {(clientName||address)&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 16px",marginBottom:16,display:"flex",gap:24,flexWrap:"wrap"}}>
+        {clientName&&<div><div style={{fontSize:10,color:C.muted,textTransform:"uppercase",marginBottom:1}}>Client</div><div style={{color:C.white,fontSize:13,fontWeight:600}}>{clientName}</div></div>}
+        {address&&<div><div style={{fontSize:10,color:C.muted,textTransform:"uppercase",marginBottom:1}}>Address</div><div style={{color:C.white,fontSize:13,fontWeight:600}}>{address}</div></div>}
+        <div><div style={{fontSize:10,color:C.muted,textTransform:"uppercase",marginBottom:1}}>Duration</div><div style={{color:C.white,fontSize:13,fontWeight:600}}>{quote.estimatedDays} working days</div></div>
+      </div>}
+
+      {["Labour","Materials"].map(cat=>{
+        const items=quote.lineItems.filter(i=>i.category===cat);
+        return <div key={cat} style={{marginBottom:16}}>
+          <div style={{color:C.gold,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:6,paddingBottom:5,borderBottom:`2px solid ${C.gold}`}}>{cat}</div>
+          <div style={{background:C.navyLight,borderRadius:10,overflow:"hidden",border:`1px solid ${C.border}`}}>
+            <div style={{display:"grid",gridTemplateColumns:"3fr 70px 70px 90px 100px 50px",padding:"7px 12px",background:C.navy}}>
+              {["Description","Qty","Unit","Rate","Total",""].map(h=><div key={h} style={{color:C.muted,fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
+            </div>
+            {items.length===0&&<div style={{padding:"12px",color:C.muted,fontSize:12}}>No items</div>}
+            {items.map(item=>{
+              const gi=quote.lineItems.indexOf(item);
+              const isE=editingItem===gi;
+              const IS2=s=>({...IS(),padding:"5px 8px",fontSize:12,...s});
+              return <div key={gi} style={{display:"grid",gridTemplateColumns:"3fr 70px 70px 90px 100px 50px",padding:"8px 12px",borderTop:`1px solid ${C.border}`,alignItems:"center",background:isE?C.navy:"transparent"}}>
+                {isE?<>
+                  <input value={item.description} onChange={e=>updateItem(gi,"description",e.target.value)} style={IS2()}/>
+                  <input type="number" value={item.qty} onChange={e=>updateItem(gi,"qty",e.target.value)} style={IS2()}/>
+                  <input value={item.unit} onChange={e=>updateItem(gi,"unit",e.target.value)} style={IS2()}/>
+                  <input type="number" value={item.rate} onChange={e=>updateItem(gi,"rate",e.target.value)} style={IS2()}/>
+                  <div style={{color:C.gold,fontWeight:700,fontSize:13}}>{fmt$(item.total)}</div>
+                  <button onClick={()=>setEditingItem(null)} style={{background:C.gold,border:"none",borderRadius:5,color:C.navy,cursor:"pointer",padding:"4px 6px",fontWeight:700,fontSize:11}}>✓</button>
+                </>:<>
+                  <div style={{color:C.white,fontSize:13}}>{item.description}</div>
+                  <div style={{color:C.muted,fontSize:12}}>{item.qty}</div>
+                  <div style={{color:C.muted,fontSize:12}}>{item.unit}</div>
+                  <div style={{color:C.muted,fontSize:12}}>{fmt$(item.rate)}</div>
+                  <div style={{color:C.gold,fontWeight:700,fontSize:13}}>{fmt$(item.total)}</div>
+                  <div style={{display:"flex",gap:3}}>
+                    <button onClick={()=>setEditingItem(gi)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,padding:0}}>✏️</button>
+                    <button onClick={()=>removeItem(gi)} style={{background:"none",border:"none",color:C.danger,cursor:"pointer",fontSize:15,fontWeight:700,padding:0}}>×</button>
+                  </div>
+                </>}
+              </div>;
+            })}
+          </div>
+          <button onClick={()=>addItem(cat)} style={{background:"none",border:`1px dashed ${C.border}`,borderRadius:7,color:C.muted,cursor:"pointer",width:"100%",padding:"7px",fontSize:12,marginTop:5}}>+ Add {cat} Line</button>
+        </div>;
+      })}
+
+      <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}>
+        <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:18,minWidth:290}}>
+          <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:13,color:C.white}}><span>Subtotal</span><span>{fmt$(subtotal)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:13,color:C.white}}>
+            <span>Overhead & Profit</span>
+            <div style={{display:"flex",alignItems:"center",gap:5}}>
+              <input type="number" value={markup} onChange={e=>setMarkup(+e.target.value||0)} style={{width:44,background:C.navy,border:`1px solid ${C.border}`,borderRadius:5,padding:"3px 5px",color:C.white,fontFamily:fb,fontSize:12}}/>
+              <span style={{color:C.muted,fontSize:12}}>%</span>
+              <span style={{color:C.gold}}>{fmt$(markupAmt)}</span>
+            </div>
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:13,color:C.white}}><span>GST (5%)</span><span>{fmt$(gst)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0 0",fontSize:18,fontWeight:700,color:C.gold}}><span>TOTAL</span><span>{fmt$(total)}</span></div>
+        </div>
+      </div>
+
+      {(quote.assumptions?.length>0||quote.exclusions?.length>0)&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:20}}>
+        {quote.assumptions?.length>0&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:10,padding:14}}>
+          <div style={{color:C.gold,fontSize:11,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Assumptions</div>
+          {quote.assumptions.map((a,i)=><div key={i} style={{color:C.muted,fontSize:12,marginBottom:4}}>• {a}</div>)}
+        </div>}
+        {quote.exclusions?.length>0&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:10,padding:14}}>
+          <div style={{color:C.danger,fontSize:11,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Exclusions</div>
+          {quote.exclusions.map((e,i)=><div key={i} style={{color:C.muted,fontSize:12,marginBottom:4}}>• {e}</div>)}
+        </div>}
+      </div>}
+    </div>}
+  </div>;
+}
+
 // ── LEADS ─────────────────────────────────────────────────────────────────────
 function Leads({leads,setLeads}){
   const [showM,setShowM]=useState(false);const [sel,setSel]=useState(null);const [form,setForm]=useState({});
@@ -1667,6 +1896,7 @@ const NAV=[
   {id:"subs",label:"Subtrades",icon:"◆"},
   {id:"logs",label:"Daily Log",icon:"📋"},
   {id:"portal",label:"Client Portal",icon:"◈"},
+  {id:"estimator",label:"Estimator",icon:"💲"},
   {id:"settings",label:"Settings",icon:"⚙"},
 ];
 
@@ -1760,6 +1990,7 @@ export default function App(){
         {page==="subs"&&<Subs subs={subs} setSubs={setSubs}/>}
         {page==="logs"&&<DailyLog logs={logs} setLogs={setLogs} jobs={jobs}/>}
         {page==="portal"&&<ClientPortal jobs={jobs} logs={logs}/>}
+        {page==="estimator"&&<Estimator/>}
         {page==="settings"&&<Settings/>}
       </div>
     </div>
