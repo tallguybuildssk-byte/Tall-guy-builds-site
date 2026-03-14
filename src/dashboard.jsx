@@ -1026,7 +1026,25 @@ function Estimator(){
     const fields=EST_FIELDS[projectType];
     const summary=fields.map(f=>`${f.label}: ${inputs[f.key]||"not specified"}`).join("\n");
     try{
-      const res=await fetch("/.netlify/functions/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,messages:[{role:"user",content:`You are a construction estimator for Tall Guy Builds Inc. in Regina, Saskatchewan. Generate a realistic estimate using 2025-2026 Regina pricing. Labour $75-85/hr.\n\nProject: ${projectType}\nClient: ${clientName||"TBD"}, Address: ${address||"TBD"}\nDetails:\n${summary}\n\nReturn ONLY valid JSON, no markdown:\n{"summary":"one sentence scope","estimatedDays":5,"lineItems":[{"category":"Labour","description":"item","qty":40,"unit":"hrs","rate":80,"total":3200}],"assumptions":["string"],"exclusions":["string"]}`}]})});
+      const res=await fetch("/.netlify/functions/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,messages:[{role:"user",content:`You are an expert construction estimator for Tall Guy Builds Inc. in Regina, Saskatchewan.
+
+CRITICAL RULES:
+- Calculate ALL quantities mathematically from the dimensions provided. Do NOT guess or round up wildly.
+- For a deck: perimeter = 2×(length+width). Fascia = perimeter lf. Decking boards = area (sqft). Joists = every 16" across width. Posts = every 8ft along perimeter.
+- For a garage: floor area = length×width. Framing lumber based on actual wall heights and stud spacing.
+- For a basement: all quantities must be derived from the square footage provided.
+- Labour hours must be realistic. A 17×19 deck should be 60-100 hrs total labour, not hundreds.
+- Use 2025-2026 Regina SK pricing. Labour $75-85/hr for skilled trades.
+- Composite decking materials: $12-18/sqft supply. Pressure treated lumber: current market rates.
+- Keep line items concise — 8-15 items max. Group similar work together.
+
+Project: ${projectType}
+Client: ${clientName||"TBD"}, Address: ${address||"TBD"}
+Details:
+${summary}
+
+Return ONLY valid JSON, no markdown, no explanation:
+{"summary":"one sentence scope","estimatedDays":5,"lineItems":[{"category":"Labour","description":"item","qty":40,"unit":"hrs","rate":80,"total":3200}],"assumptions":["string"],"exclusions":["string"]}`}]})});
       const rawText=await res.text();
       if(!res.ok){alert("API error "+res.status+": "+rawText.slice(0,200));setLoading(false);return;}
       let data;try{data=JSON.parse(rawText);}catch(je){alert("Bad response (status "+res.status+"): "+rawText.slice(0,300));setLoading(false);return;}
