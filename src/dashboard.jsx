@@ -1035,7 +1035,52 @@ CRITICAL RULES:
 - For a basement: all quantities must be derived from the square footage provided.
 - Labour hours must be realistic. A 17×19 deck should be 60-100 hrs total labour, not hundreds.
 - Use 2025-2026 Regina SK pricing. Labour $75-85/hr for skilled trades.
-- Composite decking materials: $12-18/sqft supply. Pressure treated lumber: current market rates.
+MATERIAL PRICING — use these exact prices from Fries Tallman Lumber Regina (contractor pricing, September 2025):
+
+PRESSURE TREATED FRAMING LUMBER (Fries Tallman contractor prices):
+- 2x8x10 PT: $21.69/board
+- 2x8x16 PT: $34.71/board
+- 2x10x16 PT: $45.85/board
+- 2x12x12 PT (stair stringers): $48.39/board
+- 4x4x8 PT post: $16.95/board
+- Scale other sizes proportionally (e.g. 2x8x12 ~$26, 2x8x20 ~$43, 4x4x12 ~$25)
+- Simpson LUS28Z 2x8 joist hanger (galvanized): $2.37/ea
+
+COMPOSITE DECKING — Trex Transcend (high end, Fries Tallman contractor prices):
+- 16ft grooved board: $159.98/board = $10.00/lf
+- 20ft square edge board: $202.77/board = $10.14/lf
+- 1x12 fascia 12ft board: $203.63/board
+- Fascia boards come in 12ft or 20ft — always round perimeter UP to nearest full board length
+- Cortex fascia fastener kit (100lf): $124.15/box
+- Cortex field fastener kit (100lf): $156.19/box
+
+COMPOSITE DECKING — Trex Enhance Naturals (mid grade, TUDS retail minus 15%):
+- 16ft grooved: ~$79/board = $4.94/lf
+- 20ft solid/grooved: ~$98/board
+- 12ft grooved: ~$59/board
+- 7.25" riser: ~$114/board
+- 12" fascia (12ft): ~$183/board — round perimeter to nearest full board
+
+COMPOSITE DECKING — Eva-Last Apex Plus (premium, TUDS retail minus 15%):
+- 12ft grooved: ~$109/board = $9.08/lf
+- 16ft grooved: ~$145/board
+- 20ft solid/grooved: ~$181/board
+- 7.25" riser: ~$139/board
+- 12" fascia (12ft): ~$209/board — round perimeter to nearest full board
+
+GLASS RAILING:
+- Matelux tempered 6mm glass panels: $24.50/panel (Fries Tallman)
+- Typical panel coverage ~6" wide, calculate panels from linear footage
+
+ALUMINUM RAILING (Vista or Regal textured black — most common):
+- Supply only: ~$55-70/lf
+
+GENERAL RULES:
+- Always round board counts UP — never partial boards
+- Calculate ALL quantities mathematically from dimensions first
+- For fascia: perimeter = 2x(length+width), round up to board lengths
+- For decking: area = length x width, add 10% waste factor
+- For joists: quantity = (deck width / 16") + 1, use nearest available board length
 - Keep line items concise — 8-15 items max. Group similar work together.
 
 Project: ${projectType}
