@@ -1008,7 +1008,7 @@ function EstFieldInput({field,value,onChange}){
   return<input type="number" value={value||""} onChange={e=>onChange(field.key,e.target.value)} placeholder={field.placeholder} style={s}/>;
 }
 
-function Estimator(){
+function Estimator({jobs=[],leads=[]}){
   const [estStep,setEstStep]=useState(1);
   const [projectType,setProjectType]=useState("");
   const [clientName,setClientName]=useState("");
@@ -1018,8 +1018,34 @@ function Estimator(){
   const [quote,setQuote]=useState(null);
   const [editingItem,setEditingItem]=useState(null);
   const [markup,setMarkup]=useState(15);
+  // Save Estimate state
+  const [showSaveModal,setShowSaveModal]=useState(false);
+  const [saveTarget,setSaveTarget]=useState("lead"); // "lead" | "job"
+  const [saveTargetId,setSaveTargetId]=useState("");
+  const [saving,setSaving]=useState(false);
+  const [savedMsg,setSavedMsg]=useState("");
   function setField(k,v){setInputs(p=>({...p,[k]:v}));}
-  function resetEst(){setEstStep(1);setProjectType("");setClientName("");setAddress("");setInputs({});setQuote(null);setEditingItem(null);}
+  function resetEst(){setEstStep(1);setProjectType("");setClientName("");setAddress("");setInputs({});setQuote(null);setEditingItem(null);setSavedMsg("");}
+
+  async function saveEstimate(){
+    if(!saveTargetId){alert("Please select a project or lead to attach this estimate to.");return;}
+    setSaving(true);
+    const payload={
+      project_type:projectType,client_name:clientName||null,address:address||null,
+      summary:quote.summary,line_items:quote.lineItems,estimated_days:quote.estimatedDays,
+      assumptions:quote.assumptions||[],exclusions:quote.exclusions||[],
+      markup_pct:markup,subtotal,markup_amt:markupAmt,gst,total,
+      job_id:saveTarget==="job"?saveTargetId:null,
+      lead_id:saveTarget==="lead"?saveTargetId:null,
+    };
+    const {error}=await supabase.from("estimates").insert(payload);
+    setSaving(false);
+    if(error){alert("Could not save estimate: "+error.message);return;}
+    setSavedMsg("Estimate saved!");setSavedMsg("");
+    setShowSaveModal(false);
+    setTimeout(()=>setSavedMsg("✓ Saved"),100);
+    setTimeout(()=>setSavedMsg(""),3000);
+  }
 
   async function generate(){
     setLoading(true);setQuote(null);
@@ -1177,11 +1203,43 @@ Return ONLY valid JSON, no markdown, no explanation:
           <h2 style={{color:C.white,fontFamily:font,fontSize:20,margin:"0 0 4px"}}>{projectType} Estimate</h2>
           <p style={{color:C.muted,fontSize:12,margin:0}}>{quote.summary}</p>
         </div>
-        <div style={{display:"flex",gap:8}}>
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
           <Btn variant="ghost" onClick={generate} disabled={loading}>{loading?"...":"↺ Regenerate"}</Btn>
+          <Btn variant="ghost" onClick={()=>setShowSaveModal(true)}>💾 Save Estimate</Btn>
           <Btn onClick={printQuote}>🖨 Print / PDF</Btn>
+          {savedMsg&&<span style={{color:"#4ade80",fontSize:12,fontFamily:fb}}>{savedMsg}</span>}
         </div>
       </div>
+
+      {/* ── Save Estimate Modal ── */}
+      {showSaveModal&&<Modal title="Save Estimate" onClose={()=>setShowSaveModal(false)}>
+        <div style={{fontSize:12,color:C.muted,marginBottom:14}}>Attach this estimate to a lead or project so you can find it later.</div>
+        <div style={{display:"flex",gap:8,marginBottom:14}}>
+          {["lead","job"].map(t=>(
+            <button key={t} onClick={()=>{setSaveTarget(t);setSaveTargetId("");}} style={{flex:1,padding:"9px 0",borderRadius:8,border:`2px solid ${saveTarget===t?C.gold:C.border}`,background:saveTarget===t?C.gold+"22":"transparent",color:saveTarget===t?C.gold:C.muted,fontFamily:fb,fontSize:13,fontWeight:saveTarget===t?700:400,cursor:"pointer"}}>
+              {t==="lead"?"📋 Lead / Pipeline":"⬡ Active Project"}
+            </button>
+          ))}
+        </div>
+        {saveTarget==="lead"&&<>
+          <label style={{display:"block",fontSize:11,color:C.muted,marginBottom:5,textTransform:"uppercase"}}>Select Lead</label>
+          <select value={saveTargetId} onChange={e=>setSaveTargetId(e.target.value)} style={{width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:saveTargetId?C.white:C.muted,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",marginBottom:14}}>
+            <option value="">Choose a lead…</option>
+            {leads.map(l=><option key={l.id} value={l.id}>{l.name}{l.type?` — ${l.type}`:""}</option>)}
+          </select>
+        </>}
+        {saveTarget==="job"&&<>
+          <label style={{display:"block",fontSize:11,color:C.muted,marginBottom:5,textTransform:"uppercase"}}>Select Project</label>
+          <select value={saveTargetId} onChange={e=>setSaveTargetId(e.target.value)} style={{width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:saveTargetId?C.white:C.muted,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",marginBottom:14}}>
+            <option value="">Choose a project…</option>
+            {jobs.map(j=><option key={j.id} value={j.id}>{j.name}{j.client?` — ${j.client}`:""}</option>)}
+          </select>
+        </>}
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+          <Btn variant="ghost" onClick={()=>setShowSaveModal(false)}>Cancel</Btn>
+          <Btn onClick={saveEstimate} style={{opacity:saving?0.6:1}}>{saving?"Saving…":"Save Estimate"}</Btn>
+        </div>
+      </Modal>}
 
       {(clientName||address)&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 16px",marginBottom:16,display:"flex",gap:24,flexWrap:"wrap"}}>
         {clientName&&<div><div style={{fontSize:10,color:C.muted,textTransform:"uppercase",marginBottom:1}}>Client</div><div style={{color:C.white,fontSize:13,fontWeight:600}}>{clientName}</div></div>}
@@ -1674,6 +1732,7 @@ function Subs({subs,setSubs}){
 function DailyLog({logs,setLogs,jobs}){
   const [showM,setShowM]=useState(false);const [sel,setSel]=useState(null);const [form,setForm]=useState({});
   const [filterJob,setFilterJob]=useState("all");
+  const [uploadingPhotos,setUploadingPhotos]=useState(false);
   const fileRef=useRef(null);
   const f=(k,v)=>setForm(p=>({...p,[k]:v}));
   const blank={job_id:"",date:todayStr(),weather:"☀️ Sunny",crew:2,hours:8,notes:"",visible_to_client:false,photos:[]};
@@ -1686,12 +1745,28 @@ function DailyLog({logs,setLogs,jobs}){
     setShowM(false);
   }
   async function del(){await supabase.from("daily_logs").delete().eq("id",sel.id);setLogs(ls=>ls.filter(l=>l.id!==sel.id));setShowM(false);}
-  function handlePhotos(e){
-    Array.from(e.target.files).forEach(file=>{
-      const reader=new FileReader();
-      reader.onload=ev=>f("photos",[...(form.photos||[]),{id:Date.now()+Math.random(),name:file.name,url:ev.target.result}]);
-      reader.readAsDataURL(file);
-    });e.target.value="";
+  // ── Photo upload: stores files in Supabase Storage (bucket: daily-log-photos)
+  // rather than as base64 data URLs in the DB row — much better for performance.
+  async function handlePhotos(e){
+    const files=Array.from(e.target.files);
+    e.target.value="";
+    if(!files.length)return;
+    setUploadingPhotos(true);
+    const uploaded=[];
+    for(const file of files){
+      const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,"-");
+      const path=`logs/${Date.now()}-${safeName}`;
+      const {error:upErr}=await supabase.storage.from("daily-log-photos").upload(path,file,{cacheControl:"3600",upsert:false});
+      if(upErr){alert("Photo upload failed: "+upErr.message);continue;}
+      const {data:{publicUrl}}=supabase.storage.from("daily-log-photos").getPublicUrl(path);
+      uploaded.push({id:Date.now()+Math.random(),name:file.name,url:publicUrl,path});
+    }
+    if(uploaded.length)setForm(p=>({...p,photos:[...(p.photos||[]),...uploaded]}));
+    setUploadingPhotos(false);
+  }
+  async function removePhoto(photo,idx){
+    if(photo.path)await supabase.storage.from("daily-log-photos").remove([photo.path]);
+    setForm(p=>({...p,photos:(p.photos||[]).filter((_,i)=>i!==idx)}));
   }
   const sorted=[...logs].sort((a,b)=>b.date?.localeCompare(a.date));
   const filtered=filterJob==="all"?sorted:sorted.filter(l=>String(l.job_id)===filterJob);
@@ -1748,14 +1823,14 @@ function DailyLog({logs,setLogs,jobs}){
       <Txtarea label="What was done today" value={form.notes||""} onChange={v=>f("notes",v)} rows={5}/>
       <div style={{marginBottom:14}}>
         <label style={{display:"block",fontSize:11,color:C.muted,marginBottom:6,textTransform:"uppercase"}}>Photos</label>
-        <button onClick={()=>fileRef.current.click()} style={{padding:"8px 14px",background:"transparent",border:`1px dashed ${C.gold}`,borderRadius:7,color:C.gold,fontSize:12,cursor:"pointer",fontFamily:fb}}>📷 Upload Photos</button>
+        <button onClick={()=>!uploadingPhotos&&fileRef.current.click()} style={{padding:"8px 14px",background:"transparent",border:`1px dashed ${uploadingPhotos?C.muted:C.gold}`,borderRadius:7,color:uploadingPhotos?C.muted:C.gold,fontSize:12,cursor:uploadingPhotos?"not-allowed":"pointer",fontFamily:fb}}>{uploadingPhotos?"⏳ Uploading...":"📷 Upload Photos"}</button>
         <input ref={fileRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={handlePhotos}/>
         {(form.photos||[]).length>0&&(
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(70px,1fr))",gap:6,marginTop:10}}>
             {(form.photos||[]).map((photo,pi)=>(
               <div key={pi} style={{position:"relative",borderRadius:6,overflow:"hidden",aspectRatio:"1",background:C.border}}>
                 <img src={photo.url||photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
-                <button onClick={()=>f("photos",(form.photos||[]).filter((_,i)=>i!==pi))} style={{position:"absolute",top:2,right:2,background:"#00000099",border:"none",borderRadius:"50%",width:18,height:18,color:C.white,cursor:"pointer",fontSize:12,lineHeight:"18px",padding:0}}>×</button>
+                <button onClick={()=>removePhoto(photo,pi)} style={{position:"absolute",top:2,right:2,background:"#00000099",border:"none",borderRadius:"50%",width:18,height:18,color:C.white,cursor:"pointer",fontSize:12,lineHeight:"18px",padding:0}}>×</button>
               </div>
             ))}
           </div>
@@ -1778,10 +1853,36 @@ function DailyLog({logs,setLogs,jobs}){
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
 function Settings(){
-  const [ej,setEj]=useState(()=>JSON.parse(localStorage.getItem("tgb_emailjs")||"{}"));
+  const [ej,setEj]=useState({});
   const [saved,setSaved]=useState(false);
-  function saveEj(){localStorage.setItem("tgb_emailjs",JSON.stringify(ej));setSaved(true);setTimeout(()=>setSaved(false),2000);}
+  const [loading,setLoading]=useState(true);
+
+  // FIX: Load EmailJS credentials from Supabase (not localStorage) so they survive
+  // browser clears and work across devices. Also sync to localStorage so
+  // sendMilestoneEmail() (which reads localStorage at call time) stays working.
+  useEffect(()=>{
+    async function loadSettings(){
+      const {data}=await supabase.from("settings").select("value").eq("key","emailjs").maybeSingle();
+      if(data?.value){
+        setEj(data.value);
+        localStorage.setItem("tgb_emailjs",JSON.stringify(data.value));
+      } else {
+        // Fallback: migrate existing localStorage data on first run
+        const local=JSON.parse(localStorage.getItem("tgb_emailjs")||"{}");
+        setEj(local);
+      }
+      setLoading(false);
+    }
+    loadSettings();
+  },[]);
+
+  async function saveEj(){
+    await supabase.from("settings").upsert({key:"emailjs",value:ej},{onConflict:"key"});
+    localStorage.setItem("tgb_emailjs",JSON.stringify(ej)); // keep in sync for sendMilestoneEmail
+    setSaved(true);setTimeout(()=>setSaved(false),2500);
+  }
   async function handleSignOut(){await supabase.auth.signOut();window.location.href="/";}
+
   return <div>
     <h1 style={{fontFamily:font,color:C.white,fontSize:26,marginBottom:20}}>Settings</h1>
     <Card style={{marginBottom:16}}>
@@ -1798,15 +1899,17 @@ function Settings(){
         <br/>Setup: emailjs.com → Add Service (Gmail) → Create Template → copy your IDs here.
         <br/>Template variables: <span style={{color:C.gold,fontFamily:"monospace"}}>{"{{to_email}} {{client_name}} {{project_name}} {{milestone_name}} {{portal_url}}"}</span>
       </div>
-      <div style={{display:"grid",gap:9}}>
-        <Inp label="Service ID" value={ej.service_id||""} onChange={v=>setEj(p=>({...p,service_id:v}))} placeholder="service_xxxxxxx"/>
-        <Inp label="Template ID" value={ej.template_id||""} onChange={v=>setEj(p=>({...p,template_id:v}))} placeholder="template_xxxxxxx"/>
-        <Inp label="Public Key" value={ej.public_key||""} onChange={v=>setEj(p=>({...p,public_key:v}))} placeholder="your public key"/>
-      </div>
-      <div style={{display:"flex",alignItems:"center",gap:10,marginTop:12}}>
-        <Btn onClick={saveEj}>Save Email Settings</Btn>
-        {saved&&<span style={{color:"#4ade80",fontSize:12}}>✓ Saved</span>}
-      </div>
+      {loading?<div style={{color:C.muted,fontSize:12}}>Loading…</div>:<>
+        <div style={{display:"grid",gap:9}}>
+          <Inp label="Service ID" value={ej.service_id||""} onChange={v=>setEj(p=>({...p,service_id:v}))} placeholder="service_xxxxxxx"/>
+          <Inp label="Template ID" value={ej.template_id||""} onChange={v=>setEj(p=>({...p,template_id:v}))} placeholder="template_xxxxxxx"/>
+          <Inp label="Public Key" value={ej.public_key||""} onChange={v=>setEj(p=>({...p,public_key:v}))} placeholder="your public key"/>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginTop:12}}>
+          <Btn onClick={saveEj}>Save Email Settings</Btn>
+          {saved&&<span style={{color:"#4ade80",fontSize:12}}>✓ Saved to cloud</span>}
+        </div>
+      </>}
       <div style={{marginTop:12,padding:"10px 14px",background:C.navy,borderRadius:8,fontSize:11,color:C.muted}}>
         💡 <strong style={{color:C.white}}>To enable emails:</strong> Go to each project → add the client's email address in the Client Email field. Emails fire automatically when you tick a milestone as Complete.
       </div>
@@ -1911,6 +2014,7 @@ function ClientLogin({onSwitch}){
 function ClientPortalWrapper({session,onSignOut}){
   const [jobs,setJobs]=useState([]);
   const [logs,setLogs]=useState([]);
+  const [milestones,setMilestones]=useState([]); // FIX: milestones were missing — Schedule tab was empty
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState(null);
 
@@ -1923,13 +2027,14 @@ function ClientPortalWrapper({session,onSignOut}){
         // Get their job IDs
         const {data:cj}=await supabase.from("client_jobs").select("job_id").eq("client_id",client.id);
         const jobIds=(cj||[]).map(r=>r.job_id);
-        if(jobIds.length===0){setJobs([]);setLogs([]);setLoading(false);return;}
-        // Fetch those jobs + their logs
-        const [j,lg]=await Promise.all([
+        if(jobIds.length===0){setJobs([]);setLogs([]);setMilestones([]);setLoading(false);return;}
+        // Fetch jobs, client-visible logs, and milestones
+        const [j,lg,ms]=await Promise.all([
           supabase.from("jobs").select("*").in("id",jobIds),
           supabase.from("daily_logs").select("*").in("job_id",jobIds).eq("visible_to_client",true).order("date",{ascending:false}),
+          supabase.from("milestones").select("*").in("job_id",jobIds).order("date"),
         ]);
-        setJobs(j.data||[]);setLogs(lg.data||[]);
+        setJobs(j.data||[]);setLogs(lg.data||[]);setMilestones(ms.data||[]);
       }catch(err){setError("Could not load your projects: "+err.message);}
       finally{setLoading(false);}
     }
@@ -1947,7 +2052,7 @@ function ClientPortalWrapper({session,onSignOut}){
 
   return <div style={{background:C.bg,minHeight:"100vh",fontFamily:fb}}>
     <div style={{maxWidth:760,margin:"0 auto",padding:"24px 16px"}}>
-      <ClientPortal jobs={jobs} logs={logs} clientMode={true} onSignOut={onSignOut}/>
+      <ClientPortal jobs={jobs} logs={logs} milestones={milestones} clientMode={true} onSignOut={onSignOut}/>
     </div>
   </div>;
 }
@@ -1998,8 +2103,8 @@ export default function App(){
           // This is a client user — portal-only mode
           setIsClient(true);setLoading(false);return;
         }
-        // Admin: load all data
-        const [j,l,s,e,lg,ms,cl]=await Promise.all([
+        // Admin: load all data (including settings to sync EmailJS to localStorage)
+        const [j,l,s,e,lg,ms,cl,st]=await Promise.all([
           supabase.from("jobs").select("*").order("created_at",{ascending:false}),
           supabase.from("leads").select("*").order("created_at",{ascending:false}),
           supabase.from("subs").select("*").order("name"),
@@ -2007,9 +2112,13 @@ export default function App(){
           supabase.from("daily_logs").select("*").order("date",{ascending:false}),
           supabase.from("milestones").select("*").order("date"),
           supabase.from("clients").select("*").order("name"),
+          supabase.from("settings").select("*"),
         ]);
         if(j.error)throw j.error;
         setJobs(j.data||[]);setLeads(l.data||[]);setSubs(s.data||[]);setEvents(e.data||[]);setLogs(lg.data||[]);setMilestones(ms.data||[]);setClients(cl.data||[]);
+        // Sync EmailJS credentials from DB to localStorage so sendMilestoneEmail() works on any device
+        const ejRow=(st.data||[]).find(r=>r.key==="emailjs");
+        if(ejRow?.value)localStorage.setItem("tgb_emailjs",JSON.stringify(ejRow.value));
       }catch(err){setError("Could not connect to database: "+err.message);}
       finally{setLoading(false);}
     }
@@ -2054,8 +2163,8 @@ export default function App(){
         {page==="schedule"&&<Schedule events={events} setEvents={setEvents} jobs={jobs} milestones={milestones} setMilestones={setMilestones}/>}
         {page==="subs"&&<Subs subs={subs} setSubs={setSubs}/>}
         {page==="logs"&&<DailyLog logs={logs} setLogs={setLogs} jobs={jobs}/>}
-        {page==="portal"&&<ClientPortal jobs={jobs} logs={logs}/>}
-        {page==="estimator"&&<Estimator/>}
+        {page==="portal"&&<ClientPortal jobs={jobs} logs={logs} milestones={milestones}/>}
+        {page==="estimator"&&<Estimator jobs={jobs} leads={leads}/>}
         {page==="settings"&&<Settings/>}
       </div>
     </div>
