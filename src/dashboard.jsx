@@ -707,7 +707,7 @@ function DashboardView({jobs,leads,logs,setPage}){
 }
 
 // ── CLIENT ASSIGNMENT (in Jobs modal) ────────────────────────────────────────
-function ClientAssignment({jobId,allClients,onClientsChange}){
+function ClientAssignment({jobId,allClients,onClientsChange,onEmailSuggested}){
   const [assigned,setAssigned]=useState([]);
   const [loading,setLoading]=useState(true);
   const [adding,setAdding]=useState(false);
@@ -730,6 +730,7 @@ function ClientAssignment({jobId,allClients,onClientsChange}){
     const updated=[...assigned,client];
     setAssigned(updated);
     onClientsChange&&onClientsChange(updated);
+    if(client.email)onEmailSuggested&&onEmailSuggested(client.email);
   }
 
   async function createAndAssign(){
@@ -747,6 +748,7 @@ function ClientAssignment({jobId,allClients,onClientsChange}){
       const updated=[...assigned,client];
       setAssigned(updated);
       onClientsChange&&onClientsChange(updated);
+      if(client.email)onEmailSuggested&&onEmailSuggested(client.email);
     }
     setNewForm({name:"",email:"",phone:""});
     setAdding(false);
@@ -838,7 +840,16 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
       options:{emailRedirectTo:"https://app.tallguybuilds.ca"}
     });
     setSendingLink(false);
-    if(error){alert("Couldn't send portal link: "+error.message);return;}
+    if(error){
+      // Supabase rate-limits OTP sends to once per 60s — show a friendly message instead of a raw error
+      if(error.message?.toLowerCase().includes("security purposes")||error.status===429){
+        setLinkSent(true); // treat as success since the link was already sent moments ago
+        setTimeout(()=>setLinkSent(false),5000);
+      } else {
+        alert("Couldn't send portal link: "+error.message);
+      }
+      return;
+    }
     setLinkSent(true);
     setTimeout(()=>setLinkSent(false),5000);
   }
@@ -986,7 +997,7 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
         <div style={{background:C.navy,borderRadius:10,border:`1px solid ${C.border}`,padding:"14px 16px",marginTop:10}}>
           <div style={{fontSize:13,color:C.white,fontWeight:600,marginBottom:10}}>Assigned Clients</div>
           <div style={{fontSize:11,color:C.muted,marginBottom:10}}>Clients below can log in and see this project in their portal.</div>
-          <ClientAssignment jobId={sel?.id} allClients={clients}/>
+          <ClientAssignment jobId={sel?.id} allClients={clients} onEmailSuggested={email=>{if(!form.client_email)f("client_email",email);}}/>
         </div>
       </>}
       {tab==="milestones"&&sel&&<Milestones jobId={sel.id} job={{...sel,...form}} onAdd={m=>setMilestonesGlobal&&setMilestonesGlobal(prev=>[...prev,m])} onDelete={id=>setMilestonesGlobal&&setMilestonesGlobal(prev=>prev.filter(m=>m.id!==id))}/>}
