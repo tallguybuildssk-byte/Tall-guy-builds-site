@@ -138,21 +138,25 @@ function Milestones({jobId,job,onAdd,onDelete}){
   const icon={"Completed":"✅","In Progress":"🔄","Not Started":"○"};
   if(loading)return <div style={{color:C.muted,fontSize:12,padding:8}}>Loading milestones...</div>;
 
-  return <div>
-    <div style={{fontSize:11,color:C.muted,marginBottom:8}}>Click icon to cycle status</div>
-    {items.length===0&&<div style={{color:C.muted,textAlign:"center",padding:"14px 0",fontSize:12}}>No milestones yet.</div>}
-    {items.map((m)=>(
-      <div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:7,marginBottom:5,background:m.status==="Completed"?"#14532d22":m.status==="In Progress"?C.gold+"11":C.navy,border:`1px solid ${m.status==="Completed"?"#4ade8033":m.status==="In Progress"?C.gold+"44":C.border}`}}>
-        <button onClick={()=>toggle(m.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>{icon[m.status]}</button>
-        <div style={{flex:1}}>
-          <div style={{color:m.status==="Completed"?C.muted:C.white,fontSize:12,fontWeight:600,textDecoration:m.status==="Completed"?"line-through":"none"}}>{m.name}</div>
-          {m.date&&<div style={{fontSize:10,color:C.muted}}>{fmtDate(m.date)}</div>}
+  return <div style={{display:"flex",flexDirection:"column"}}>
+    <div style={{fontSize:11,color:C.muted,marginBottom:8}}>Click icon to cycle status · {items.length} milestone{items.length!==1?"s":""}</div>
+    {/* Scrollable list — Add form stays pinned below regardless of count */}
+    <div style={{maxHeight:340,overflowY:"auto",marginBottom:4,paddingRight:2}}>
+      {items.length===0&&<div style={{color:C.muted,textAlign:"center",padding:"14px 0",fontSize:12}}>No milestones yet.</div>}
+      {items.map((m)=>(
+        <div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:7,marginBottom:5,background:m.status==="Completed"?"#14532d22":m.status==="In Progress"?C.gold+"11":C.navy,border:`1px solid ${m.status==="Completed"?"#4ade8033":m.status==="In Progress"?C.gold+"44":C.border}`}}>
+          <button onClick={()=>toggle(m.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>{icon[m.status]}</button>
+          <div style={{flex:1}}>
+            <div style={{color:m.status==="Completed"?C.muted:C.white,fontSize:12,fontWeight:600,textDecoration:m.status==="Completed"?"line-through":"none"}}>{m.name}</div>
+            {m.date&&<div style={{fontSize:10,color:C.muted}}>{fmtDate(m.date)}</div>}
+          </div>
+          <Badge label={m.status}/>
+          <button onClick={()=>del(m.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:15,lineHeight:1}}>×</button>
         </div>
-        <Badge label={m.status}/>
-        <button onClick={()=>del(m.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:15,lineHeight:1}}>×</button>
-      </div>
-    ))}
-    <div style={{display:"flex",gap:7,marginTop:10,alignItems:"flex-end",flexWrap:"wrap"}}>
+      ))}
+    </div>
+    {/* Add form — always visible, never pushed off screen */}
+    <div style={{borderTop:`1px solid ${C.border}`,paddingTop:10,display:"flex",gap:7,alignItems:"flex-end",flexWrap:"wrap"}}>
       <div style={{flex:1,minWidth:140}}><Inp label="New Milestone" value={nm} onChange={setNm} placeholder="e.g. Pour footings"/></div>
       <div style={{width:130}}><Inp label="Date" value={nd} onChange={setNd} type="date"/></div>
       <Btn onClick={add} style={{marginBottom:11}}>Add</Btn>
