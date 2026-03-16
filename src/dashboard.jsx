@@ -812,19 +812,35 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
   const [sel,setSel]=useState(null);
   const [form,setForm]=useState({});
   const [tab,setTab]=useState("details");
+  const [linkSent,setLinkSent]=useState(false);
+  const [sendingLink,setSendingLink]=useState(false);
   const f=(k,v)=>setForm(p=>({...p,[k]:v}));
 
   // Build client list from leads (Won + all others deduplicated by name)
   const clientNames=[...new Set(leads.map(l=>l.name).filter(Boolean))].sort();
 
-  function openNew(){setForm({name:"",client:"",client_email:"",address:"",type:"",status:"Upcoming",value:"",paid:"",start_date:"",end_date:"",progress:0,notes:"",shared_with_client:false,payment_schedule:[]});setSel(null);setTab("details");setShowM(true);}
-  function openEdit(j){setForm({...j,value:String(j.value||""),paid:String(j.paid||""),client_email:j.client_email||"",payment_schedule:j.payment_schedule||[]});setSel(j);setTab("details");setShowM(true);}
+  function openNew(){setForm({name:"",client:"",client_email:"",address:"",type:"",status:"Upcoming",value:"",paid:"",start_date:"",end_date:"",progress:0,notes:"",shared_with_client:false,payment_schedule:[]});setSel(null);setTab("details");setLinkSent(false);setShowM(true);}
+  function openEdit(j){setForm({...j,value:String(j.value||""),paid:String(j.paid||""),client_email:j.client_email||"",payment_schedule:j.payment_schedule||[]});setSel(j);setTab("details");setLinkSent(false);setShowM(true);}
 
   // When a client is selected from dropdown, also pull email if the lead has one
   function selectClient(name){
     const lead=leads.find(l=>l.name===name);
     f("client",name);
     if(lead?.email&&!form.client_email)f("client_email",lead.email||"");
+  }
+
+  // Send (or re-send) the magic link to the client's email
+  async function sendPortalLink(email){
+    if(!email){alert("Add the client's email address first, then send the portal link.");return;}
+    setSendingLink(true);
+    const {error}=await supabase.auth.signInWithOtp({
+      email:email.trim().toLowerCase(),
+      options:{emailRedirectTo:"https://app.tallguybuilds.ca"}
+    });
+    setSendingLink(false);
+    if(error){alert("Couldn't send portal link: "+error.message);return;}
+    setLinkSent(true);
+    setTimeout(()=>setLinkSent(false),5000);
   }
 
   async function save(switchToMilestones=false){
@@ -845,6 +861,8 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
       shared_with_client:form.shared_with_client||false,
       payment_schedule:form.payment_schedule||[],
     };
+    const wasShared=sel?.shared_with_client||false;
+    const nowShared=form.shared_with_client||false;
     if(sel){
       const {data,error}=await supabase.from("jobs").update(u).eq("id",sel.id).select().single();
       if(error){alert("Save failed: "+error.message);return;}
@@ -853,6 +871,10 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
       const {data,error}=await supabase.from("jobs").insert(u).select().single();
       if(error){alert("Save failed: "+error.message);return;}
       if(data){setJobs(js=>[data,...js]);setSel(data);}
+    }
+    // Auto-send portal link the first time sharing is enabled
+    if(!wasShared&&nowShared&&form.client_email){
+      await sendPortalLink(form.client_email);
     }
     if(switchToMilestones){setTab("milestones");}else{setShowM(false);}
   }
@@ -936,7 +958,7 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
           <input type="range" min="0" max="100" value={form.progress||0} onChange={e=>f("progress",+e.target.value)} style={{width:"100%",accentColor:C.gold}}/>
         </div>
         <Txtarea label="Notes" value={form.notes||""} onChange={v=>f("notes",v)} rows={3}/>
-        <div style={{padding:"14px 16px",background:C.navy,borderRadius:10,border:`1px solid ${C.border}`,marginBottom:4}}>
+        <div style={{padding:"14px 16px",background:C.navy,borderRadius:10,border:`1px solid ${form.shared_with_client?C.gold:C.border}`,marginBottom:4}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
               <div style={{fontSize:13,color:C.white,fontWeight:600}}>Share with Client Portal</div>
@@ -944,6 +966,21 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
             </div>
             <Toggle checked={form.shared_with_client||false} onChange={v=>f("shared_with_client",v)}/>
           </div>
+          {form.shared_with_client&&<div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            {form.client_email
+              ?<>
+                <button
+                  onClick={()=>sendPortalLink(form.client_email)}
+                  disabled={sendingLink}
+                  style={{padding:"7px 14px",background:C.gold,border:"none",borderRadius:7,color:C.navy,fontFamily:fb,fontSize:12,fontWeight:700,cursor:sendingLink?"not-allowed":"pointer",opacity:sendingLink?0.6:1}}>
+                  {sendingLink?"Sending…":"📨 Send Portal Link"}
+                </button>
+                {linkSent&&<span style={{fontSize:12,color:"#4ade80",fontFamily:fb}}>✓ Link sent to {form.client_email}</span>}
+                {!linkSent&&<span style={{fontSize:11,color:C.muted}}>Sends a sign-in link to {form.client_email}</span>}
+              </>
+              :<span style={{fontSize:11,color:C.warn}}>⚠ Add a client email above to send the portal link</span>
+            }
+          </div>}
         </div>
         {/* Client assignment */}
         <div style={{background:C.navy,borderRadius:10,border:`1px solid ${C.border}`,padding:"14px 16px",marginTop:10}}>
