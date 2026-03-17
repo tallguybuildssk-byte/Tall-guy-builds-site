@@ -717,6 +717,7 @@ function ClientAssignment({jobId,allClients,onClientsChange,onEmailSuggested}){
   const [adding,setAdding]=useState(false);
   const [newForm,setNewForm]=useState({name:"",email:"",phone:""});
   const [saving,setSaving]=useState(false);
+  const [inviteSent,setInviteSent]=useState({});
   const nf=(k,v)=>setNewForm(p=>({...p,[k]:v}));
 
   useEffect(()=>{
@@ -727,6 +728,15 @@ function ClientAssignment({jobId,allClients,onClientsChange,onEmailSuggested}){
     });
   },[jobId]);
 
+  async function sendInvite(email){
+    if(!email)return;
+    const {error}=await supabase.auth.signInWithOtp({
+      email:email.trim().toLowerCase(),
+      options:{emailRedirectTo:"https://app.tallguybuilds.ca?portal=1"}
+    });
+    if(!error)setInviteSent(p=>({...p,[email]:true}));
+  }
+
   async function addExisting(clientId){
     const client=allClients.find(c=>c.id===clientId);
     if(!client||assigned.find(a=>a.id===clientId))return;
@@ -734,7 +744,7 @@ function ClientAssignment({jobId,allClients,onClientsChange,onEmailSuggested}){
     const updated=[...assigned,client];
     setAssigned(updated);
     onClientsChange&&onClientsChange(updated);
-    if(client.email)onEmailSuggested&&onEmailSuggested(client.email);
+    if(client.email){onEmailSuggested&&onEmailSuggested(client.email);await sendInvite(client.email);}
   }
 
   async function createAndAssign(){
@@ -752,7 +762,7 @@ function ClientAssignment({jobId,allClients,onClientsChange,onEmailSuggested}){
       const updated=[...assigned,client];
       setAssigned(updated);
       onClientsChange&&onClientsChange(updated);
-      if(client.email)onEmailSuggested&&onEmailSuggested(client.email);
+      if(client.email){onEmailSuggested&&onEmailSuggested(client.email);await sendInvite(client.email);}
     }
     setNewForm({name:"",email:"",phone:""});
     setAdding(false);
@@ -841,7 +851,7 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
     setSendingLink(true);
     const {error}=await supabase.auth.signInWithOtp({
       email:email.trim().toLowerCase(),
-      options:{emailRedirectTo:"https://app.tallguybuilds.ca"}
+      options:{emailRedirectTo:"https://app.tallguybuilds.ca?portal=1"}
     });
     setSendingLink(false);
     if(error){
@@ -2126,7 +2136,7 @@ export default function App(){
   const [page,setPage]=useState("dashboard");
   const [session,setSession]=useState(undefined);
   const [isClient,setIsClient]=useState(false); // true if logged-in user is a portal client
-  const [clientMode,setClientMode]=useState(false); // UI toggle: client login vs admin login
+  const [clientMode,setClientMode]=useState(()=>new URLSearchParams(window.location.search).get("portal")==="1"); // auto-switches to client login when ?portal=1 is in URL (from magic link email)
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState(null);
   const [jobs,setJobs]=useState([]);
