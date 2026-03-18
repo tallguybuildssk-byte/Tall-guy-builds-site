@@ -98,6 +98,83 @@ function Toggle({checked,onChange,label}){
   </label>;
 }
 
+// ── MESSAGE THREAD ────────────────────────────────────────────────────────────
+function MessageThread({jobId,senderType,senderName}){
+  const [msgs,setMsgs]=useState([]);
+  const [body,setBody]=useState("");
+  const [loading,setLoading]=useState(true);
+  const [sending,setSending]=useState(false);
+  const bottomRef=useRef(null);
+
+  useEffect(()=>{
+    if(!jobId)return;
+    loadMsgs();
+    // Mark all unread messages as read for this viewer role
+    supabase.from("messages")
+      .update(senderType==="admin"?{read_by_admin:true}:{read_by_client:true})
+      .eq("job_id",jobId)
+      .eq(senderType==="admin"?"read_by_admin":"read_by_client",false)
+      .then(()=>{});
+    const iv=setInterval(loadMsgs,8000);
+    return ()=>clearInterval(iv);
+  },[jobId]);
+
+  async function loadMsgs(){
+    const {data}=await supabase.from("messages").select("*").eq("job_id",jobId).order("created_at");
+    setMsgs(data||[]);setLoading(false);
+    setTimeout(()=>bottomRef.current?.scrollIntoView({behavior:"smooth"}),60);
+  }
+
+  async function send(){
+    if(!body.trim()||sending)return;
+    setSending(true);
+    const m={job_id:jobId,sender_type:senderType,sender_name:senderName||null,body:body.trim(),read_by_admin:senderType==="admin",read_by_client:senderType==="client"};
+    const {data}=await supabase.from("messages").insert(m).select().single();
+    if(data)setMsgs(p=>[...p,data]);
+    setBody("");setSending(false);
+    setTimeout(()=>bottomRef.current?.scrollIntoView({behavior:"smooth"}),60);
+  }
+
+  const fmtTs=ts=>{
+    const d=new Date(ts);
+    return d.toLocaleDateString("en-CA",{month:"short",day:"numeric"})+" "+d.toLocaleTimeString("en-CA",{hour:"2-digit",minute:"2-digit"});
+  };
+
+  if(!jobId)return <div style={{color:C.muted,fontSize:13,padding:16,textAlign:"center"}}>Save the project first to enable messaging.</div>;
+  if(loading)return <div style={{color:C.muted,fontSize:13,padding:16,textAlign:"center"}}>Loading messages…</div>;
+
+  return <div style={{display:"flex",flexDirection:"column",height:400}}>
+    <div style={{flex:1,overflowY:"auto",paddingRight:4,marginBottom:12}}>
+      {msgs.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:C.muted,fontSize:13}}>
+        <div style={{fontSize:28,marginBottom:8}}>💬</div>No messages yet — start the conversation.
+      </div>}
+      {msgs.map(m=>{
+        const isMe=m.sender_type===senderType;
+        return <div key={m.id} style={{display:"flex",justifyContent:isMe?"flex-end":"flex-start",marginBottom:10}}>
+          <div style={{maxWidth:"76%"}}>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3,textAlign:isMe?"right":"left"}}>
+              {m.sender_name||(m.sender_type==="admin"?"Tall Guy Builds":"Client")} · {fmtTs(m.created_at)}
+            </div>
+            <div style={{background:isMe?C.gold:C.navy,color:isMe?C.navy:C.white,borderRadius:isMe?"12px 12px 3px 12px":"12px 12px 12px 3px",padding:"10px 14px",fontSize:13,lineHeight:1.5,border:`1px solid ${isMe?C.gold+"99":C.border}`,wordBreak:"break-word"}}>
+              {m.body}
+            </div>
+          </div>
+        </div>;
+      })}
+      <div ref={bottomRef}/>
+    </div>
+    <div style={{display:"flex",gap:8,alignItems:"flex-end",borderTop:`1px solid ${C.border}`,paddingTop:12}}>
+      <textarea value={body} onChange={e=>setBody(e.target.value)}
+        onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}}
+        placeholder="Type a message… (Enter to send)"
+        rows={2}
+        style={{flex:1,background:C.navy,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 11px",color:C.white,fontSize:13,fontFamily:fb,outline:"none",resize:"none",lineHeight:1.5}}
+      />
+      <Btn onClick={send} style={{opacity:sending||!body.trim()?0.45:1}}>Send</Btn>
+    </div>
+  </div>;
+}
+
 // ── MILESTONES (internal editor) ──────────────────────────────────────────────
 function Milestones({jobId,job,onAdd,onDelete}){
   const [items,setItems]=useState([]);
@@ -417,7 +494,7 @@ function ClientPortal({jobs,logs,clientMode=false,onSignOut}){
   const totalContract=+selJob.value||0;
   const nextDue=ps.filter(p=>!p.paid&&p.due_date).sort((a,b)=>a.due_date.localeCompare(b.due_date))[0];
 
-  const TABS=["overview","photos","schedule","payments","updates"];
+  const TABS=["overview","photos","schedule","payments","updates","messages"];
 
   return <div>
     <button onClick={()=>{setSelJob(null);setMilestones([]);}} style={{background:"none",border:"none",color:C.gold,cursor:"pointer",fontSize:13,fontFamily:fb,marginBottom:18,display:"flex",alignItems:"center",gap:6,padding:0}}>← All Projects</button>
@@ -598,6 +675,7 @@ function ClientPortal({jobs,logs,clientMode=false,onSignOut}){
               </div>
               <div style={{fontSize:16,color:p.paid?"#4ade80":C.gold,fontWeight:700}}>{fmt$(p.amount)}</div>
               <Badge label={p.paid?"Paid":"Pending"}/>
+              {p.qb_synced&&<span style={{fontSize:10,color:"#4ade80",fontWeight:600,whiteSpace:"nowrap"}}>🟢 QB</span>}
             </div>
           ))}
         </div>
@@ -642,6 +720,15 @@ function ClientPortal({jobs,logs,clientMode=false,onSignOut}){
             )}
           </div>
         ))}
+      </div>
+    </div>}
+
+    {/* ── MESSAGES ── */}
+    {portalTab==="messages"&&<div>
+      <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:20}}>
+        <div style={{fontSize:13,color:C.white,fontWeight:700,marginBottom:4}}>💬 Project Messages</div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:14}}>Send a message to Tall Guy Builds — we'll reply here.</div>
+        <MessageThread jobId={selJob?.id} senderType="client" senderName={selJob?.client||"Client"}/>
       </div>
     </div>}
 
@@ -830,7 +917,17 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
   const [tab,setTab]=useState("details");
   const [linkSent,setLinkSent]=useState(false);
   const [sendingLink,setSendingLink]=useState(false);
+  const [unreadCounts,setUnreadCounts]=useState({});
   const f=(k,v)=>setForm(p=>({...p,[k]:v}));
+
+  // Load unread message counts for all jobs (admin = messages where read_by_admin is false)
+  useEffect(()=>{
+    supabase.from("messages").select("job_id").eq("read_by_admin",false).then(({data})=>{
+      const counts={};
+      (data||[]).forEach(m=>{counts[m.job_id]=(counts[m.job_id]||0)+1;});
+      setUnreadCounts(counts);
+    });
+  },[jobs]);
 
   // Build client list from leads (Won + all others deduplicated by name)
   const clientNames=[...new Set(leads.map(l=>l.name).filter(Boolean))].sort();
@@ -931,6 +1028,7 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
               <div style={{fontSize:13,color:C.gold,fontWeight:700,marginTop:6}}>{fmt$(job.value)}</div>
               <div style={{fontSize:11,color:C.muted}}>Paid: {fmt$(job.paid)}</div>
               {job.shared_with_client&&<div style={{fontSize:10,color:"#4ade80",marginTop:4}}>◈ In client portal</div>}
+              {unreadCounts[job.id]>0&&<div style={{fontSize:10,color:"#fff",background:"#EF4444",borderRadius:12,padding:"1px 7px",marginTop:4,display:"inline-block",fontWeight:700}}>💬 {unreadCounts[job.id]} new</div>}
             </div>
           </div>
           <div style={{marginTop:10}}>
@@ -942,13 +1040,16 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
     </div>
 
     {showM&&<Modal title={sel?"Edit Project":"New Project"} onClose={()=>setShowM(false)} wide>
-      <div style={{display:"flex",gap:6,marginBottom:16,borderBottom:`1px solid ${C.border}`,paddingBottom:8}}>
-        {["details","milestones","payments"].map(t=>(
+      <div style={{display:"flex",gap:6,marginBottom:16,borderBottom:`1px solid ${C.border}`,paddingBottom:8,flexWrap:"wrap"}}>
+        {["details","milestones","payments","messages"].map(t=>(
           <button key={t} onClick={()=>{
-            if((t==="milestones"||t==="payments")&&!sel){save(true);}
+            if((t==="milestones"||t==="payments"||t==="messages")&&!sel){save(true);}
             else if(t==="milestones"){save(true);}
             else{setTab(t);}
-          }} style={{padding:"5px 13px",borderRadius:6,border:"none",fontFamily:fb,fontSize:12,cursor:"pointer",textTransform:"capitalize",background:tab===t?C.gold:"transparent",color:tab===t?C.navy:C.muted,fontWeight:tab===t?700:400}}>{t}</button>
+          }} style={{padding:"5px 13px",borderRadius:6,border:"none",fontFamily:fb,fontSize:12,cursor:"pointer",textTransform:"capitalize",background:tab===t?C.gold:"transparent",color:tab===t?C.navy:C.muted,fontWeight:tab===t?700:400,position:"relative"}}>
+            {t}
+            {t==="messages"&&sel&&unreadCounts[sel.id]>0&&<span style={{position:"absolute",top:-4,right:-4,background:"#EF4444",color:"#fff",borderRadius:"50%",width:14,height:14,fontSize:9,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>{unreadCounts[sel.id]}</span>}
+          </button>
         ))}
       </div>
       {tab==="details"&&<>
@@ -1017,11 +1118,16 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
       {tab==="milestones"&&sel&&<Milestones jobId={sel.id} job={{...sel,...form}} onAdd={m=>setMilestonesGlobal&&setMilestonesGlobal(prev=>[...prev,m])} onDelete={id=>setMilestonesGlobal&&setMilestonesGlobal(prev=>prev.filter(m=>m.id!==id))}/>}
       {tab==="milestones"&&!sel&&<div style={{color:C.muted,fontSize:12,padding:"20px 0",textAlign:"center"}}>Save the project first, then add milestones.</div>}
       {tab==="payments"&&<PaymentScheduleEditor schedule={form.payment_schedule||[]} contractValue={+form.value||0} onChange={v=>f("payment_schedule",v)}/>}
-      <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:14}}>
+      {tab==="messages"&&sel&&<>
+        <div style={{fontSize:11,color:C.muted,marginBottom:12}}>Direct messages with <strong style={{color:C.white}}>{sel.client||"client"}</strong>. Client sees these in their portal under the Messages tab.</div>
+        <MessageThread jobId={sel.id} senderType="admin" senderName="Tall Guy Builds"/>
+      </>}
+      {tab==="messages"&&!sel&&<div style={{color:C.muted,fontSize:12,padding:"20px 0",textAlign:"center"}}>Save the project first to enable messaging.</div>}
+      {tab!=="messages"&&<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:14}}>
         {sel&&<Btn variant="danger" onClick={del}>Delete</Btn>}
         <Btn variant="ghost" onClick={()=>setShowM(false)}>Cancel</Btn>
         <Btn onClick={()=>save()}>Save</Btn>
-      </div>
+      </div>}
     </Modal>}
   </div>;
 }
@@ -1916,23 +2022,20 @@ function DailyLog({logs,setLogs,jobs}){
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
 function Settings(){
   const [ej,setEj]=useState({});
+  const [qb,setQb]=useState({});
   const [saved,setSaved]=useState(false);
+  const [qbSaved,setQbSaved]=useState(false);
   const [loading,setLoading]=useState(true);
 
-  // FIX: Load EmailJS credentials from Supabase (not localStorage) so they survive
-  // browser clears and work across devices. Also sync to localStorage so
-  // sendMilestoneEmail() (which reads localStorage at call time) stays working.
   useEffect(()=>{
     async function loadSettings(){
-      const {data}=await supabase.from("settings").select("value").eq("key","emailjs").maybeSingle();
-      if(data?.value){
-        setEj(data.value);
-        localStorage.setItem("tgb_emailjs",JSON.stringify(data.value));
-      } else {
-        // Fallback: migrate existing localStorage data on first run
-        const local=JSON.parse(localStorage.getItem("tgb_emailjs")||"{}");
-        setEj(local);
-      }
+      const [ejRow,qbRow]=await Promise.all([
+        supabase.from("settings").select("value").eq("key","emailjs").maybeSingle(),
+        supabase.from("settings").select("value").eq("key","quickbooks").maybeSingle(),
+      ]);
+      if(ejRow.data?.value){setEj(ejRow.data.value);localStorage.setItem("tgb_emailjs",JSON.stringify(ejRow.data.value));}
+      else{const local=JSON.parse(localStorage.getItem("tgb_emailjs")||"{}");setEj(local);}
+      if(qbRow.data?.value)setQb(qbRow.data.value);
       setLoading(false);
     }
     loadSettings();
@@ -1940,8 +2043,12 @@ function Settings(){
 
   async function saveEj(){
     await supabase.from("settings").upsert({key:"emailjs",value:ej},{onConflict:"key"});
-    localStorage.setItem("tgb_emailjs",JSON.stringify(ej)); // keep in sync for sendMilestoneEmail
+    localStorage.setItem("tgb_emailjs",JSON.stringify(ej));
     setSaved(true);setTimeout(()=>setSaved(false),2500);
+  }
+  async function saveQb(){
+    await supabase.from("settings").upsert({key:"quickbooks",value:qb},{onConflict:"key"});
+    setQbSaved(true);setTimeout(()=>setQbSaved(false),2500);
   }
   async function handleSignOut(){await supabase.auth.signOut();window.location.href="/";}
 
@@ -1974,6 +2081,35 @@ function Settings(){
       </>}
       <div style={{marginTop:12,padding:"10px 14px",background:C.navy,borderRadius:8,fontSize:11,color:C.muted}}>
         💡 <strong style={{color:C.white}}>To enable emails:</strong> Go to each project → add the client's email address in the Client Email field. Emails fire automatically when you tick a milestone as Complete.
+      </div>
+    </Card>
+
+    {/* QuickBooks Integration */}
+    <Card style={{marginBottom:16}}>
+      <div style={{fontWeight:700,color:C.white,fontSize:15,marginBottom:4}}>🟢 QuickBooks Integration</div>
+      <div style={{fontSize:11,color:C.muted,marginBottom:14,lineHeight:1.7}}>
+        When an invoice is marked paid in QuickBooks, the matching payment automatically updates to ✅ Paid in the client portal.
+        <br/><strong style={{color:C.gold}}>Step 1:</strong> Create a free account at <a href="https://developer.intuit.com" target="_blank" rel="noreferrer" style={{color:C.gold}}>developer.intuit.com</a> → New App → get your Client ID + Secret.
+        <br/><strong style={{color:C.gold}}>Step 2:</strong> In your QB app settings, add a webhook subscription. Set the endpoint URL to the one below.
+        <br/><strong style={{color:C.gold}}>Step 3:</strong> Paste your Verifier Token below and save. QB will start sending payment events automatically.
+      </div>
+      {loading?<div style={{color:C.muted,fontSize:12}}>Loading…</div>:<>
+        <div style={{background:C.navy,borderRadius:8,padding:"10px 14px",marginBottom:14,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Webhook Endpoint (paste this in QuickBooks)</div>
+          <div style={{fontSize:12,color:C.gold,fontFamily:"monospace",wordBreak:"break-all",userSelect:"all"}}>https://ptczgktyxifzbaxcsqan.supabase.co/functions/v1/qb-webhook</div>
+        </div>
+        <Inp label="Verifier Token (from QuickBooks developer dashboard)" value={qb.verifier_token||""} onChange={v=>setQb(p=>({...p,verifier_token:v}))} placeholder="Paste your QB verifier token"/>
+        <Inp label="Client ID" value={qb.client_id||""} onChange={v=>setQb(p=>({...p,client_id:v}))} placeholder="QB App Client ID"/>
+        <Inp label="Client Secret" value={qb.client_secret||""} onChange={v=>setQb(p=>({...p,client_secret:v}))} placeholder="QB App Client Secret"/>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginTop:4}}>
+          <Btn onClick={saveQb}>Save QB Settings</Btn>
+          {qbSaved&&<span style={{color:"#4ade80",fontSize:12}}>✓ Saved</span>}
+          {qb.verifier_token&&<span style={{fontSize:11,color:"#4ade80"}}>● Connected</span>}
+          {!qb.verifier_token&&<span style={{fontSize:11,color:C.muted}}>○ Not configured</span>}
+        </div>
+      </>}
+      <div style={{marginTop:12,padding:"10px 14px",background:C.navy,borderRadius:8,fontSize:11,color:C.muted,lineHeight:1.6}}>
+        💡 Payment items matched by <strong style={{color:C.white}}>amount + project</strong>. When QB marks an invoice line paid, the matching payment in that project's schedule gets auto-checked. The client sees ✅ Paid in their portal immediately.
       </div>
     </Card>
 
@@ -2032,9 +2168,11 @@ function ClientLogin({onSwitch}){
   async function sendLink(){
     if(!email.trim()){setError("Please enter your email.");return;}
     setLoading(true);setError("");
+    // Always redirect back to the portal URL — ensures ?portal=1 is preserved
+    // so the client login form is shown if the session somehow drops
     const {error:err}=await supabase.auth.signInWithOtp({
       email:email.trim().toLowerCase(),
-      options:{emailRedirectTo:window.location.href}
+      options:{emailRedirectTo:"https://app.tallguybuilds.ca?portal=1"}
     });
     if(err){setError(err.message);setLoading(false);}
     else{setSent(true);setLoading(false);}
