@@ -43,7 +43,7 @@ export default function Login() {
     <div style={styles.page}>
       <div style={styles.card}>
         <div style={styles.logoWrap}>
-          <img src="https://tallguybuilds.ca/assets/img-002.webp" alt="Tall Guy Builds Logo" style={styles.logo} />
+          <img src="/tgb-logo.svg" alt="Tall Guy Builds Logo" style={styles.logo} />
           <h1 style={styles.brandName}>Tall Guy Builds Inc.</h1>
           <p style={styles.tagline}>Client Portal</p>
         </div>
