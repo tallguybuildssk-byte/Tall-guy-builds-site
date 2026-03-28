@@ -1133,14 +1133,66 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
 }
 
 
+// ── DECK DRAWING TOOL ──────────────────────────────────────────────────────────────
+function DeckDrawingTool({onApply,onCancel}){
+  const canvasRef=React.useRef(null);const [points,setPoints]=React.useState([]);const [closed,setClosed]=React.useState(false);const [stairEdges,setStairEdges]=React.useState([]);const [ftPerGrid,setFtPerGrid]=React.useState(2);const [hover,setHover]=React.useState(null);
+  const GRID=40,W=560,H=400,ftPerPx=ftPerGrid/GRID;
+  const shoelace=pts=>{let a=0;for(let i=0;i<pts.length;i++){const j=(i+1)%pts.length;a+=pts[i].x*pts[j].y-pts[j].x*pts[i].y;}return Math.abs(a)/2;};
+  const perimPx=pts=>{let p=0;for(let i=0;i<pts.length;i++){const j=(i+1)%pts.length,dx=pts[j].x-pts[i].x,dy=pts[j].y-pts[i].y;p+=Math.sqrt(dx*dx+dy*dy);}return p;};
+  const sqft=closed&&points.length>=3?Math.round(shoelace(points)*ftPerPx*ftPerPx*10)/10:null;
+  const perimFt=closed&&points.length>=3?Math.round(perimPx(points)*ftPerPx*10)/10:null;
+  const closestEdge=(x,y,pts)=>{if(pts.length<2)return null;let md=1e9,mi=-1;for(let i=0;i<pts.length;i++){const j=(i+1)%pts.length,ax=pts[i].x,ay=pts[i].y,bx=pts[j].x,by=pts[j].y,dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;if(!l2)continue;const t=Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/l2)),d=Math.hypot(ax+t*dx-x,ay+t*dy-y);if(d<md){md=d;mi=i;}}return md<15?mi:null;};
+  React.useEffect(()=>{
+    const cv=canvasRef.current;if(!cv)return;const ctx=cv.getContext('2d');ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle='#e2e8f0';ctx.lineWidth=0.5;for(let x=0;x<=W;x+=GRID){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}for(let y=0;y<=H;y+=GRID){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    ctx.fillStyle='#94a3b8';ctx.font='11px sans-serif';ctx.fillText('1 sq='+ftPerGrid+'ft  canvas='+Math.round(W*ftPerPx)+"'x"+Math.round(H*ftPerPx)+"'",8,H-8);
+    if(!points.length){ctx.fillStyle='#94a3b8';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('Click to place corners',W/2,H/2-10);ctx.fillText('Click red dot to close',W/2,H/2+12);ctx.textAlign='left';return;}
+    if(closed&&points.length>=3){ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);for(let i=1;i<points.length;i++)ctx.lineTo(points[i].x,points[i].y);ctx.closePath();ctx.fillStyle='rgba(59,130,246,0.12)';ctx.fill();}
+    ctx.strokeStyle='#3b82f6';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);for(let i=1;i<points.length;i++)ctx.lineTo(points[i].x,points[i].y);if(closed)ctx.closePath();ctx.stroke();
+    if(!closed&&hover&&points.length){ctx.strokeStyle='#93c5fd';ctx.lineWidth=1;ctx.setLineDash([5,3]);ctx.beginPath();ctx.moveTo(points[points.length-1].x,points[points.length-1].y);ctx.lineTo(hover.x,hover.y);ctx.stroke();ctx.setLineDash([]);}
+    stairEdges.forEach(ei=>{if(ei>=points.length)return;const j=(ei+1)%points.length,mx=(points[ei].x+points[j].x)/2,my=(points[ei].y+points[j].y)/2;ctx.beginPath();ctx.arc(mx,my,9,0,Math.PI*2);ctx.fillStyle='#f59e0b';ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('S',mx,my);ctx.textBaseline='alphabetic';ctx.textAlign='left';});
+    if(closed){ctx.font='11px sans-serif';ctx.textAlign='center';for(let i=0;i<points.length;i++){const j=(i+1)%points.length,dx=points[j].x-points[i].x,dy=points[j].y-points[i].y,len=Math.hypot(dx,dy);if(!len)continue;const ft=Math.round(len*ftPerPx*10)/10,mx=(points[i].x+points[j].x)/2,my=(points[i].y+points[j].y)/2,nx=-dy/len*14,ny=dx/len*14;ctx.fillStyle='rgba(255,255,255,0.85)';ctx.fillRect(mx+nx-20,my+ny-8,42,15);ctx.fillStyle='#1e40af';ctx.fillText(ft+"'",mx+nx,my+ny+4);}ctx.textAlign='left';}
+    if(closed&&sqft){const cx=points.reduce((s,p)=>s+p.x,0)/points.length,cy=points.reduce((s,p)=>s+p.y,0)/points.length;ctx.fillStyle='rgba(30,64,175,0.9)';if(ctx.roundRect)ctx.roundRect(cx-52,cy-18,104,36,6);else ctx.rect(cx-52,cy-18,104,36);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.fillText(sqft+' sq ft',cx,cy+5);ctx.textAlign='left';}
+    points.forEach((p,i)=>{ctx.beginPath();ctx.arc(p.x,p.y,i===0?7:4,0,Math.PI*2);ctx.fillStyle=i===0?'#ef4444':'#3b82f6';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();});
+  },[points,closed,stairEdges,ftPerGrid,hover,sqft]);
+  const snap=(x,y)=>({x:Math.round(x/GRID)*GRID,y:Math.round(y/GRID)*GRID});
+  const handleClick=e=>{const r=e.currentTarget.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;if(closed){const ei=closestEdge(x,y,points);if(ei!==null)setStairEdges(prev=>prev.includes(ei)?prev.filter(i=>i!==ei):[...prev,ei]);return;}if(points.length>=3){const dx=x-points[0].x,dy=y-points[0].y;if(Math.hypot(dx,dy)<15){setClosed(true);return;}}setPoints(prev=>[...prev,snap(x,y)]);};
+  const B={padding:'7px 16px',border:'none',borderRadius:6,cursor:'pointer',fontSize:13,fontWeight:600};
+  return(
+    <div style={{background:'#0f1f35',border:'1px solid #1e3a5f',borderRadius:10,padding:16,marginBottom:16}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+        <span style={{fontWeight:700,fontSize:15,color:'#e2e8f0'}}>Draw Deck Shape</span>
+        <button style={{...B,padding:'3px 10px',fontSize:12,background:'#1e3a5f',color:'#94a3b8'}} onClick={onCancel}>Close</button>
+      </div>
+      <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:10}}>
+        <span style={{fontSize:12,color:'#64748b'}}>Scale:</span>
+        <select style={{fontSize:13,padding:'3px 8px',borderRadius:4,border:'1px solid #334155',background:'#1e293b',color:'#e2e8f0'}} value={ftPerGrid} onChange={e=>{setFtPerGrid(Number(e.target.value));setPoints([]);setClosed(false);setStairEdges([]);}}>
+          <option value={1}>1 grid = 1 ft</option>
+          <option value={2}>1 grid = 2 ft (default)</option>
+          <option value={3}>1 grid = 3 ft</option>
+          <option value={5}>1 grid = 5 ft</option>
+        </select>
+        <span style={{fontSize:12,color:'#475569'}}>canvas = {Math.round(W*ftPerPx)}ft x {Math.round(H*ftPerPx)}ft</span>
+      </div>
+      <canvas ref={canvasRef} width={W} height={H} style={{display:'block',cursor:'crosshair',border:'1px solid #1e3a5f',borderRadius:6,background:'#fff',maxWidth:'100%'}} onClick={handleClick} onMouseMove={e=>{const r=e.currentTarget.getBoundingClientRect();setHover(snap(e.clientX-r.left,e.clientY-r.top));}}/>
+      <p style={{fontSize:11,color:'#64748b',margin:'6px 0 0'}}>{!closed&&!points.length?'Click to place corners. Snaps to grid.':!closed&&points.length<3?points.length+' pts placed. Keep clicking.':!closed?'Click the red dot to close.':'Closed. Click an edge to mark stairs (S).'}</p>
+      {closed&&sqft!==null&&<div style={{display:'flex',gap:16,marginTop:10,padding:'8px 14px',background:'#0a1628',borderRadius:6,flexWrap:'wrap'}}><span style={{fontSize:13,color:'#93c5fd'}}>Area: <strong>{sqft} sq ft</strong></span><span style={{fontSize:13,color:'#93c5fd'}}>Perimeter: <strong>{perimFt} lf</strong></span>{stairEdges.length>0&&<span style={{fontSize:13,color:'#fcd34d'}}>Stairs: <strong>{stairEdges.length} set{stairEdges.length>1?'s':''}</strong></span>}</div>}
+      <div style={{display:'flex',gap:8,marginTop:10}}>
+        {closed&&sqft!==null&&<button style={{...B,background:'#2563eb',color:'#fff'}} onClick={()=>onApply({sqft,perimeter:perimFt,stairCount:stairEdges.length})}>Use These Measurements</button>}
+        {points.length>0&&<button style={{...B,background:'#1e3a5f',color:'#94a3b8'}} onClick={()=>{setPoints([]);setClosed(false);setStairEdges([]);}}>Reset</button>}
+      </div>
+    </div>
+  );
+}
+
 // ── ESTIMATOR ─────────────────────────────────────────────────────────────────
 const EST_FIELDS={
   "Deck":[
-    {key:"length",label:"Length (ft)",type:"number",placeholder:"e.g. 20"},
-    {key:"width",label:"Width (ft)",type:"number",placeholder:"e.g. 12"},
+    {key:"sqft",label:"Total Deck Sq Ft",type:"number",placeholder:"e.g. 264"},
+    {key:"perimeter",label:"Perimeter (linear ft)",type:"number",placeholder:"e.g. 65"},
     {key:"height",label:"Height off ground (ft)",type:"number",placeholder:"e.g. 3"},
     {key:"material",label:"Decking Material",type:"select",options:["Pressure Treated","Cedar","Composite (Trex/Fiberon)"]},
-    {key:"stairs",label:"Stairs",type:"select",options:["None","1 set","2 sets"]},
+    {key:"stairs",label:"Stair Sets",type:"select",options:["None","1 set","2 sets","3 sets"]},
     {key:"railing",label:"Railing",type:"select",options:["None","Wood railing","Glass/aluminum railing"]},
     {key:"demo",label:"Demo existing deck?",type:"select",options:["No","Yes — small","Yes — large"]},
     {key:"notes",label:"Additional Notes",type:"textarea",placeholder:"Fascia boards, lighting, pergola, etc."},
@@ -1186,6 +1238,7 @@ function Estimator({jobs=[],leads=[]}){
   const [quote,setQuote]=useState(null);
   const [editingItem,setEditingItem]=useState(null);
   const [markup,setMarkup]=useState(20);
+  const [drawMode,setDrawMode]=React.useState(false);
   // Save Estimate state
   const [showSaveModal,setShowSaveModal]=useState(false);
   const [saveTarget,setSaveTarget]=useState("lead"); // "lead" | "job"
@@ -1352,6 +1405,7 @@ Return ONLY valid JSON, no markdown, no explanation:
         <h2 style={{color:C.white,fontFamily:font,fontSize:20,margin:"0 0 4px"}}>{projectType}</h2>
         <p style={{color:C.muted,fontSize:13,margin:0}}>Fill in what you know — AI will estimate anything left blank</p>
       </div>
+      {projectType==="Deck"&&(drawMode?<DeckDrawingTool onApply={({sqft,perimeter,stairCount})=>{setField('sqft',String(sqft));setField('perimeter',String(perimeter));setField('stairs',stairCount>0?stairCount+' set'+(stairCount>1?'s':''):'None');setDrawMode(false);}} onCancel={()=>setDrawMode(false)}/>:<button onClick={()=>setDrawMode(true)} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,width:'100%',padding:'10px 16px',background:'#0f1f35',border:'1px dashed #3b82f6',borderRadius:8,color:'#93c5fd',fontSize:13,fontWeight:600,cursor:'pointer',marginBottom:12}}>&#x270F; Draw custom shape — auto-calc sq ft, perimeter &amp; stairs</button>)}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
         {EST_FIELDS[projectType].map(field=><div key={field.key} style={field.type==="textarea"?{gridColumn:"1 / -1"}:{}}>
           <label style={{color:C.muted,fontSize:11,fontWeight:700,display:"block",marginBottom:5,textTransform:"uppercase"}}>{field.label}</label>
