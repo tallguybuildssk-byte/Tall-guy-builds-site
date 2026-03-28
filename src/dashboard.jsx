@@ -1135,14 +1135,14 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
 
 // ── DECK DRAWING TOOL ──────────────────────────────────────────────────────────────
 function DeckDrawingTool({onApply,onCancel}){
-  const canvasRef=React.useRef(null);const [points,setPoints]=React.useState([]);const [closed,setClosed]=React.useState(false);const [stairEdges,setStairEdges]=React.useState([]);const [ftPerGrid,setFtPerGrid]=React.useState(2);const [hover,setHover]=React.useState(null);
+  const canvasRef=useRef(null);const [points,setPoints]=useState([]);const [closed,setClosed]=useState(false);const [stairEdges,setStairEdges]=useState([]);const [ftPerGrid,setFtPerGrid]=useState(2);const [hover,setHover]=useState(null);
   const GRID=40,W=560,H=400,ftPerPx=ftPerGrid/GRID;
   const shoelace=pts=>{let a=0;for(let i=0;i<pts.length;i++){const j=(i+1)%pts.length;a+=pts[i].x*pts[j].y-pts[j].x*pts[i].y;}return Math.abs(a)/2;};
   const perimPx=pts=>{let p=0;for(let i=0;i<pts.length;i++){const j=(i+1)%pts.length,dx=pts[j].x-pts[i].x,dy=pts[j].y-pts[i].y;p+=Math.sqrt(dx*dx+dy*dy);}return p;};
   const sqft=closed&&points.length>=3?Math.round(shoelace(points)*ftPerPx*ftPerPx*10)/10:null;
   const perimFt=closed&&points.length>=3?Math.round(perimPx(points)*ftPerPx*10)/10:null;
   const closestEdge=(x,y,pts)=>{if(pts.length<2)return null;let md=1e9,mi=-1;for(let i=0;i<pts.length;i++){const j=(i+1)%pts.length,ax=pts[i].x,ay=pts[i].y,bx=pts[j].x,by=pts[j].y,dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;if(!l2)continue;const t=Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/l2)),d=Math.hypot(ax+t*dx-x,ay+t*dy-y);if(d<md){md=d;mi=i;}}return md<15?mi:null;};
-  React.useEffect(()=>{
+  useEffect(()=>{
     const cv=canvasRef.current;if(!cv)return;const ctx=cv.getContext('2d');ctx.clearRect(0,0,W,H);
     ctx.strokeStyle='#e2e8f0';ctx.lineWidth=0.5;for(let x=0;x<=W;x+=GRID){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}for(let y=0;y<=H;y+=GRID){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
     ctx.fillStyle='#94a3b8';ctx.font='11px sans-serif';ctx.fillText('1 sq='+ftPerGrid+'ft  canvas='+Math.round(W*ftPerPx)+"'x"+Math.round(H*ftPerPx)+"'",8,H-8);
@@ -1238,7 +1238,7 @@ function Estimator({jobs=[],leads=[]}){
   const [quote,setQuote]=useState(null);
   const [editingItem,setEditingItem]=useState(null);
   const [markup,setMarkup]=useState(20);
-  const [drawMode,setDrawMode]=React.useState(false);
+  const [drawMode,setDrawMode]=useState(false);
   // Save Estimate state
   const [showSaveModal,setShowSaveModal]=useState(false);
   const [saveTarget,setSaveTarget]=useState("lead"); // "lead" | "job"
