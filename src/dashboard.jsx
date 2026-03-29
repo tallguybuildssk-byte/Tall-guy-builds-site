@@ -1134,52 +1134,271 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
 
 
 // ── DECK DRAWING TOOL ──────────────────────────────────────────────────────────────
-function DeckDrawingTool({onApply,onCancel}){
-  const canvasRef=useRef(null);const [points,setPoints]=useState([]);const [closed,setClosed]=useState(false);const [stairEdges,setStairEdges]=useState([]);const [ftPerGrid,setFtPerGrid]=useState(2);const [hover,setHover]=useState(null);
-  const GRID=40,W=560,H=400,ftPerPx=ftPerGrid/GRID;
-  const shoelace=pts=>{let a=0;for(let i=0;i<pts.length;i++){const j=(i+1)%pts.length;a+=pts[i].x*pts[j].y-pts[j].x*pts[i].y;}return Math.abs(a)/2;};
-  const perimPx=pts=>{let p=0;for(let i=0;i<pts.length;i++){const j=(i+1)%pts.length,dx=pts[j].x-pts[i].x,dy=pts[j].y-pts[i].y;p+=Math.sqrt(dx*dx+dy*dy);}return p;};
-  const sqft=closed&&points.length>=3?Math.round(shoelace(points)*ftPerPx*ftPerPx*10)/10:null;
-  const perimFt=closed&&points.length>=3?Math.round(perimPx(points)*ftPerPx*10)/10:null;
-  const closestEdge=(x,y,pts)=>{if(pts.length<2)return null;let md=1e9,mi=-1;for(let i=0;i<pts.length;i++){const j=(i+1)%pts.length,ax=pts[i].x,ay=pts[i].y,bx=pts[j].x,by=pts[j].y,dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;if(!l2)continue;const t=Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/l2)),d=Math.hypot(ax+t*dx-x,ay+t*dy-y);if(d<md){md=d;mi=i;}}return md<15?mi:null;};
-  useEffect(()=>{
-    const cv=canvasRef.current;if(!cv)return;const ctx=cv.getContext('2d');ctx.clearRect(0,0,W,H);
-    ctx.strokeStyle='#e2e8f0';ctx.lineWidth=0.5;for(let x=0;x<=W;x+=GRID){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}for(let y=0;y<=H;y+=GRID){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
-    ctx.fillStyle='#94a3b8';ctx.font='11px sans-serif';ctx.fillText('1 sq='+ftPerGrid+'ft  canvas='+Math.round(W*ftPerPx)+"'x"+Math.round(H*ftPerPx)+"'",8,H-8);
-    if(!points.length){ctx.fillStyle='#94a3b8';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('Click to place corners',W/2,H/2-10);ctx.fillText('Click red dot to close',W/2,H/2+12);ctx.textAlign='left';return;}
-    if(closed&&points.length>=3){ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);for(let i=1;i<points.length;i++)ctx.lineTo(points[i].x,points[i].y);ctx.closePath();ctx.fillStyle='rgba(59,130,246,0.12)';ctx.fill();}
-    ctx.strokeStyle='#3b82f6';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);for(let i=1;i<points.length;i++)ctx.lineTo(points[i].x,points[i].y);if(closed)ctx.closePath();ctx.stroke();
-    if(!closed&&hover&&points.length){ctx.strokeStyle='#93c5fd';ctx.lineWidth=1;ctx.setLineDash([5,3]);ctx.beginPath();ctx.moveTo(points[points.length-1].x,points[points.length-1].y);ctx.lineTo(hover.x,hover.y);ctx.stroke();ctx.setLineDash([]);}
-    stairEdges.forEach(ei=>{if(ei>=points.length)return;const j=(ei+1)%points.length,mx=(points[ei].x+points[j].x)/2,my=(points[ei].y+points[j].y)/2;ctx.beginPath();ctx.arc(mx,my,9,0,Math.PI*2);ctx.fillStyle='#f59e0b';ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('S',mx,my);ctx.textBaseline='alphabetic';ctx.textAlign='left';});
-    if(closed){ctx.font='11px sans-serif';ctx.textAlign='center';for(let i=0;i<points.length;i++){const j=(i+1)%points.length,dx=points[j].x-points[i].x,dy=points[j].y-points[i].y,len=Math.hypot(dx,dy);if(!len)continue;const ft=Math.round(len*ftPerPx*10)/10,mx=(points[i].x+points[j].x)/2,my=(points[i].y+points[j].y)/2,nx=-dy/len*14,ny=dx/len*14;ctx.fillStyle='rgba(255,255,255,0.85)';ctx.fillRect(mx+nx-20,my+ny-8,42,15);ctx.fillStyle='#1e40af';ctx.fillText(ft+"'",mx+nx,my+ny+4);}ctx.textAlign='left';}
-    if(closed&&sqft){const cx=points.reduce((s,p)=>s+p.x,0)/points.length,cy=points.reduce((s,p)=>s+p.y,0)/points.length;ctx.fillStyle='rgba(30,64,175,0.9)';if(ctx.roundRect)ctx.roundRect(cx-52,cy-18,104,36,6);else ctx.rect(cx-52,cy-18,104,36);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.fillText(sqft+' sq ft',cx,cy+5);ctx.textAlign='left';}
-    points.forEach((p,i)=>{ctx.beginPath();ctx.arc(p.x,p.y,i===0?7:4,0,Math.PI*2);ctx.fillStyle=i===0?'#ef4444':'#3b82f6';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();});
-  },[points,closed,stairEdges,ftPerGrid,hover,sqft]);
-  const snap=(x,y)=>({x:Math.round(x/GRID)*GRID,y:Math.round(y/GRID)*GRID});
-  const handleClick=e=>{const r=e.currentTarget.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;if(closed){const ei=closestEdge(x,y,points);if(ei!==null)setStairEdges(prev=>prev.includes(ei)?prev.filter(i=>i!==ei):[...prev,ei]);return;}if(points.length>=3){const dx=x-points[0].x,dy=y-points[0].y;if(Math.hypot(dx,dy)<15){setClosed(true);return;}}setPoints(prev=>[...prev,snap(x,y)]);};
-  const B={padding:'7px 16px',border:'none',borderRadius:6,cursor:'pointer',fontSize:13,fontWeight:600};
-  return(
-    <div style={{background:'#0f1f35',border:'1px solid #1e3a5f',borderRadius:10,padding:16,marginBottom:16}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-        <span style={{fontWeight:700,fontSize:15,color:'#e2e8f0'}}>Draw Deck Shape</span>
-        <button style={{...B,padding:'3px 10px',fontSize:12,background:'#1e3a5f',color:'#94a3b8'}} onClick={onCancel}>Close</button>
+function DeckDrawingTool({ onApply }) {
+  const canvasRef = useRef(null);
+  const [points, setPoints] = useState([]);
+  const [stairEdges, setStairEdges] = useState([]);
+  const [scale, setScale] = useState(2);
+  const [hoverPt, setHoverPt] = useState(null);
+
+  const CELL = 30;
+  const CW   = 810;
+  const CH   = 570;
+
+  const snap = (v) => Math.round(v / CELL) * CELL;
+  const toFt = (px) => (px / CELL) * scale;
+
+  function shoelace(pts) {
+    let area = 0;
+    const n = pts.length;
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      area += pts[i].x * pts[j].y;
+      area -= pts[j].x * pts[i].y;
+    }
+    return Math.abs(area) / 2;
+  }
+
+  function perimeter(pts) {
+    let p = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const j = (i + 1) % pts.length;
+      const dx = pts[j].x - pts[i].x;
+      const dy = pts[j].y - pts[i].y;
+      p += Math.sqrt(dx * dx + dy * dy);
+    }
+    return p;
+  }
+
+  function edgeMidpoint(pts, ei) {
+    const a = pts[ei], b = pts[(ei + 1) % pts.length];
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  }
+
+  function nearestEdge(pts, mx, my, thresh) {
+    thresh = thresh || 22;
+    let best = -1, bestDist = thresh;
+    for (let i = 0; i < pts.length; i++) {
+      const mid = edgeMidpoint(pts, i);
+      const d = Math.hypot(mid.x - mx, mid.y - my);
+      if (d < bestDist) { bestDist = d; best = i; }
+    }
+    return best;
+  }
+
+  function polygonClosed() {
+    if (points.length < 3 || !hoverPt) return false;
+    return Math.hypot(hoverPt.x - points[0].x, hoverPt.y - points[0].y) < CELL * 1.3;
+  }
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, CW, CH);
+
+    ctx.fillStyle = '#1a2332';
+    ctx.fillRect(0, 0, CW, CH);
+
+    const cols = Math.floor(CW / CELL);
+    const rows = Math.floor(CH / CELL);
+    for (let c = 0; c <= cols; c++) {
+      const major = c % 5 === 0;
+      ctx.strokeStyle = major ? 'rgba(200,169,106,0.35)' : 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = major ? 1 : 0.5;
+      ctx.beginPath(); ctx.moveTo(c * CELL, 0); ctx.lineTo(c * CELL, CH); ctx.stroke();
+    }
+    for (let r = 0; r <= rows; r++) {
+      const major = r % 5 === 0;
+      ctx.strokeStyle = major ? 'rgba(200,169,106,0.35)' : 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = major ? 1 : 0.5;
+      ctx.beginPath(); ctx.moveTo(0, r * CELL); ctx.lineTo(CW, r * CELL); ctx.stroke();
+    }
+
+    ctx.fillStyle = 'rgba(200,169,106,0.65)';
+    ctx.font = '10px monospace';
+    for (let c = 5; c <= cols; c += 5) {
+      ctx.fillText((c * scale) + "'", c * CELL + 3, 11);
+    }
+    for (let r = 5; r <= rows; r += 5) {
+      ctx.fillText((r * scale) + "'", 3, r * CELL - 3);
+    }
+
+    if (points.length >= 3) {
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      points.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(200,169,106,0.15)';
+      ctx.fill();
+    }
+
+    if (points.length >= 2) {
+      for (let i = 0; i < points.length; i++) {
+        const a = points[i];
+        const b = points[(i + 1) % points.length];
+        if (i === points.length - 1 && points.length < 3) continue;
+        ctx.strokeStyle = '#e0c98a';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const eft = Math.round(Math.sqrt(dx*dx+dy*dy)/CELL*scale*10)/10;
+        const mx2 = (a.x+b.x)/2, my2 = (a.y+b.y)/2;
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(eft + "'", mx2 + 4, my2 - 4);
+      }
+      if (hoverPt && points.length >= 1 && !polygonClosed()) {
+        const last = points[points.length - 1];
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(hoverPt.x, hoverPt.y); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    stairEdges.forEach(ei => {
+      if (ei < points.length) {
+        const a = points[ei], b = points[(ei + 1) % points.length];
+        ctx.strokeStyle = '#ff9f43'; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        const mid = edgeMidpoint(points, ei);
+        ctx.fillStyle = '#ff9f43'; ctx.font = 'bold 11px sans-serif';
+        ctx.fillText('STAIRS', mid.x - 22, mid.y - 8);
+      }
+    });
+
+    points.forEach((p, idx) => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, idx === 0 ? 7 : 5, 0, Math.PI * 2);
+      ctx.fillStyle = idx === 0 ? '#C8A96A' : '#ffffff';
+      ctx.fill();
+      ctx.strokeStyle = '#1a2332'; ctx.lineWidth = 1.5; ctx.stroke();
+    });
+
+    if (hoverPt) {
+      const nearFirst = points.length >= 3 && Math.hypot(hoverPt.x - points[0].x, hoverPt.y - points[0].y) < CELL * 1.3;
+      ctx.beginPath();
+      ctx.arc(nearFirst ? points[0].x : hoverPt.x, nearFirst ? points[0].y : hoverPt.y, nearFirst ? 9 : 5, 0, Math.PI * 2);
+      ctx.strokeStyle = nearFirst ? '#C8A96A' : 'rgba(255,255,255,0.5)';
+      ctx.lineWidth = nearFirst ? 2.5 : 1;
+      ctx.stroke();
+    }
+
+    if (points.length >= 3) {
+      const areaPx = shoelace(points);
+      const areaSqFt = Math.round((areaPx / (CELL * CELL)) * scale * scale);
+      const perimFt  = Math.round(perimeter(points) / CELL * scale * 10) / 10;
+      ctx.fillStyle = 'rgba(26,35,50,0.85)';
+      ctx.fillRect(CW - 168, CH - 54, 163, 48);
+      ctx.strokeStyle = 'rgba(200,169,106,0.4)'; ctx.lineWidth = 1;
+      ctx.strokeRect(CW - 168, CH - 54, 163, 48);
+      ctx.fillStyle = '#C8A96A'; ctx.font = 'bold 13px sans-serif';
+      ctx.fillText('Area: ' + areaSqFt + ' sq ft', CW - 160, CH - 33);
+      ctx.fillStyle = '#e0e0e0'; ctx.font = '12px sans-serif';
+      ctx.fillText('Perimeter: ' + perimFt + ' ft', CW - 160, CH - 14);
+    }
+  }, [points, stairEdges, hoverPt, scale]);
+
+  function handleMouseMove(e) {
+    const rect = canvasRef.current.getBoundingClientRect();
+    const sx = snap(e.clientX - rect.left);
+    const sy = snap(e.clientY - rect.top);
+    setHoverPt({ x: sx, y: sy });
+  }
+
+  function handleClick(e) {
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = snap(e.clientX - rect.left);
+    const y = snap(e.clientY - rect.top);
+
+    if (points.length === 0) { setPoints([{ x, y }]); return; }
+
+    if (points.length >= 3) {
+      const d = Math.hypot(x - points[0].x, y - points[0].y);
+      if (d < CELL * 1.3) return; // close — do nothing on click, shape is done
+    }
+
+    // If shape is closed, clicks toggle stair edges
+    if (polygonClosed() && points.length >= 3) {
+      const ei = nearestEdge(points, x, y);
+      if (ei >= 0) {
+        setStairEdges(prev => prev.includes(ei) ? prev.filter(i => i !== ei) : [...prev, ei]);
+        return;
+      }
+    }
+
+    setPoints(prev => [...prev, { x, y }]);
+  }
+
+  function handleApply() {
+    if (points.length < 3) return;
+    const areaPx  = shoelace(points);
+    const sqft    = Math.round((areaPx / (CELL * CELL)) * scale * scale);
+    const perimFt = Math.round(perimeter(points) / CELL * scale * 10) / 10;
+    const sc = stairEdges.length;
+    const stairsVal = sc === 0 ? 'None' : sc === 1 ? '1 set' : sc === 2 ? '2 sets' : '3 sets';
+    onApply({ sqft, perimeter: perimFt, stairs: stairsVal });
+  }
+
+  const sqftNow  = points.length >= 3 ? Math.round((shoelace(points) / (CELL * CELL)) * scale * scale) : 0;
+  const perimNow = points.length >= 3 ? Math.round(perimeter(points) / CELL * scale * 10) / 10 : 0;
+  const isClosed = polygonClosed() || (points.length >= 3 && hoverPt && Math.hypot(hoverPt.x - points[0].x, hoverPt.y - points[0].y) < CELL * 1.3);
+
+  return (
+    <div style={{ background:'#1F2A37', borderRadius:10, padding:'14px 16px', marginBottom:16 }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8, flexWrap:'wrap', gap:8 }}>
+        <span style={{ color:'#C8A96A', fontWeight:700, fontSize:15 }}>Draw Deck Shape</span>
+        <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+          <span style={{ color:'#aaa', fontSize:12 }}>Grid scale:</span>
+          {[1,2,3,5].map(s => (
+            <button key={s} onClick={() => { setPoints([]); setStairEdges([]); setScale(s); }}
+              style={{ background: scale===s ? '#C8A96A' : '#2d3f55', color: scale===s ? '#1F2A37' : '#ddd',
+                border:'none', borderRadius:5, padding:'4px 10px', fontSize:12, cursor:'pointer', fontWeight: scale===s ? 700 : 400 }}>
+              {s}ft/cell
+            </button>
+          ))}
+          <button onClick={() => { setPoints([]); setStairEdges([]); }}
+            style={{ background:'#3d2020', color:'#ff8080', border:'none', borderRadius:5, padding:'4px 10px', fontSize:12, cursor:'pointer' }}>
+            Clear
+          </button>
+        </div>
       </div>
-      <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:10}}>
-        <span style={{fontSize:12,color:'#64748b'}}>Scale:</span>
-        <select style={{fontSize:13,padding:'3px 8px',borderRadius:4,border:'1px solid #334155',background:'#1e293b',color:'#e2e8f0'}} value={ftPerGrid} onChange={e=>{setFtPerGrid(Number(e.target.value));setPoints([]);setClosed(false);setStairEdges([]);}}>
-          <option value={1}>1 grid = 1 ft</option>
-          <option value={2}>1 grid = 2 ft (default)</option>
-          <option value={3}>1 grid = 3 ft</option>
-          <option value={5}>1 grid = 5 ft</option>
-        </select>
-        <span style={{fontSize:12,color:'#475569'}}>canvas = {Math.round(W*ftPerPx)}ft x {Math.round(H*ftPerPx)}ft</span>
+
+      <div style={{ fontSize:12, color:'#7a8fa8', marginBottom:8, lineHeight:1.6 }}>
+        <b style={{color:'#C8A96A'}}>Click</b> to place corners &nbsp;&#183;&nbsp;
+        <b style={{color:'#C8A96A'}}>Click near gold dot</b> to close shape &nbsp;&#183;&nbsp;
+        <b style={{color:'#ff9f43'}}>Click an edge midpoint</b> to mark stairs
       </div>
-      <canvas ref={canvasRef} width={W} height={H} style={{display:'block',cursor:'crosshair',border:'1px solid #1e3a5f',borderRadius:6,background:'#fff',maxWidth:'100%'}} onClick={handleClick} onMouseMove={e=>{const r=e.currentTarget.getBoundingClientRect();setHover(snap(e.clientX-r.left,e.clientY-r.top));}}/>
-      <p style={{fontSize:11,color:'#64748b',margin:'6px 0 0'}}>{!closed&&!points.length?'Click to place corners. Snaps to grid.':!closed&&points.length<3?points.length+' pts placed. Keep clicking.':!closed?'Click the red dot to close.':'Closed. Click an edge to mark stairs (S).'}</p>
-      {closed&&sqft!==null&&<div style={{display:'flex',gap:16,marginTop:10,padding:'8px 14px',background:'#0a1628',borderRadius:6,flexWrap:'wrap'}}><span style={{fontSize:13,color:'#93c5fd'}}>Area: <strong>{sqft} sq ft</strong></span><span style={{fontSize:13,color:'#93c5fd'}}>Perimeter: <strong>{perimFt} lf</strong></span>{stairEdges.length>0&&<span style={{fontSize:13,color:'#fcd34d'}}>Stairs: <strong>{stairEdges.length} set{stairEdges.length>1?'s':''}</strong></span>}</div>}
-      <div style={{display:'flex',gap:8,marginTop:10}}>
-        {closed&&sqft!==null&&<button style={{...B,background:'#2563eb',color:'#fff'}} onClick={()=>onApply({sqft,perimeter:perimFt,stairCount:stairEdges.length})}>Use These Measurements</button>}
-        {points.length>0&&<button style={{...B,background:'#1e3a5f',color:'#94a3b8'}} onClick={()=>{setPoints([]);setClosed(false);setStairEdges([]);}}>Reset</button>}
+
+      <canvas ref={canvasRef} width={CW} height={CH}
+        onClick={handleClick}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setHoverPt(null)}
+        style={{ borderRadius:6, cursor:'crosshair', display:'block', maxWidth:'100%',
+          border:'1px solid rgba(200,169,106,0.2)' }}
+      />
+
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:10, flexWrap:'wrap', gap:8 }}>
+        <div style={{ color:'#ccc', fontSize:13 }}>
+          {points.length < 3
+            ? <span style={{color:'#7a8fa8'}}>Place at least 3 corners to see measurements</span>
+            : <span>
+                <b style={{color:'#C8A96A'}}>{sqftNow} sq ft</b>
+                <span style={{color:'#555'}}> &nbsp;&#183;&nbsp; </span>
+                <b style={{color:'#C8A96A'}}>{perimNow} ft</b> perimeter
+                {stairEdges.length > 0 && <span> &nbsp;&#183;&nbsp; <b style={{color:'#ff9f43'}}>{stairEdges.length} stair set{stairEdges.length!==1?'s':''}</b></span>}
+              </span>
+          }
+        </div>
+        <button onClick={handleApply} disabled={points.length < 3}
+          style={{ background: points.length >= 3 ? '#C8A96A' : '#3a3a3a',
+            color: points.length >= 3 ? '#1F2A37' : '#666',
+            border:'none', borderRadius:6, padding:'8px 22px', fontWeight:700, fontSize:14,
+            cursor: points.length >= 3 ? 'pointer' : 'not-allowed' }}>
+          Use These Measurements
+        </button>
       </div>
     </div>
   );
