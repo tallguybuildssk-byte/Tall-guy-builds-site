@@ -1255,6 +1255,18 @@ function DeckDrawingTool({ onApply }) {
         ctx.setLineDash([4, 4]);
         ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(hoverPt.x, hoverPt.y); ctx.stroke();
         ctx.setLineDash([]);
+        const ldx = hoverPt.x - last.x, ldy = hoverPt.y - last.y;
+        const liveFt = Math.round(Math.sqrt(ldx*ldx+ldy*ldy)/CELL*scale*10)/10;
+        if (liveFt > 0) {
+          const lx = hoverPt.x + 10, ly = hoverPt.y - 10;
+          const lbl = liveFt + "'";
+          ctx.font = 'bold 13px sans-serif';
+          const tw = ctx.measureText(lbl).width;
+          ctx.fillStyle = 'rgba(26,35,50,0.85)';
+          ctx.fillRect(lx - 3, ly - 14, tw + 8, 18);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(lbl, lx + 1, ly);
+        }
       }
     }
 
