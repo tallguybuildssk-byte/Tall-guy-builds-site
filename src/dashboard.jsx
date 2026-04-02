@@ -434,7 +434,7 @@ function ClientPortal({jobs,logs,clientMode=false,onSignOut}){
         <button onClick={onSignOut} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:6,padding:"5px 12px",fontSize:11,cursor:"pointer",fontFamily:fb}}>Sign Out</button>
       </div>}
       <div style={{textAlign:"center",padding:"24px 0 32px"}}>
-        <img src="https://tallguybuilds.ca/assets/img-002.webp" alt="Tall Guy Builds" style={{width:72,height:72,borderRadius:14,objectFit:"cover",marginBottom:14,boxShadow:"0 4px 20px #00000050"}}/>
+        <img src="/tgb-logo.svg" alt="Tall Guy Builds" style={{width:72,height:72,borderRadius:14,objectFit:"cover",marginBottom:14,boxShadow:"0 4px 20px #00000050"}}/>
         <h1 style={{fontFamily:font,color:C.white,fontSize:26,margin:0}}>Tall Guy Builds Inc.</h1>
         <div style={{color:C.gold,fontSize:11,letterSpacing:2,fontWeight:600,marginTop:6}}>BUILT RIGHT. DESIGNED TO LAST.</div>
         <p style={{color:C.muted,fontSize:13,marginTop:12,maxWidth:360,margin:"12px auto 0"}}>Welcome to your project portal. Select your project below to view progress, milestones, and site updates.</p>
@@ -2423,7 +2423,7 @@ function Login({onSwitchToClient}){
   return <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:fb,padding:20}}>
     <div style={{width:"100%",maxWidth:380}}>
       <div style={{textAlign:"center",marginBottom:32}}>
-        <img src="https://tallguybuilds.ca/assets/img-002.webp" alt="TGB" style={{width:64,height:64,borderRadius:12,objectFit:"cover",marginBottom:16,boxShadow:"0 4px 20px #00000060"}}/>
+        <img src="/tgb-logo.svg" alt="TGB" style={{width:64,height:64,borderRadius:12,objectFit:"cover",marginBottom:16,boxShadow:"0 4px 20px #00000060"}}/>
         <h1 style={{fontFamily:font,color:C.white,fontSize:24,margin:0}}>Tall Guy Builds</h1>
         <div style={{color:C.gold,fontSize:10,letterSpacing:2,fontWeight:600,marginTop:6}}>BUILT RIGHT. DESIGNED TO LAST.</div>
       </div>
@@ -2466,7 +2466,7 @@ function ClientLogin({onSwitch}){
   return <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:fb,padding:20}}>
     <div style={{width:"100%",maxWidth:380}}>
       <div style={{textAlign:"center",marginBottom:32}}>
-        <img src="https://tallguybuilds.ca/assets/img-002.webp" alt="TGB" style={{width:64,height:64,borderRadius:12,objectFit:"cover",marginBottom:16,boxShadow:"0 4px 20px #00000060"}}/>
+        <img src="/tgb-logo.svg" alt="TGB" style={{width:64,height:64,borderRadius:12,objectFit:"cover",marginBottom:16,boxShadow:"0 4px 20px #00000060"}}/>
         <h1 style={{fontFamily:font,color:C.white,fontSize:24,margin:0}}>Tall Guy Builds</h1>
         <div style={{color:C.gold,fontSize:10,letterSpacing:2,fontWeight:600,marginTop:6}}>CLIENT PORTAL</div>
       </div>
@@ -2624,7 +2624,7 @@ export default function App(){
     <div style={{width:220,background:C.navy,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",position:"fixed",top:0,left:0,height:"100vh",zIndex:100}}>
       <div style={{padding:"20px 16px",borderBottom:`1px solid ${C.border}`}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <img src="https://tallguybuilds.ca/assets/img-002.webp" alt="TGB" style={{width:40,height:40,borderRadius:8,objectFit:"cover"}}/>
+          <img src="/tgb-logo.svg" alt="TGB" style={{width:40,height:40,borderRadius:8,objectFit:"cover"}}/>
           <div>
             <div style={{color:C.white,fontWeight:700,fontSize:13,fontFamily:font}}>Tall Guy Builds</div>
             <div style={{color:C.gold,fontSize:9,letterSpacing:1,fontWeight:600}}>BUILT RIGHT.</div>
