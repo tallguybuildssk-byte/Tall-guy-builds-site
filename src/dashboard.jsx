@@ -128,7 +128,7 @@ function MessageThread({jobId,senderType,senderName}){
   async function send(){
     if(!body.trim()||sending)return;
     setSending(true);
-    const m={job_id:jobId,sender_type:senderType,sender_name:senderName||null,body:body.trim(),read_by_admin:senderType==="admin",read_by_client:senderType==="client"};
+    const m={job_id:jobId,sender_type:senderType,sender_name:senderName||null,text:body.trim(),read_by_admin:senderType==="admin",read_by_client:senderType==="client"};
     const {data}=await supabase.from("messages").insert(m).select().single();
     if(data)setMsgs(p=>[...p,data]);
     setBody("");setSending(false);
@@ -156,7 +156,7 @@ function MessageThread({jobId,senderType,senderName}){
               {m.sender_name||(m.sender_type==="admin"?"Tall Guy Builds":"Client")} · {fmtTs(m.created_at)}
             </div>
             <div style={{background:isMe?C.gold:C.navy,color:isMe?C.navy:C.white,borderRadius:isMe?"12px 12px 3px 12px":"12px 12px 12px 3px",padding:"10px 14px",fontSize:13,lineHeight:1.5,border:`1px solid ${isMe?C.gold+"99":C.border}`,wordBreak:"break-word"}}>
-              {m.body}
+              {m.text}
             </div>
           </div>
         </div>;
