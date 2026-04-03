@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "./supabase";
+import DeckDesigner from './DeckDesigner';
 
 const C={navy:"#1F2A37",navyLight:"#2C3E50",gold:"#C8A96A",muted:"#6B7280",border:"#2E3D4F",warn:"#F59E0B",danger:"#EF4444",white:"#FFFFFF",bg:"#16212E",success:"#4CAF50"};
 const font="'Georgia',serif";
@@ -2556,7 +2557,8 @@ const NAV=[
 ];
 
 export default function App(){
-  const [page,setPage]=useState("dashboard");
+  const ,
+  {id:"deck-designer",label:"Deck Designer",icon:"📐"}[page,setPage]=useState("dashboard");
   const [session,setSession]=useState(undefined);
   const [isClient,setIsClient]=useState(false); // true if logged-in user is a portal client
   const [clientMode,setClientMode]=useState(()=>new URLSearchParams(window.location.search).get("portal")==="1"); // auto-switches to client login when ?portal=1 is in URL (from magic link email)
@@ -2655,3 +2657,5 @@ export default function App(){
     </div>
   </div>;
 }
+
+        {page==="deck-designer"&&<div style={{height:"calc(100vh - 120px)",display:"flex",flexDirection:"column"}}><DeckDesigner/></div>}
