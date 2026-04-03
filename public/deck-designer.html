@@ -785,7 +785,7 @@ function buildLightingOff(W, D, H, cx, cz, sec) {
     const sides=sec.railingSides||{front:true,back:true,left:true,right:true};
     const T=0.035, ledY=H+BT+0.38;
     const x1=cx-W/2,x2=cx+W/2,z1=cz-D/2,z2=cz+D/2;
-  2 if(sides.front){const m=new THREE.Mesh(new THREE.BoxGeometry(W,T,T),lightMat);m.position.set(cx,ledY,z2);deckGroup.add(m);}
+  if(sides.front){const m=new THREE.Mesh(new THREE.BoxGeometry(W,T,T),lightMat);m.position.set(cx,ledY,z2);deckGroup.add(m);}
     if(sides.back) {const m=new THREE.Mesh(new THREE.BoxGeometry(W,T,T),lightMat);m.position.set(cx,ledY,z1);deckGroup.add(m);}
     if(sides.left) {const m=new THREE.Mesh(new THREE.BoxGeometry(T,T,D),lightMat);m.position.set(x1,ledY,cz);deckGroup.add(m);}
     if(sides.right){const m=new THREE.Mesh(new THREE.BoxGeometry(T,T,D),lightMat);m.position.set(x2,ledY,cz);deckGroup.add(m);}
