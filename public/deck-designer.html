@@ -684,7 +684,7 @@ function addRailSeg(x1,z1,x2,z2,railMat,H,topY) {
   const nb=Math.max(2,Math.floor(len/BLS));
   for(let i=0;i<=nb;i++){
     const t=i/nb, m=new THREE.Mesh(new THREE.BoxGeometry(0.055,RH-0.25,0.055),railMat);
-    m.position.set(x1+(x2-x1)$t,H+BT+RH/2+0.12,z1+(z2-z1)*t); deckGroup.add(m);
+    m.position.set(x1+(x2-x1)*t,H+BT+RH/2+0.12,z1+(z2-z1)*t); deckGroup.add(m);
   }
 }
 function sideWithGaps(x1,z1,x2,z2,gaps,railMat,H,topY) {
