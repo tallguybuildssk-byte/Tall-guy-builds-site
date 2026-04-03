@@ -167,7 +167,7 @@ const bar   = { background: '#1F2A37', borderBottom: '1px solid #2e3a48', paddin
       <div style={bar}>
         <span style={label}>Job</span>
         <select style={sel} value={selectedJob} onChange={e => setSelectedJob(e.target.value)}>
-          <option value=''>â Select a job â</option>
+          <option value=''>Select a job</option>
           {jobs.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
         </select>
 
@@ -218,7 +218,7 @@ const bar   = { background: '#1F2A37', borderBottom: '1px solid #2e3a48', paddin
       <iframe
         ref={iframeRef}
         src='/deck-designer.html'
-        style={{ flex: 1, border: 'none', width: '100%' }}
+        style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 9999, border: 'none' }}
         title='Deck Designer'
       />
     </div>
