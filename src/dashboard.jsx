@@ -2554,11 +2554,11 @@ const NAV=[
   {id:"portal",label:"Client Portal",icon:"◈"},
   {id:"estimator",label:"Estimator",icon:"💲"},
   {id:"settings",label:"Settings",icon:"⚙"},
-];
+
+  {id:"deck-designer",label:"Deck Designer",icon:"📐"}];
 
 export default function App(){
-  const ,
-  {id:"deck-designer",label:"Deck Designer",icon:"📐"}[page,setPage]=useState("dashboard");
+  const [page,setPage]=useState("dashboard");
   const [session,setSession]=useState(undefined);
   const [isClient,setIsClient]=useState(false); // true if logged-in user is a portal client
   const [clientMode,setClientMode]=useState(()=>new URLSearchParams(window.location.search).get("portal")==="1"); // auto-switches to client login when ?portal=1 is in URL (from magic link email)
