@@ -2653,9 +2653,8 @@ export default function App(){
         {page==="portal"&&<ClientPortal jobs={jobs} logs={logs} milestones={milestones}/>}
         {page==="estimator"&&<Estimator jobs={jobs} leads={leads}/>}
         {page==="settings"&&<Settings/>}
+        {page==="deck-designer"&&<div style={{height:"calc(100vh - 120px)",display:"flex",flexDirection:"column"}}><DeckDesigner/></div>}
       </div>
     </div>
   </div>;
 }
-
-        {page==="deck-designer"&&<div style={{height:"calc(100vh - 120px)",display:"flex",flexDirection:"column"}}><DeckDesigner/></div>}
