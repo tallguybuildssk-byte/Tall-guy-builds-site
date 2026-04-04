@@ -231,6 +231,10 @@ input[type=range]::-webkit-slider-thumb {
         <div class="inlay-type-btn" data-type="solid">Solid Block</div>
         <div class="inlay-type-btn" data-type="pinstripe">Pinstripe</div>
       </div>
+      <div style="display:flex;gap:4px;margin:4px 0">
+        <button id="inlayRotBtn" class="oc-btn" style="flex:1">&#x27F3; Rotate</button>
+        <button id="inlayDiagBtn" class="oc-btn" style="flex:1">&#x27CB; Diagonal</button>
+      </div>
       <div class="field">
         <label>Size <span class="val" id="inlaySizeVal">4 ft</span></label>
         <input type="range" id="inlaySizeSlider" min="2" max="16" step="0.5" value="4">
@@ -430,7 +434,7 @@ const S = {
   lighting:{ postCaps:false, riserLights:false, railingLED:false },
   material:'pt', colorIdx:1,
   borderColorIdx:0, railingColorIdx:0,
-  inlay:{ on:false, type:'diamond', size:4, ox:0, oz:0, colorIdx:2, border:false, borderColorIdx:0 }
+  inlay:{ on:false, type:'diamond', size:4, ox:0, oz:0, colorIdx:2, border:false, borderColorIdx:0, diagonal:false, rot:false }
 };
 function defSec(id, gx, gy, gw, gh) {
   return { id, gx, gy, gw, gh, elevation:3.0,
@@ -936,6 +940,12 @@ function buildInlayOff(W, D, H, cx, cz) {
         const m=new THREE.Mesh(new THREE.BoxGeometry(diag*1.5,BT,BW),mat);
         m.rotation.y=-Math.PI/4; m.position.set(icx-sq*off,yOff,icz+sq*off); deckGroup.add(m);
       }
+    } else if(S.inlay.rot) {
+      const n=Math.ceil(hw/stride)+2;
+      for(let i=0;i<n;i++){
+        const m=new THREE.Mesh(new THREE.BoxGeometry(BW,BT,hd),mat);
+        m.position.set(icx-hw/2+i*stride+BW/2,yOff,icz); deckGroup.add(m);
+      }
     } else {
       const n=Math.ceil(hd/stride)+2;
       for(let i=0;i<n;i++){
@@ -943,6 +953,7 @@ function buildInlayOff(W, D, H, cx, cz) {
         m.position.set(icx,yOff,icz-hd/2+i*stride+BW/2); deckGroup.add(m);
       }
     }
+
   }
 
   // -- Pinstripe (full-deck-width accent rows) --
@@ -953,11 +964,16 @@ function buildInlayOff(W, D, H, cx, cz) {
       new THREE.Plane(new THREE.Vector3(0,0,1),D/2-cz),
       new THREE.Plane(new THREE.Vector3(0,0,-1),D/2+cz),
     ];
-    const mat=mkBoardMat(hex,deckClips), n=Math.ceil(D/stride)+2, interval=5;
+    const mat=mkBoardMat(hex,deckClips), n=Math.ceil((S.inlay.rot?W:D)/stride)+2, interval=5;
     for(let i=0;i<n;i++){
       if(i%interval!==0) continue;
-      const m=new THREE.Mesh(new THREE.BoxGeometry(W,BT,BW),mat);
-      m.position.set(cx,yOff,cz-D/2+i*stride+BW/2); deckGroup.add(m);
+      if(S.inlay.rot){
+        const m=new THREE.Mesh(new THREE.BoxGeometry(BW,BT,D),mat);
+        m.position.set(cx-W/2+i*stride+BW/2,yOff,cz); deckGroup.add(m);
+      } else {
+        const m=new THREE.Mesh(new THREE.BoxGeometry(W,BT,BW),mat);
+        m.position.set(cx,yOff,cz-D/2+i*stride+BW/2); deckGroup.add(m);
+      }
     }
   }
 
@@ -1723,6 +1739,16 @@ document.getElementById('inlayBorderToggle').addEventListener('change',e=>{
   S.inlay.border=e.target.checked;
   document.getElementById('inlayBorderFields').style.display=S.inlay.border?'block':'none';
   if(S.inlay.border) renderInlayBorderColors();
+  buildDeck();
+});
+document.getElementById('inlayRotBtn').addEventListener('click',()=>{
+  S.inlay.rot=!S.inlay.rot;
+  document.getElementById('inlayRotBtn').classList.toggle('active',S.inlay.rot);
+  buildDeck();
+});
+document.getElementById('inlayDiagBtn').addEventListener('click',()=>{
+  S.inlay.diagonal=!S.inlay.diagonal;
+  document.getElementById('inlayDiagBtn').classList.toggle('active',S.inlay.diagonal);
   buildDeck();
 });
 document.getElementById('inlaySizeSlider').addEventListener('input',e=>{ S.inlay.size=+e.target.value; document.getElementById('inlaySizeVal').textContent=S.inlay.size+' ft'; buildDeck(); });
