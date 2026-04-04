@@ -13,9 +13,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="index, follow" />
   <title>Renovations &amp; Deck Builder in Regina SK | Tall Guy Builds Inc.</title>
-  <meta name="description" content="Tall Guy Builds Inc. — Regina's trusted renovation contractor &amp; deck builder. Basements, garages, full renos, composite decks, screw pile foundations. Serving White City &amp; Pilot Butte." />
+  <meta name="description" content="Tall Guy Builds Inc. â Regina's trusted renovation contractor &amp; deck builder. Basements, garages, full renos, composite decks, screw pile foundations. Serving White City &amp; Pilot Butte." />
   <link rel="canonical" href="https://tallguybuilds.ca/" />
-  <link rel="icon" href="img-002.webp" />
+  <link rel="icon" href="tgb-logo.svg" />
   <!-- Open Graph -->
   <meta property="og:title" content="Renovations &amp; Deck Builder in Regina SK | Tall Guy Builds Inc." />
   <meta property="og:description" content="Custom decks, basement development, garages and renovations in Regina SK. Clear scope, clean worksite, built to last." />
@@ -256,6 +256,21 @@
       .quote-form-wrap{padding:20px}
       .contact-box{padding:22px}
     }
+  
+    /* Reviews */
+    .reviews-section { background: #1F2A37; padding: 4rem 2rem; text-align:center; }
+    .reviews-section h2 { color: #fff; font-size:28px; margin-bottom:10px; }
+    .google-badge { display:inline-flex; align-items:center; gap:10px; margin-bottom:24px; }
+    .google-stars { color: #FBBC04; font-size:1.1rem; letter-spacing:2px; }
+    .google-text { color:#fff; font-weight:600; font-size:0.9rem; }
+    .reviews-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:20px; max-width:900px; margin:0 auto; text-align:left; }
+    .review-card { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12); border-radius:16px; padding:22px; position:relative; }
+    .review-card::before { content:'"'; font-size:4rem; line-height:1; color:#C8A96A; position:absolute; top:10px; left:18px; opacity:0.4; }
+    .review-stars { color:#FBBC04; font-size:0.95rem; margin-bottom:12px; }
+    .review-text { font-style:italic; color:#E5E0D8; line-height:1.65; font-size:0.95rem; margin-bottom:14px; }
+    .review-author { color:#C8A96A; font-weight:700; font-size:0.88rem; }
+    .review-location { color:rgba(255,255,255,0.45); font-size:0.78rem; margin-top:2px; }
+    @media (max-width:768px) { .reviews-grid { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -263,7 +278,7 @@
   <div class="container">
     <div class="nav">
       <a class="brand" href="/" aria-label="Tall Guy Builds home">
-        <img src="img-002.webp" alt="Tall Guy Builds logo">
+        <img src="tgb-logo.svg" alt="Tall Guy Builds logo">
         <div class="name">Tall Guy Builds Inc.</div>
       </a>
       <nav class="menu" aria-label="Primary navigation">
@@ -379,7 +394,7 @@
         <div class="shot"><img src="work_01.jpg" alt="Deck and railing project"></div>
         <div class="shot"><img src="work_02.jpg" alt="Composite decking installation"></div>
         <div class="shot"><img src="work_03.jpg" alt="Outdoor framing project"></div>
-        <div class="shot"><img src="work_04.jpg" alt="Interior framing project"></div>
+        <div class="shot"><img src="img-003.webp" alt="Exterior renovation project"></div>
         <div class="shot"><img src="work_05.jpg" alt="Sunroom window project"></div>
         <div class="shot"><img src="work_06.jpg" alt="Garage interior progress"></div>
         <div class="shot"><img src="work_07.jpg" alt="Deck structure framing"></div>
@@ -402,7 +417,31 @@
     </div>
   </section>
 
-  <section id="contact">
+  
+<section id="reviews" class="reviews-section">
+  <div class="container">
+    <h2>What Our Clients Are Saying</h2>
+    <div class="google-badge">
+      <span class="google-stars">★★★★★</span>
+      <span class="google-text">5.0 on Google</span>
+    </div>
+    <div class="reviews-grid">
+      <div class="review-card">
+        <div class="review-stars">★★★★★</div>
+        <p class="review-text">"Hired Evan for a few framing jobs and they all went very well. Super easy to deal with, great communication, showed up when he said he would, and was very efficient. Highly recommend!"</p>
+        <div class="review-author">Kirklands</div>
+        <div class="review-location">Regina, SK</div>
+      </div>
+      <div class="review-card">
+        <div class="review-stars">★★★★★</div>
+        <p class="review-text">"We hired Evan as our contractor in Nov 2025 to complete our unfinished basement. He provided us an estimate on the scope, cost and time right away and it was fair and accurate. He kept clear communication with us the whole time. It showed how knowledgeable and how much he cared about the quality of work. He is good people and we have already found more work to hire him for. If you put your trust in him, you will not be disappointed."</p>
+        <div class="review-author">Jennelle Kettle</div>
+        <div class="review-location">Regina, SK</div>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="contact">
     <div class="container">
       <h2 class="section-title">Get a quote</h2>
       <p class="section-sub">Send a quick description, address, and a few photos using the form below &mdash; we'll reply same day when possible.</p>
@@ -421,7 +460,7 @@
       <h3>Request a quote</h3>
       <p class="muted small">Prefer a form? Send the details below &mdash; we'll reply same day when possible.</p>
       <form method="POST" action="https://formsubmit.co/tallguybuildsSK@gmail.com" enctype="multipart/form-data" class="quote-form">
-        <input type="hidden" name="_subject" value="New Quote Request — Tall Guy Builds" />
+        <input type="hidden" name="_subject" value="New Quote Request â Tall Guy Builds" />
         <input type="hidden" name="_next" value="https://www.tallguybuilds.ca/thanks.html" />
         <input type="hidden" name="_captcha" value="true" />
         <input type="hidden" name="_template" value="table" />
