@@ -1,11 +1,28 @@
 [build]
-  command = "npm install && npm run build && cp *.jpg *.webp thanks.html dist/ 2>/dev/null; true"
+  command = "npm install && npm run build && cp *.jpg *.webp thanks.html setup.html firebase-config.js dist/ 2>/dev/null; true && cp -r app dist/app"
   publish = "dist"
   functions = "netlify/functions"
 
 [functions]
   node_bundler = "esbuild"
 
+# ── CLIENT PORTAL ────────────────────────────────────────────
+[[redirects]]
+  from = "/app"
+  to = "/app/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/app/*"
+  to = "/app/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/setup"
+  to = "/setup.html"
+  status = 200
+
+# ── ADMIN DASHBOARD ──────────────────────────────────────────
 [[redirects]]
   from = "/login"
   to = "/app.html"
