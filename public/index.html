@@ -12,24 +12,23 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="index, follow" />
-  <title>Tall Guy Builds Inc. | Renovations &amp; Carpentry in Regina, SK</title>
-  <meta name="description" content="Tall Guy Builds Inc. renovations, basements, bathrooms, decks, garages and carpentry in Regina, Saskatchewan. Clear scope, clean worksite, built to last." />
+  <title>Renovations &amp; Deck Builder in Regina SK | Tall Guy Builds Inc.</title>
+  <meta name="description" content="Tall Guy Builds Inc. — Regina's trusted renovation contractor &amp; deck builder. Basements, garages, full renos, composite decks, screw pile foundations. Serving White City &amp; Pilot Butte. Call 306-737-5407." />
   <link rel="canonical" href="https://tallguybuilds.ca/" />
   <link rel="icon" href="img-002.webp" />
   <!-- Open Graph -->
-  <meta property="og:title" content="Tall Guy Builds Inc. | Renovations &amp; Carpentry in Regina, SK" />
+  <meta property="og:title" content="Renovations &amp; Deck Builder in Regina SK | Tall Guy Builds Inc." />
   <meta property="og:description" content="Custom decks, basement development, garages and renovations in Regina SK. Clear scope, clean worksite, built to last. Call 306-737-5407." />
   <meta property="og:url" content="https://tallguybuilds.ca/" />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="https://tallguybuilds.ca/hero.jpg" />
-  <!-- Schema -->
+  <!-- LocalBusiness Schema -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
     "name": "Tall Guy Builds Inc.",
     "telephone": "306-737-5407",
-    "email": "tallguybuildssk@gmail.com",
     "url": "https://tallguybuilds.ca",
     "image": "https://tallguybuilds.ca/hero.jpg",
     "address": {
@@ -43,9 +42,10 @@
       "latitude": 50.4452,
       "longitude": -104.6189
     },
-    "areaServed": ["Regina SK","White City SK","Pilot Butte SK","Lumsden SK","Qu'Appelle Valley SK","Katepwa Lake SK"],
+    "areaServed": ["Regina", "White City", "Pilot Butte", "Lumsden", "Qu'Appelle Valley"],
     "priceRange": "$$",
-    "description": "Custom deck builder, fence contractor, basement development, and garage construction in Regina SK. Clear scope, clean worksite, built to last."
+    "description": "Residential deck builder, fence contractor and renovation company serving Regina SK and surrounding area.",
+    "sameAs": ["https://www.facebook.com/tallguybuildssk"]
   }
   </script>
   <style>
@@ -167,9 +167,16 @@
       border-radius:var(--radius);
       padding:18px;
       box-shadow:0 8px 24px rgba(2,6,23,.06);
+      display:flex;flex-direction:column;
     }
     .card h3{font-size:18px;margin-top:10px}
-    .card p{color:var(--muted);margin-top:8px;font-size:15px}
+    .card p{color:var(--muted);margin-top:8px;font-size:15px;flex:1}
+    .card-link{
+      display:inline-flex;align-items:center;gap:6px;
+      margin-top:14px;font-weight:750;font-size:14px;
+      color:var(--gold);text-decoration:none;
+    }
+    .card-link:hover{text-decoration:underline}
     .icon{
       width:42px;height:42px;border-radius:14px;
       display:flex;align-items:center;justify-content:center;
@@ -226,6 +233,7 @@
     .small{font-size:14px}
     .tiny{font-size:13px;}
     footer{padding:22px 0;border-top:1px solid var(--border);color:var(--muted);font-size:14px;}
+    .footer-nap{display:flex;flex-wrap:wrap;gap:6px 24px;align-items:center;justify-content:space-between;}
     @media (max-width: 980px){
       .hero-grid{grid-template-columns:1fr}
       h1{font-size:44px}
@@ -238,6 +246,7 @@
       .form-grid{grid-template-columns:1fr}
       .brand{min-width:auto}
       .nav-right{min-width:auto}
+      .footer-nap{flex-direction:column;gap:4px;}
     }
     @media (max-width: 560px){
       h1{font-size:38px}
@@ -251,217 +260,253 @@
   </style>
 </head>
 <body>
-  <header>
+<header>
+  <div class="container">
+    <div class="nav">
+      <a class="brand" href="/" aria-label="Tall Guy Builds home">
+        <img src="img-002.webp" alt="Tall Guy Builds logo">
+        <div class="name">Tall Guy Builds Inc.</div>
+      </a>
+      <nav class="menu" aria-label="Primary navigation">
+        <a href="/decks/">Decks</a>
+        <a href="/fences/">Fences</a>
+        <a href="/basement-development/">Basements</a>
+        <a href="/garages/">Garages</a>
+        <a href="#contact">Contact</a>
+      </nav>
+      <div class="nav-right">
+        <a class="call" href="tel:+13067375407">Call/Text: (306) 737-5407</a>
+        <a class="btn btn-gold" href="tel:+13067375407">Get a Quote</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
     <div class="container">
-      <div class="nav">
-        <a class="brand" href="#top" aria-label="Tall Guy Builds home">
-          <img src="img-002.webp" alt="Tall Guy Builds logo">
-          <div class="name">Tall Guy Builds Inc.</div>
-        </a>
-        <nav class="menu" aria-label="Primary navigation">
-          <a href="#services">Services</a>
-          <a href="#about">About</a>
-          <a href="#work">Recent Work</a>
-          <a href="#contact">Contact</a>
-        </nav>
-        <div class="nav-right">
-          <a class="call" href="tel:+13067375407">Call/Text: (306) 737-5407</a>
-          <a class="btn btn-gold" href="tel:+13067375407">Get a Quote</a>
+      <div class="hero-grid">
+        <div>
+          <div class="kicker"><span class="dot"></span> REGINA, SASKATCHEWAN &bull; RENOVATIONS &amp; DECK BUILDER</div>
+          <h1>Home Renovation Contractor<br>&amp; Deck Builder in Regina, SK</h1>
+          <p>Tall Guy Builds specializes in full home renovations, basement development, and custom decks for Regina homeowners. Solid structure, tidy finishes, and a written scope that keeps surprises out of your project.</p>
+          <div class="cta-row">
+            <a class="btn btn-gold" href="tel:+13067375407">Get a Quote (Call/Text)</a>
+            <a class="btn btn-ghost" href="#quote-form">Request a Quote Form</a>
+          </div>
+          <div class="fineprint">Serving Regina, White City, Pilot Butte, Lumsden &amp; Qu'Appelle Valley.</div>
+        </div>
+        <div class="hero-card" aria-label="Featured project photo">
+          <img src="hero_card.jpg" alt="Finished deck with black railing">
+          <div class="pad">
+            <div class="badge-row">
+              <div class="badge">&#10004; Detailed written estimates</div>
+              <div class="badge">&#10004; Site protection + daily tidy</div>
+              <div class="badge">&#10004; Licensed trades coordinated</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </header>
-  <main id="top">
-    <section class="hero">
-      <div class="container">
-        <div class="hero-grid">
-          <div>
-            <div class="kicker"><span class="dot"></span> REGINA, SASKATCHEWAN &bull; RENOVATIONS &amp; CARPENTRY</div>
-            <h1>Renovations done right.<br>Clean worksite.<br>Built to last.</h1>
-            <p>Tall Guy Builds helps Regina homeowners upgrade their space with solid framing, tidy finishes, and a written scope that keeps surprises out of your project.</p>
-            <div class="cta-row">
-              <a class="btn btn-gold" href="tel:+13067375407">Get a Quote (Call/Text)</a>
-              <a class="btn btn-ghost" href="#quote-form">Request a Quote Form</a>
-            </div>
-            <div class="fineprint">Serving Regina, White City, Pilot Butte, Lumsden &amp; Qu'Appelle Valley.</div>
-          </div>
-          <div class="hero-card" aria-label="Featured project photo">
-            <img src="hero_card.jpg" alt="Finished deck with black railing">
-            <div class="pad">
-              <div class="badge-row">
-                <div class="badge">&#10004; Detailed written estimates</div>
-                <div class="badge">&#10004; Site protection + daily tidy</div>
-                <div class="badge">&#10004; Licensed trades coordinated</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-    <section id="services">
-      <div class="container">
-        <h2 class="section-title">Services</h2>
-        <p class="section-sub">One crew, one point of contact &mdash; clean scheduling and a clear scope from start to finish.</p>
-        <div class="cards">
-          <div class="card">
-            <div class="icon">&#128296;</div>
-            <h3>Renovations</h3>
-            <p>Kitchens, main floors, feature walls, and interior upgrades &mdash; solid framing, tidy finishes, and a clear written scope.</p>
-          </div>
-          <div class="card">
-            <div class="icon">&#127968;</div>
-            <h3>Basement Developments</h3>
-            <p>Framing, insulation &amp; vapor barrier, drywall, doors/trim, flooring and ceilings &mdash; built to code and ready for life down there.</p>
-          </div>
-          <div class="card">
-            <div class="icon">&#127959;</div>
-            <h3>Garages</h3>
-            <p>Garage builds and upgrades &mdash; structure, sheathing, doors/windows and finish details, coordinated from permit to punch list.</p>
-          </div>
-          <div class="card">
-            <div class="icon">&#129395;</div>
-            <h3>Decks &amp; Landscaping</h3>
-            <p>Composite or treated decks, stairs and railings, plus grading and yard touch-ups to make the whole space feel finished.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-    <section id="about">
-      <div class="container">
-        <h2 class="section-title">About Tall Guy Builds</h2>
-        <p class="section-sub">Known for straight answers, solid structure, and a clean site &mdash; so your project feels controlled from day one.</p>
-        <div class="about-grid">
-          <div class="about-img">
-            <img src="about.jpg" alt="Custom cabinetry and finish carpentry">
-          </div>
-          <div>
-            <div class="bullets">
-              <div class="bullet"><div class="check">&#10003;</div><div><strong>Written scope + options.</strong> You'll know what's included, what's not, and how changes get handled.</div></div>
-              <div class="bullet"><div class="check">&#10003;</div><div><strong>Daily tidy + dust control.</strong> We keep the home livable and the worksite professional.</div></div>
-              <div class="bullet"><div class="check">&#10003;</div><div><strong>Quality checks.</strong> Framing straight, finishes clean, and the details that prevent call-backs.</div></div>
-              <div class="bullet"><div class="check">&#10003;</div><div><strong>Licensed trades coordinated.</strong> Electrical &amp; plumbing scheduled properly so the job keeps moving.</div></div>
-            </div>
-            <div class="cta-row" style="margin-top:18px">
-              <a class="btn btn-gold" href="tel:+13067375407">Call/Text (306) 737-5407</a>
-              <a class="btn btn-ghost" href="#work">See Recent Work</a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-    <section id="work">
-      <div class="container">
-        <h2 class="section-title">Recent work</h2>
-        <p class="section-sub">A few snapshots from real Tall Guy Builds projects.</p>
-        <div class="gallery">
-          <div class="shot"><img src="work_01.jpg" alt="Deck and railing project"></div>
-          <div class="shot"><img src="work_02.jpg" alt="Composite decking installation"></div>
-          <div class="shot"><img src="work_03.jpg" alt="Outdoor framing project"></div>
-          <div class="shot"><img src="work_04.jpg" alt="Interior framing project"></div>
-          <div class="shot"><img src="work_05.jpg" alt="Sunroom window project"></div>
-          <div class="shot"><img src="work_06.jpg" alt="Garage interior progress"></div>
-          <div class="shot"><img src="work_07.jpg" alt="Deck structure framing"></div>
-          <div class="shot"><img src="img-001.webp" alt="Deck build progress"></div>
-        </div>
-      </div>
-    </section>
-    <section id="process">
-      <div class="container">
-        <h2 class="section-title">How it works</h2>
-        <p class="section-sub">Simple, clean process &mdash; no guessing and no chaos.</p>
-        <div class="steps">
-          <div class="step"><div class="num">1</div><div class="t">Walkthrough</div><div class="d">Quick site visit + goals/budget chat.</div></div>
-          <div class="step"><div class="num">2</div><div class="t">Detailed estimate</div><div class="d">Written scope with options.</div></div>
-          <div class="step"><div class="num">3</div><div class="t">Schedule</div><div class="d">Start date, site protection, ordering.</div></div>
-          <div class="step"><div class="num">4</div><div class="t">Build</div><div class="d">Daily tidy, updates, quality checks.</div></div>
-          <div class="step"><div class="num">5</div><div class="t">Final walkthrough</div><div class="d">Punch list + finish details.</div></div>
-        </div>
-      </div>
-    </section>
-    <section id="contact">
-      <div class="container">
-        <h2 class="section-title">Get a quote</h2>
-        <p class="section-sub">Text or call with a quick description, address, and a few photos &mdash; we'll reply same day when possible.</p>
-        <div class="contact-box">
-          <div>
-            <h3>Tall Guy Builds Inc. &nbsp;&middot;&nbsp; Regina, SK</h3>
-            <p>Call/Text: <a href="tel:+13067375407" style="text-decoration:underline">(306) 737-5407</a><br>
-            Email: <a href="mailto:tallguybuildsSK@gmail.com" style="text-decoration:underline">tallguybuildsSK@gmail.com</a></p>
-          </div>
-          <div class="contact-actions">
-            <a class="btn btn-gold" href="tel:+13067375407">Call/Text Now</a>
-            <a class="btn btn-ghost" href="mailto:tallguybuildsSK@gmail.com?subject=Quote%20Request%20-%20Tall%20Guy%20Builds">Email a Quote Request</a>
-          </div>
-        </div>
-      </div>
-      <div class="quote-form-wrap container" id="quote-form">
-        <h3>Request a quote</h3>
-        <p class="muted small">Prefer a form? Send the details below &mdash; we'll reply same day when possible.</p>
-        <form method="POST" action="https://formsubmit.co/tallguybuildsSK@gmail.com" enctype="multipart/form-data" class="quote-form">
-          <input type="hidden" name="_subject" value="New Quote Request — Tall Guy Builds" />
-          <input type="hidden" name="_next" value="https://www.tallguybuilds.ca/thanks.html" />
-          <input type="hidden" name="_captcha" value="true" />
-          <input type="hidden" name="_template" value="table" />
-          <input type="text" name="_honey" style="display:none" />
-          <div class="form-grid">
-            <div class="field">
-              <label for="q_name">Full name <span class="req">*</span></label>
-              <input id="q_name" name="name" type="text" autocomplete="name" required />
-            </div>
-            <div class="field">
-              <label for="q_phone">Phone <span class="req">*</span></label>
-              <input id="q_phone" name="phone" type="tel" autocomplete="tel" required />
-            </div>
-            <div class="field">
-              <label for="q_email">Email</label>
-              <input id="q_email" name="email" type="email" autocomplete="email" />
-            </div>
-            <div class="field">
-              <label for="q_address">Address / neighbourhood</label>
-              <input id="q_address" name="address" type="text" autocomplete="street-address" />
-            </div>
-            <div class="field">
-              <label for="q_service">Service</label>
-              <select id="q_service" name="service">
-                <option value="">Select one&hellip;</option>
-                <option>Renovations</option>
-                <option>Basement Developments</option>
-                <option>Garages</option>
-                <option>Decks &amp; Landscaping</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="q_timing">Ideal start timing</label>
-              <select id="q_timing" name="timing">
-                <option value="">Select one&hellip;</option>
-                <option>ASAP</option>
-                <option>2-4 weeks</option>
-                <option>1-3 months</option>
-                <option>3+ months</option>
-                <option>Not sure yet</option>
-              </select>
-            </div>
-            <div class="field full">
-              <label for="q_details">Project details <span class="req">*</span></label>
-              <textarea id="q_details" name="details" rows="5" placeholder="What are you looking to build/renovate? Any measurements, finishes, or constraints?" required></textarea>
-            </div>
-            <div class="field full">
-              <label for="q_photos">Photos (optional)</label>
-              <input id="q_photos" name="photos" type="file" accept="image/*" multiple />
-              <p class="tiny muted" style="margin-top:6px">Tip: a couple photos of the space + any inspiration pics help a ton.</p>
-            </div>
-          </div>
-          <button type="submit" class="btn btn-gold" style="margin-top:6px">Send request</button>
-        </form>
-        <p class="tiny muted" style="margin-top:14px">Or call/text <a href="tel:+13067375407">(306) 737-5407</a> for the fastest response.</p>
-      </div>
-    </section>
-  </main>
-  <footer>
+  </section>
+
+  <section id="services">
     <div class="container">
-      &copy; <span id="y"></span> Tall Guy Builds Inc. &bull; Regina, Saskatchewan &bull; <a href="tel:+13067375407" style="color:var(--gold)">(306) 737-5407</a>
+      <h2 class="section-title">Services</h2>
+      <p class="section-sub">One crew, one point of contact &mdash; clean scheduling and a clear scope from start to finish.</p>
+      <div class="cards">
+        <div class="card">
+          <div class="icon">&#128296;</div>
+          <h3>Full Home Renovations</h3>
+          <p>Kitchens, main floors, feature walls, and interior upgrades &mdash; solid framing, tidy finishes, and a clear written scope from start to finish.</p>
+          <a class="card-link" href="#contact">Get a Reno Quote &rarr;</a>
+        </div>
+        <div class="card">
+          <div class="icon">&#127959;</div>
+          <h3>Basement Development</h3>
+          <p>Framing, insulation &amp; vapor barrier, drywall, doors/trim, flooring and ceilings &mdash; built to code and ready for life down there.</p>
+          <a class="card-link" href="/basement-development/">Basement Development &rarr;</a>
+        </div>
+        <div class="card">
+          <div class="icon">&#128663;</div>
+          <h3>Garages</h3>
+          <p>Detached garage builds &mdash; concrete, framing, insulated/heated options, coordinated from permit to punch list.</p>
+          <a class="card-link" href="/garages/">Garage Builds &rarr;</a>
+        </div>
+        <div class="card">
+          <div class="icon">&#129395;</div>
+          <h3>Decks &amp; Fences</h3>
+          <p>Composite or treated decks, screw pile foundations, aluminum/glass railing, cedar &amp; pressure-treated privacy fences for Regina yards.</p>
+          <a class="card-link" href="/decks/">Deck Builder Regina &rarr;</a>
+        </div>
+      </div>
+      <div style="margin-top:18px;display:flex;gap:12px;flex-wrap:wrap;">
+        <a class="btn btn-gold" href="/decks/">Custom Decks</a>
+        <a class="btn btn-ghost" style="background:rgba(31,42,55,.07);color:#1F2A37;border-color:rgba(31,42,55,.15);" href="/fences/">Privacy Fences</a>
+        <a class="btn btn-ghost" style="background:rgba(31,42,55,.07);color:#1F2A37;border-color:rgba(31,42,55,.15);" href="/service-areas/white-city/">Serving White City &amp; Pilot Butte</a>
+      </div>
     </div>
-  </footer>
-  <script>document.getElementById("y").textContent = new Date().getFullYear();</script>
+  </section>
+
+  <section id="about">
+    <div class="container">
+      <h2 class="section-title">About Tall Guy Builds</h2>
+      <p class="section-sub">Known for straight answers, solid structure, and a clean site &mdash; so your project feels controlled from day one.</p>
+      <div class="about-grid">
+        <div class="about-img">
+          <img src="about.jpg" alt="Custom cabinetry and finish carpentry">
+        </div>
+        <div>
+          <div class="bullets">
+            <div class="bullet"><div class="check">&#10003;</div><div><strong>Written scope + options.</strong> You'll know what's included, what's not, and how changes get handled.</div></div>
+            <div class="bullet"><div class="check">&#10003;</div><div><strong>Daily tidy + dust control.</strong> We keep the home livable and the worksite professional.</div></div>
+            <div class="bullet"><div class="check">&#10003;</div><div><strong>Quality checks.</strong> Framing straight, finishes clean, and the details that prevent call-backs.</div></div>
+            <div class="bullet"><div class="check">&#10003;</div><div><strong>Licensed trades coordinated.</strong> Electrical &amp; plumbing scheduled properly so the job keeps moving.</div></div>
+            <div class="bullet"><div class="check">&#10003;</div><div><strong>$2M CGL + active WCB.</strong> Fully insured. Regina's preferred deck builder and renovation contractor.</div></div>
+          </div>
+          <div class="cta-row" style="margin-top:18px">
+            <a class="btn btn-gold" href="tel:+13067375407">Call/Text (306) 737-5407</a>
+            <a class="btn btn-ghost" style="background:rgba(31,42,55,.07);color:#1F2A37;border-color:rgba(31,42,55,.15);" href="#work">See Recent Work</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="work">
+    <div class="container">
+      <h2 class="section-title">Recent work</h2>
+      <p class="section-sub">A few snapshots from real Tall Guy Builds projects.</p>
+      <div class="gallery">
+        <div class="shot"><img src="work_01.jpg" alt="Deck and railing project"></div>
+        <div class="shot"><img src="work_02.jpg" alt="Composite decking installation"></div>
+        <div class="shot"><img src="work_03.jpg" alt="Outdoor framing project"></div>
+        <div class="shot"><img src="work_04.jpg" alt="Interior framing project"></div>
+        <div class="shot"><img src="work_05.jpg" alt="Sunroom window project"></div>
+        <div class="shot"><img src="work_06.jpg" alt="Garage interior progress"></div>
+        <div class="shot"><img src="work_07.jpg" alt="Deck structure framing"></div>
+        <div class="shot"><img src="img-001.webp" alt="Deck build progress"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="process">
+    <div class="container">
+      <h2 class="section-title">How it works</h2>
+      <p class="section-sub">Simple, clean process &mdash; no guessing and no chaos.</p>
+      <div class="steps">
+        <div class="step"><div class="num">1</div><div class="t">Walkthrough</div><div class="d">Quick site visit + goals/budget chat.</div></div>
+        <div class="step"><div class="num">2</div><div class="t">Detailed estimate</div><div class="d">Written scope with options.</div></div>
+        <div class="step"><div class="num">3</div><div class="t">Schedule</div><div class="d">Start date, site protection, ordering.</div></div>
+        <div class="step"><div class="num">4</div><div class="t">Build</div><div class="d">Daily tidy, updates, quality checks.</div></div>
+        <div class="step"><div class="num">5</div><div class="t">Final walkthrough</div><div class="d">Punch list + finish details.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="contact">
+    <div class="container">
+      <h2 class="section-title">Get a quote</h2>
+      <p class="section-sub">Text or call with a quick description, address, and a few photos &mdash; we'll reply same day when possible.</p>
+      <div class="contact-box">
+        <div>
+          <h3>Tall Guy Builds Inc. &nbsp;&middot;&nbsp; Regina, SK</h3>
+          <p>Call/Text: <a href="tel:+13067375407" style="text-decoration:underline">(306) 737-5407</a><br>
+          Email: <a href="mailto:tallguybuildsSK@gmail.com" style="text-decoration:underline">tallguybuildsSK@gmail.com</a></p>
+        </div>
+        <div class="contact-actions">
+          <a class="btn btn-gold" href="tel:+13067375407">Call/Text Now</a>
+          <a class="btn btn-ghost" href="mailto:tallguybuildsSK@gmail.com?subject=Quote%20Request%20-%20Tall%20Guy%20Builds">Email a Quote Request</a>
+        </div>
+      </div>
+    </div>
+    <div class="quote-form-wrap container" id="quote-form">
+      <h3>Request a quote</h3>
+      <p class="muted small">Prefer a form? Send the details below &mdash; we'll reply same day when possible.</p>
+      <form method="POST" action="https://formsubmit.co/tallguybuildsSK@gmail.com" enctype="multipart/form-data" class="quote-form">
+        <input type="hidden" name="_subject" value="New Quote Request — Tall Guy Builds" />
+        <input type="hidden" name="_next" value="https://www.tallguybuilds.ca/thanks.html" />
+        <input type="hidden" name="_captcha" value="true" />
+        <input type="hidden" name="_template" value="table" />
+        <input type="text" name="_honey" style="display:none" />
+        <div class="form-grid">
+          <div class="field">
+            <label for="q_name">Full name <span class="req">*</span></label>
+            <input id="q_name" name="name" type="text" autocomplete="name" required />
+          </div>
+          <div class="field">
+            <label for="q_phone">Phone <span class="req">*</span></label>
+            <input id="q_phone" name="phone" type="tel" autocomplete="tel" required />
+          </div>
+          <div class="field">
+            <label for="q_email">Email</label>
+            <input id="q_email" name="email" type="email" autocomplete="email" />
+          </div>
+          <div class="field">
+            <label for="q_address">Address / neighbourhood</label>
+            <input id="q_address" name="address" type="text" autocomplete="street-address" />
+          </div>
+          <div class="field">
+            <label for="q_service">Service</label>
+            <select id="q_service" name="service">
+              <option value="">Select one&hellip;</option>
+              <option>Decks &amp; Fences</option>
+              <option>Basement Development</option>
+              <option>Garages</option>
+              <option>Full Home Renovations</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="q_timing">Ideal start timing</label>
+            <select id="q_timing" name="timing">
+              <option value="">Select one&hellip;</option>
+              <option>ASAP</option>
+              <option>2-4 weeks</option>
+              <option>1-3 months</option>
+              <option>3+ months</option>
+              <option>Not sure yet</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label for="q_details">Project details <span class="req">*</span></label>
+            <textarea id="q_details" name="details" rows="5" placeholder="What are you looking to build/renovate? Any measurements, finishes, or constraints?" required></textarea>
+          </div>
+          <div class="field full">
+            <label for="q_photos">Photos (optional)</label>
+            <input id="q_photos" name="photos" type="file" accept="image/*" multiple />
+            <p class="tiny muted" style="margin-top:6px">Tip: a couple photos of the space + any inspiration pics help a ton.</p>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-gold" style="margin-top:6px">Send request</button>
+      </form>
+      <p class="tiny muted" style="margin-top:14px">Or call/text <a href="tel:+13067375407">(306) 737-5407</a> for the fastest response.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="footer-nap">
+      <span>
+        <strong>Tall Guy Builds Inc.</strong> &bull;
+        Regina, Saskatchewan, Canada &bull;
+        <a href="tel:+13067375407" style="color:var(---gold)">(306) 737-5407</a> &bull;
+        <a href="mailto:tallguybuildsSK@gmail.com" style="color:var(--gold)">tallguybuildsSK@gmail.com</a>
+      </span>
+      <span>
+        Serving Regina &bull; White City &bull; Pilot Butte &bull; Lumsden &bull; Qu'Appelle Valley
+      </span>
+      <span>
+        <a href="/decks/" style="color:var(--muted)">Decks</a> &bull;
+        <a href="/fences/" style="color:var(--muted)">Fences</a> &bull;
+        <a href="/basement-development/" style="color:var(--muted)">Basements</a> &bull;
+        <a href="/garages/" style="color:var(--muted)">Garages</a>
+      </span>
+      <span>&copy; <span id="y"></span> Tall Guy Builds Inc.</span>
+    </div>
+  </div>
+</footer>
+<script>document.getElementById("y").textContent = new Date().getFullYear();</script>
 </body>
-        </html>
+</html>
