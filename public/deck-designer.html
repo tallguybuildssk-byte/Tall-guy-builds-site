@@ -648,6 +648,45 @@ function buildBoardsOff(W, D, H, cx, cz) {
       m.rotation.y=-Math.PI/4;
       m.position.set(cx+pX*off,H+BT/2,cz+pZ*off); deckGroup.add(m);
     }
+  } else if(fp==='herringbone'){
+    const span=Math.sqrt(W*W+D*D), dLen=span*1.5;
+    const n=Math.ceil(span/stride)+4, bMat=mkBoardMat(_hex,fClips);
+    for(let i=0;i<n;i++){
+      const off=-span/2+i*stride-stride;
+      const angle=(i%2===0)?-Math.PI/4:Math.PI/4;
+      const m=new THREE.Mesh(new THREE.BoxGeometry(dLen,BT,BW),bMat);
+      m.rotation.y=angle;
+      m.position.set(cx-off/Math.SQRT2,H+BT/2,cz+off/Math.SQRT2); deckGroup.add(m);
+    }
+  } else if(fp==='chevron'){
+    const span=Math.sqrt(W*W+D*D), dLen=span*1.5;
+    const n=Math.ceil(span/stride)+4, bMat=mkBoardMat(_hex,fClips);
+    for(let i=0;i<n;i++){
+      const off=-span/2+i*stride-stride;
+      const angle=off<0?-Math.PI/4:Math.PI/4;
+      const m=new THREE.Mesh(new THREE.BoxGeometry(dLen,BT,BW),bMat);
+      m.rotation.y=angle;
+      m.position.set(cx-off/Math.SQRT2,H+BT/2,cz+off/Math.SQRT2); deckGroup.add(m);
+    }
+  } else if(fp==='basket'){
+    const bMat=mkBoardMat(_hex,fClips), gs=stride*4;
+    const ncX=Math.ceil(fW/gs)+1, ncZ=Math.ceil(fD/gs)+1;
+    for(let iz=0;iz<ncZ;iz++) for(let ix=0;ix<ncX;ix++){
+      const horiz=(ix+iz)%2===0, n2=4;
+      for(let k=0;k<n2;k++){
+        const bx=cx-fW/2+ix*gs+(horiz?k*stride+BW/2:gs/2);
+        const bz=cz-fD/2+iz*gs+(horiz?gs/2:k*stride+BW/2);
+        const geo=horiz?new THREE.BoxGeometry(gs,BT,BW):new THREE.BoxGeometry(BW,BT,gs);
+        const m=new THREE.Mesh(geo,bMat);
+        m.position.set(bx,H+BT/2,bz); deckGroup.add(m);
+      }
+    }
+  } else {
+    const bMat=mkBoardMat(_hex,fClips), n=Math.ceil(fD/stride)+1;
+    for(let i=0;i<n;i++){
+      const m=new THREE.Mesh(new THREE.BoxGeometry(fW,BT,BW),bMat);
+      m.position.set(cx,H+BT/2,cz-fD/2+i*stride+BW/2); deckGroup.add(m);
+    }
   }
 }
 
