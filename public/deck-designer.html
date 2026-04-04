@@ -75,6 +75,8 @@ input[type=range]::-webkit-slider-thumb {
 .border-opts { display:flex; gap:5px; margin-bottom:0; }
 .border-btn { flex:1; background:#252932; border:2px solid transparent; border-radius:5px; padding:4px 3px; cursor:pointer; text-align:center; font-size:10px; color:#6b7585; transition:all 0.15s; }
 .border-btn.active { border-color:#f0a500; color:#f0a500; background:#2a2416; }
+.oc-btn { flex:1; background:#252932; border:2px solid transparent; border-radius:5px; padding:4px 3px; cursor:pointer; text-align:center; font-size:10px; color:#6b7585; transition:all 0.15s; }
+.oc-btn.active { border-color:#f0a500; color:#f0a500; background:#2a2416; }
 
 /* -- Stair builder -- */
 .stair-row { display:flex; gap:4px; align-items:center; margin-bottom:5px; background:#1a1d26; border-radius:5px; padding:5px 6px; flex-wrap:wrap; }
@@ -265,10 +267,10 @@ input[type=range]::-webkit-slider-thumb {
       <span class="toggle-label">Show framing / posts</span>
       <label class="toggle"><input type="checkbox" id="postsToggle" checked><div class="toggle-track"></div></label>
     </div>
-    <div class="section-title" style="margin:10px 0 6px;">Joist Spacing</div><div style="margin:4px 0 6px;"><div style="font-size:10px;color:#aab;margin-bottom:3px;">Joist Size (PT)</div><div style="display:flex;gap:3px;"><div id="j_2x8" onclick="setJoistSize('2x8')" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 2px;border-radius:5px;border:1px solid #3a4255;background:#1e2535">2×8</div><div id="j_2x10" onclick="setJoistSize('2x10')" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 2px;border-radius:5px;background:#2563eb;color:#fff">2×10</div><div id="j_2x12" onclick="setJoistSize('2x12')" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 2px;border-radius:5px;border:1px solid #3a4255;background:#1e2535">2×12</div></div></div><div style="margin:4px 0 6px;"><div style="font-size:10px;color:#aab;margin-bottom:3px;">Joist Size (PT)</div><div style="display:flex;gap:3px;"><div id="j_2x8" onclick="setJoistSize('2x8')" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 2px;border-radius:5px;border:1px solid #3a4255;background:#1e2535">2×8</div><div id="j_2x10" onclick="setJoistSize('2x10')" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 2px;border-radius:5px;background:#2563eb;color:#fff">2×10</div><div id="j_2x12" onclick="setJoistSize('2x12')" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 2px;border-radius:5px;border:1px solid #3a4255;background:#1e2535">2×12</div></div></div>
+    <div class="section-title" style="margin:10px 0 6px;">Joist Spacing</div><div style="margin:4px 0 6px;"><div style="font-size:10px;color:#aab;margin-bottom:3px;">Joist Size (PT)</div><div style="display:flex;gap:3px;"><div id="j_2x8" onclick="setJoistSize('2x8')" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 2px;border-radius:5px;border:1px solid #3a4255;background:#1e2535">2×8</div><div id="j_2x10" onclick="setJoistSize('2x10')" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 2px;border-radius:5px;background:#2563eb;color:#fff">2×10</div><div id="j_2x12" onclick="setJoistSize('2x12')" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 2px;border-radius:5px;border:1px solid #3a4255;background:#1e2535">2×12</div></div></div>
     <div style="display:flex;gap:5px;margin-bottom:4px;">
-      <div class="border-btn active" id="joist16Btn" data-joist="16">16" o/c</div>
-      <div class="border-btn" id="joist12Btn" data-joist="12">12" o/c</div>
+      <div class="oc-btn active" id="joist16Btn" data-joist="16">16" o/c</div>
+      <div class="oc-btn" id="joist12Btn" data-joist="12">12" o/c</div>
     </div>
     <div style="font-size:9px;color:#3a4255;margin-top:4px;">Most composite manufacturers require 12" o/c.</div>
   </div>
@@ -1471,16 +1473,16 @@ function computeTakeoff() {
       dividerLF+=(sections-1)*runD;
       // Calculate boards for each sub-section
       const bestLen=fieldLengths.find(l=>l>=sectionW)||maxLen;
-      const rows=Math.ceil(runD/stride)+1;
-      const bPerRow=Math.ceil(sectionW/bestLen*waste);
-      boardBreakdown[bestLen]=(boardBreakdown[bestLen]||0)+rows*bPerRow*sections;
+      const rows=Math.ceil(runD/stride);
+      const bPerRow=Math.ceil(sectionW/bestLen);
+      boardBreakdown[bestLen]=(boardBreakdown[bestLen]||0)+Math.ceil(rows*bPerRow*waste)*sections;
       warnings.push(`${W}x${D} ft: ${sections} sections of ${sectionW.toFixed(1)} ft using ${bestLen}ft boards + ${sections-1} divider(s)`);
     } else {
       // Find optimal board length (smallest length >= run width)
       const bestLen=fieldLengths.find(l=>l>=runW)||maxLen;
-      const rows=Math.ceil(runD/stride)+1;
-      const bPerRow=Math.ceil(runW/bestLen*waste);
-      boardBreakdown[bestLen]=(boardBreakdown[bestLen]||0)+rows*bPerRow;
+      const rows=Math.ceil(runD/stride);
+      const bPerRow=Math.ceil(runW/bestLen);
+      boardBreakdown[bestLen]=(boardBreakdown[bestLen]||0)+Math.ceil(rows*bPerRow*waste);
     }
 
     // Border/picture-frame boards use longest length
