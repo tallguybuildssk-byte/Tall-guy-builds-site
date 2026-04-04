@@ -331,7 +331,7 @@ input[type=range]::-webkit-slider-thumb {
     <div class="stat-row"><span class="stat-label">Total Sq Ft</span><span class="stat-value" id="statSqft">--</span></div>
     <div class="stat-row"><span class="stat-label">Decking Boards</span><span class="stat-value" id="statBoards">--</span></div>
     <div class="stat-row"><span class="stat-label">Rim Joist</span><span class="stat-value" id="statRim">--</span></div>
-    <div class="stat-row"><span class="stat-label">Interior Joists</span><span class="stat-value" id="statJoists">--</span></div>
+    <div class="stat-row"><span class="stat-label">Joist Framing (PT)</span><span class="stat-value" id="statJoists">--</span></div>
     <div class="stat-row"><span class="stat-label">Posts</span><span class="stat-value" id="statPosts">--</span></div>
     <div class="stat-row" style="margin-top:6px;padding-top:6px;border-top:1px solid #1e2130;"><span class="stat-label">Materials Est.</span><span class="stat-value big" id="statCost">--</span></div>
     <div class="stat-row"><span class="stat-label">Labour Range</span><span class="stat-value" id="statLabour">--</span></div>
@@ -1491,7 +1491,7 @@ function computeTakeoff() {
 
     // Rim joists
     rimLF+=2*(W+D);
-    // Interior joists
+    // Joist Framing (PT)
     const jInt=Math.max(0,Math.floor((W-0.25)/jSpacingFt)-1);
     joistCount+=jInt; joistLF+=jInt*D;
     // Posts
@@ -1534,7 +1534,7 @@ function boardBreakdownText(bd) {
   return Object.entries(bd).sort((a,b)=>+b[0]-+a[0]).map(([len,cnt])=>`${cnt} pcs @ ${len}ft`).join(' + ') || '--';
 }
 
-function updateStats() {
+window._jSz=window._jSz||'2x10';function setJoistSize(s){window._jSz=s;['2x8','2x10','2x12'].forEach(function(v){var b=document.getElementById('j_'+v);if(b){b.style.background=v===s?'#2563eb':'#f0f0f0';b.style.color=v===s?'#fff':'#222';}});updateStats();}  function updateStats() {
   if(!S.sections.length){
     ['statSqft','statBoards','statRim','statJoists','statPosts','statCost','statLabour'].forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent='--'; });
     document.getElementById('statNote').textContent='Draw platforms in the plan view to begin.';
@@ -1551,7 +1551,7 @@ function updateStats() {
   document.getElementById('statSqft').textContent=`${t.sqFt} sq ft`;
   document.getElementById('statBoards').textContent=boardBreakdownText(t.boardBreakdown);
   document.getElementById('statRim').textContent=`${t.rimLF} lf`;
-  document.getElementById('statJoists').textContent=`${t.joistCount} pcs . ${t.joistLF} lf @ ${S.joistSpacing}" o/c`;
+  document.getElementById('statJoists').textContent=`${t.joistCount} pcs ${window._jSz||'2x10'} PT \u00b7 ${Math.ceil(t.joistLF/Math.max(t.joistCount,1))}\u2019 ea \u00b7 ${t.joistLF} lf @ ${S.joistSpacing}" o/c`;
   document.getElementById('statPosts').textContent=t.postCount>0?`${t.postCount} posts`:'Ground level';
   document.getElementById('statCost').textContent=`$${totalMat.toLocaleString()} CAD`;
   document.getElementById('statLabour').textContent=`$${labLow.toLocaleString()}-$${labHigh.toLocaleString()}`;
@@ -1828,7 +1828,7 @@ ${warningHTML}${boardOrderHTML}
     ${t.dividerLF>0?row('Section Divider Boards -- '+mat.label+' (no-butt-joint breaks)',t.dividerLF,'LF','$'+mat.priceSqFt.toFixed(2)+'/sf',dividerCost):''}
     <tr class="section-header"><td colspan="5">Framing</td></tr>
     ${row('Rim Joist -- 2x10 (perimeter, +10% waste)',t.rimLF,'LF','$1.90',rimCost)}
-    ${row('Interior Joists -- 2x10 @ '+ocLabel+' (+10% waste)',t.joistLF,'LF','$1.80',joistCost)}
+    ${row('Joist Framing (PT) -- 2x10 @ '+ocLabel+' (+10% waste)',t.joistLF,'LF','$1.80',joistCost)}
     ${t.postCount>0?row('Posts -- 6x6 ('+postH+' ft each)',t.postCount,'EA','$'+postCostEa.toFixed(2),postCostTotal):''}
     <tr class="section-header"><td colspan="5">Hardware &amp; Misc</td></tr>
     ${row('Fasteners, Joist Hangers, Post Bases, Misc Hardware',t.sqFt,'SF','$0.85',hardware)}
