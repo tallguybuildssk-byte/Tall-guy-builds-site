@@ -1,14 +1,199 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#1F2A37" />
-    <title>Tall Guy Builds</title>
-    <link rel="icon" type="image/svg+xml" href="/img-002.webp" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
-</html>
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="robots" content="index, follow"/>
+  <title>Deck Builder in Regina SK | Tall Guy Builds Inc.</title>
+  <meta name="description" content="Tall Guy Builds Inc. — Regina's trusted deck builder, fence contractor, and renovation company. Composite &amp; pressure-treated decks, wood fences, basement development, detached garages. Serving Regina, White City &amp; Pilot Butte SK. Call 306-737-5407."/>
+  <link rel="canonical" href="https://tallguybuilds.ca/"/>
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-8KKY9RHJBM"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-8KKY9RHJBM');
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": "Tall Guy Builds Inc.",
+    "telephone": "306-737-5407",
+    "email": "tallguybuildssk@gmail.com",
+    "url": "https://tallguybuilds.ca",
+    "image": "https://tallguybuilds.ca/images/hero.jpg",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "Regina",
+      "addressRegion": "SK",
+      "addressCountry": "CA"
+    },
+    "geo": {
+      "@type": "GeoCoordinates",
+      "latitude": 50.4452,
+      "longitude": -104.6189
+    },
+    "areaServed": ["Regina SK", "White City SK", "Pilot Butte SK", "Lumsden SK", "Emerald Park SK"],
+    "priceRange": "$$",
+    "description": "Custom deck builder, fence contractor, basement development, and garage construction in Regina SK. 20+ years experience. $2M CGL insured. WCB covered.",
+    "sameAs": [
+      "https://www.facebook.com/tallguybuildssk",
+      "https://www.instagram.com/tallguybuildssk"
+    ]
+  }
+  </script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Segoe UI',Arial,sans-serif;color:#222;background:#fff;}
+    a{color:#C8A96A;text-decoration:none;}
+    a:hover{text-decoration:underline;}
+    header{background:#1F2A37;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+    header .logo{color:#C8A96A;font-size:1.3rem;font-weight:700;letter-spacing:.5px;}
+    nav a{color:#fff;margin-left:18px;font-size:.95rem;}
+    nav a:hover{color:#C8A96A;text-decoration:none;}
+    .hero{background:linear-gradient(rgba(31,42,55,.75),rgba(31,42,55,.75)),url('/images/hero.jpg') center/cover no-repeat;color:#fff;padding:80px 24px;text-align:center;}
+    .hero h1{font-size:2.4rem;margin-bottom:16px;line-height:1.2;}
+    .hero p{font-size:1.15rem;max-width:600px;margin:0 auto 28px;}
+    .hero .cta{background:#C8A96A;color:#1F2A37;padding:14px 36px;border-radius:4px;font-weight:700;font-size:1.05rem;display:inline-block;}
+    .hero .cta:hover{background:#b8955a;text-decoration:none;}
+    .trust{background:#1F2A37;color:#fff;display:flex;justify-content:center;flex-wrap:wrap;gap:0;padding:0;}
+    .trust-item{padding:18px 32px;text-align:center;border-right:1px solid rgba(255,255,255,.15);}
+    .trust-item:last-child{border-right:none;}
+    .trust-item strong{display:block;font-size:1.3rem;color:#C8A96A;}
+    .trust-item span{font-size:.85rem;}
+    section{padding:60px 24px;max-width:1100px;margin:0 auto;}
+    h2{font-size:1.8rem;color:#1F2A37;margin-bottom:32px;text-align:center;}
+    .services-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px;}
+    .service-card{border:1px solid #e0d9cc;border-radius:6px;padding:28px 20px;text-align:center;transition:box-shadow .2s;}
+    .service-card:hover{box-shadow:0 4px 18px rgba(0,0,0,.1);}
+    .service-card h3{color:#1F2A37;margin-bottom:10px;}
+    .service-card p{font-size:.9rem;color:#555;margin-bottom:16px;}
+    .service-card a{background:#1F2A37;color:#C8A96A;padding:8px 20px;border-radius:3px;font-size:.9rem;font-weight:600;}
+    .service-card a:hover{background:#2c3e50;text-decoration:none;}
+    .why{background:#f8f5f0;padding:60px 24px;}
+    .why-inner{max-width:900px;margin:0 auto;}
+    .why ul{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:0;}
+    .why li{padding:12px 16px;background:#fff;border-left:4px solid #C8A96A;border-radius:0 4px 4px 0;}
+    .contact-section{background:#1F2A37;color:#fff;padding:60px 24px;text-align:center;}
+    .contact-section h2{color:#C8A96A;}
+    .contact-section p{margin-bottom:24px;font-size:1.05rem;}
+    form{max-width:540px;margin:0 auto;text-align:left;}
+    label{display:block;margin-bottom:4px;font-size:.9rem;color:#ccc;}
+    input,textarea,select{width:100%;padding:10px 12px;margin-bottom:14px;border:1px solid #444;border-radius:3px;background:#2c3e50;color:#fff;font-size:1rem;}
+    button[type=submit]{background:#C8A96A;color:#1F2A37;padding:12px 36px;border:none;border-radius:3px;font-weight:700;font-size:1rem;cursor:pointer;width:100%;}
+    button[type=submit]:hover{background:#b8955a;}
+    footer{background:#0f1820;color:#aaa;padding:24px;text-align:center;font-size:.9rem;}
+    footer strong{color:#C8A96A;}
+    @media(max-width:600px){.hero h1{font-size:1.7rem;}.trust{flex-direction:column;}.why ul{grid-template-columns:1fr;}}
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">TALL GUY BUILDS INC.</div>
+  <nav>
+    <a href="/decks/">Decks</a>
+    <a href="/fences/">Fences</a>
+    <a href="/basement-development/">Basements</a>
+    <a href="/garages/">Garages</a>
+    <a href="/service-areas/white-city/">White City</a>
+    <a href="tel:3067375407">306-737-5407</a>
+  </nav>
+</header>
+
+<div class="hero">
+  <h1>Deck Builder &amp; Contractor in Regina, SK</h1>
+  <p>Custom decks, fences, basement development &amp; garages. Built right — designed to last. Serving Regina, White City &amp; surrounding areas since 2004.</p>
+  <a href="#contact" class="cta">Get a Free Quote</a>
+</div>
+
+<div class="trust">
+  <div class="trust-item"><strong>20+</strong><span>Years Experience</span></div>
+  <div class="trust-item"><strong>$2M CGL</strong><span>Liability Insurance</span></div>
+  <div class="trust-item"><strong>WCB</strong><span>Covered</span></div>
+  <div class="trust-item"><strong>2-Day</strong><span>Deck Builds</span></div>
+  <div class="trust-item"><strong>Composite</strong><span>Specialists</span></div>
+</div>
+
+<section>
+  <h2>Our Services in Regina &amp; Area</h2>
+  <div class="services-grid">
+    <div class="service-card">
+      <h3>Deck Building</h3>
+      <p>Composite, pressure-treated, and hardwood decks custom-built to your yard and budget. Screw piles available.</p>
+      <a href="/decks/">Learn More</a>
+    </div>
+    <div class="service-card">
+      <h3>Fence Installation</h3>
+      <p>Cedar and pressure-treated privacy fences, picket fences, and custom gates built to Regina's wind load code.</p>
+      <a href="/fences/">Learn More</a>
+    </div>
+    <div class="service-card">
+      <h3>Basement Development</h3>
+      <p>Full basement finishing from framing and insulation to drywall, flooring, and permit coordination.</p>
+      <a href="/basement-development/">Learn More</a>
+    </div>
+    <div class="service-card">
+      <h3>Garage Construction</h3>
+      <p>Detached garages built from concrete to roofline. Insulated, heated options available. All permits handled.</p>
+      <a href="/garages/">Learn More</a>
+    </div>
+    <div class="service-card">
+      <h3>Renovations</h3>
+      <p>Interior and exterior renovation work including framing, siding, and structural modifications.</p>
+      <a href="#contact">Get a Quote</a>
+    </div>
+  </div>
+</section>
+
+<div class="why">
+  <div class="why-inner">
+    <h2 style="text-align:center;color:#1F2A37;margin-bottom:28px;">Why Regina Chooses Tall Guy Builds</h2>
+    <ul>
+      <li>20+ years building in Regina's climate — we know frost, wind, and UV</li>
+      <li>$2M commercial general liability insurance — fully covered on every job</li>
+      <li>WCB registered — protects you and every worker on your property</li>
+      <li>Composite deck specialists — Trex, TimberTech, and Fiberon</li>
+      <li>Most decks completed in 2 days — minimal disruption to your home</li>
+      <li>All permits pulled and inspections managed for you</li>
+      <li>Serving Regina, White City, Pilot Butte, Lumsden &amp; Qu'Appelle Valley</li>
+      <li>Transparent quotes — no surprises, no hidden markups</li>
+    </ul>
+  </div>
+</div>
+
+<div class="contact-section" id="contact">
+  <h2>Get Your Free Quote</h2>
+  <p>Call us at <a href="tel:3067375407" style="color:#fff;font-weight:700;">306-737-5407</a> or fill out the form below.</p>
+  <form action="https://formsubmit.co/tallguybuildssk@gmail.com" method="POST">
+    <input type="hidden" name="_subject" value="New quote request — tallguybuilds.ca"/>
+    <input type="hidden" name="_captcha" value="false"/>
+    <input type="hidden" name="_next" value="https://tallguybuilds.ca/?sent=1"/>
+    <label>Your Name</label>
+    <input type="text" name="name" required placeholder="John Smith"/>
+    <label>Phone or Email</label>
+    <input type="text" name="contact" required placeholder="306-555-0000 or email@example.com"/>
+    <label>Service Needed</label>
+    <select name="service">
+      <option>Deck</option>
+      <option>Fence</option>
+      <option>Basement Development</option>
+      <option>Garage</option>
+      <option>Renovation / Other</option>
+    </select>
+    <label>Project Description</label>
+    <textarea name="message" rows="4" placeholder="Tell us about your project…"></textarea>
+    <button type="submit">Send My Quote Request</button>
+  </form>
+</div>
+
+<footer>
+  <p><strong>Tall Guy Builds Inc.</strong> | Regina, SK | <a href="tel:3067375407" style="color:#C8A96A;">306-737-5407</a> | <a href="mailto:tallguybuildssk@gmail.com" style="color:#C8A96A;">tallguybuildssk@gmail.com</a></p>
+  <p style="margin-top:8px;">Serving Regina · White City · Pilot Butte · Lumsden · Qu'Appelle Valley</p>
+  <p style="margin-top:8px;font-size:.8rem;">Licensed &amp; Insured · $2M CGL · WCB · Built Right. Designed to Last.</p>
+</footer>
+
+</body>
+    </html>
