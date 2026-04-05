@@ -9,6 +9,7 @@
   from = "/"
     to = "/dashboard"
       status = 302
+        force = true
 
       
 # ── CLIENT PORTAL ────────────────────────────────────────────
