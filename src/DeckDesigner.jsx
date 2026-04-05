@@ -217,7 +217,7 @@ const bar   = { background: '#1F2A37', borderBottom: '1px solid #2e3a48', paddin
       {/* â ââ Deck Designer iframe ââ */}
       <iframe
         ref={iframeRef}
-        src='/deck-designer.html'
+        src='/admin-assets/deck-designer.html'
         style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 9999, border: 'none' }}
         title='Deck Designer'
       />
