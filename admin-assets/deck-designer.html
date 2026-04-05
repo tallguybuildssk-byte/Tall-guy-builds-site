@@ -164,6 +164,47 @@ input[type=range]::-webkit-slider-thumb {
 .controls-hint { position:absolute; bottom:10px; right:10px; font-size:9.5px; color:rgba(255,255,255,0.18); pointer-events:none; line-height:1.8; text-align:right; }
 .reset-btn { position:absolute; bottom:10px; left:10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.4); font-size:10px; padding:4px 9px; border-radius:4px; cursor:pointer; transition:all 0.15s; }
 .reset-btn:hover { background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); }
+
+/* ============================================================
+   TGB SALES UPGRADE — Quick Quote, Price Bar, Client View,
+   Size Presets, Save/Load  (non-destructive additions)
+   ============================================================ */
+body.quick-mode .section[data-advanced]{display:none}
+#tgb-price-bar{position:fixed;bottom:0;left:200px;right:0;background:#1a1d26;border-top:2px solid #c8a96a;display:flex;align-items:center;justify-content:space-between;padding:10px 20px;z-index:100;gap:16px;box-shadow:0 -2px 12px rgba(0,0,0,.4)}
+.tgb-pl{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px}
+.tgb-pa{font-size:22px;font-weight:800;color:#c8a96a;line-height:1}
+.tgb-ps{font-size:11px;color:#7a7a8a;margin-top:3px}
+#btn-gen-quote{background:#c8a96a;color:#000;font-weight:700;padding:10px 22px;border:none;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap}
+#btn-gen-quote:hover{background:#d4b87c}
+#btn-client-view{background:transparent;border:1px solid #3a3f4d;color:#aab;padding:10px 16px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap}
+#btn-client-view:hover{border-color:#c8a96a;color:#c8a96a}
+#btn-quick-mode{font-size:9px;padding:2px 7px;border-radius:3px;border:1px solid #3a3f4d;background:transparent;color:#666;cursor:pointer;margin-left:auto;flex-shrink:0}
+#btn-quick-mode.on{background:#c8a96a;color:#000;border-color:#c8a96a}
+#tgb-presets{padding:8px 12px;border-bottom:1px solid #252932}
+#tgb-presets .tgb-plbl{font-size:9px;color:#555;font-weight:600;letter-spacing:.06em;margin-bottom:5px}
+.tgb-size-btns{display:flex;flex-wrap:wrap;gap:4px}
+.tgb-sz{background:#1e222c;border:1px solid #2e3340;color:#8a8a9a;font-size:10px;padding:4px 7px;border-radius:3px;cursor:pointer}
+.tgb-sz:hover{border-color:#c8a96a;color:#c8a96a}
+#tgb-cv{display:none;position:fixed;inset:0;z-index:500;background:#0e1018;flex-direction:column}
+#tgb-cv.open{display:flex}
+#tgb-cv-hdr{background:#1a1d26;border-bottom:1px solid #252932;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+#tgb-cv-price{font-size:32px;font-weight:800;color:#c8a96a;line-height:1}
+.tgb-cv-specs{display:flex;gap:20px;margin-top:6px}
+.tgb-cv-spec strong{color:#aab;display:block;font-size:13px}
+.tgb-cv-spec{font-size:11px;color:#7a7a8a}
+#btn-cv-close{background:#252932;border:none;color:#aab;padding:10px 20px;border-radius:6px;cursor:pointer}
+body.client-mode .sidebar,body.client-mode .plan-view{display:none!important}
+body.client-mode .viewport{position:fixed!important;inset:0!important;top:80px!important;width:100%!important;height:calc(100vh - 80px)!important}
+#tgb-save-wrap{padding:8px 14px 12px;border-top:1px solid #1e222c;margin-top:4px}
+.tgb-stitle{font-size:9px;color:#555;font-weight:600;letter-spacing:.06em;margin-bottom:5px}
+.tgb-sbtns{display:flex;gap:4px;margin-bottom:6px}
+.tgb-sbtn{flex:1;background:#1e222c;border:1px solid #2e3340;color:#8a8a9a;font-size:10px;padding:5px 0;border-radius:3px;cursor:pointer}
+.tgb-sbtn:hover{border-color:#c8a96a;color:#c8a96a}
+.tgb-pi{display:flex;justify-content:space-between;align-items:center;padding:4px 6px;border-radius:3px;cursor:pointer;font-size:10px;color:#7a7a8a}
+.tgb-pi:hover{background:#1e222c;color:#aab}
+.tgb-pi-p{color:#c8a96a;font-size:9px}
+.tgb-empty{font-size:10px;color:#3a3f4d;font-style:italic}
+.viewport{padding-bottom:52px;box-sizing:border-box}
 </style>
 </head>
 <body>
@@ -271,7 +312,7 @@ input[type=range]::-webkit-slider-thumb {
       <span class="toggle-label">Show framing / posts</span>
       <label class="toggle"><input type="checkbox" id="postsToggle" checked><div class="toggle-track"></div></label>
     </div>
-    <div class="section-title" style="margin:10px 0 6px;">Joist Spacing</div><div style="margin:4px 0 6px;"><div style="font-size:10px;color:#aab;margin-bottom:3px;">Joist Size (PT)</div><div style="display:flex;gap:3px;"><div id="j_2x8" onclick="setJoistSize('2x8')" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 2px;border-radius:5px;border:1px solid #3a4255;background:#1e2535">2×8</div><div id="j_2x10" onclick="setJoistSize('2x10')" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 2px;border-radius:5px;background:#2563eb;color:#fff">2×10</div><div id="j_2x12" onclick="setJoistSize('2x12')" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 2px;border-radius:5px;border:1px solid #3a4255;background:#1e2535">2×12</div></div></div>
+    <div class="section-title" style="margin:10px 0 6px;">Joist Spacing</div><div style="margin:4px 0 6px;"><div style="font-size:10px;color:#aab;margin-bottom:3px;">Joist Size (PT)</div><div style="display:flex;gap:3px;"><div id="j_2x8" onclick="setJoistSize('2x8')" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 2px;border-radius:5px;border:1px solid #3a4255;background:#1e2535">2Ã8</div><div id="j_2x10" onclick="setJoistSize('2x10')" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 2px;border-radius:5px;background:#2563eb;color:#fff">2Ã10</div><div id="j_2x12" onclick="setJoistSize('2x12')" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 2px;border-radius:5px;border:1px solid #3a4255;background:#1e2535">2Ã12</div></div></div>
     <div style="display:flex;gap:5px;margin-bottom:4px;">
       <div class="oc-btn active" id="joist16Btn" data-joist="16">16" o/c</div>
       <div class="oc-btn" id="joist12Btn" data-joist="12">12" o/c</div>
@@ -1921,6 +1962,32 @@ ${warningHTML}${boardOrderHTML}
   <div><div class="sig-line">Client Signature &amp; Date</div></div>
   <div><div class="sig-line">Tall Guy Builds Inc. -- Evan</div></div>
 </div>
+
+<!-- ====== TGB SALES UPGRADE: Price Bar ====== -->
+<div id="tgb-price-bar">
+  <div style="flex:1">
+    <div class="tgb-pl">Estimated Project Price</div>
+    <div class="tgb-pa" id="tgb-live-price">&#8212; Draw a deck first</div>
+    <div class="tgb-ps" id="tgb-live-labour"></div>
+  </div>
+  <button id="btn-client-view">&#128203; Client View</button>
+  <button id="btn-gen-quote">Generate Quote &#8599;</button>
+</div>
+<!-- ====== TGB SALES UPGRADE: Client View Overlay ====== -->
+<div id="tgb-cv">
+  <div id="tgb-cv-hdr">
+    <div>
+      <div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Tall Guy Builds &middot; Project Preview</div>
+      <div id="tgb-cv-price">&#8212;</div>
+      <div class="tgb-cv-specs">
+        <div class="tgb-cv-spec"><strong id="cv-sqft">&#8212;</strong>Square Feet</div>
+        <div class="tgb-cv-spec"><strong id="cv-mat">&#8212;</strong>Material</div>
+        <div class="tgb-cv-spec"><strong id="cv-labour">&#8212;</strong>Labour Est.</div>
+      </div>
+    </div>
+    <button id="btn-cv-close">&#10005; Exit Preview</button>
+  </div>
+</div>
 </body></html>`);
   w.document.close();
 }
@@ -2005,6 +2072,175 @@ buildDeck();
 loop();
 // Signal to parent that the designer is ready
 setTimeout(()=>{ window.parent.postMessage({ type:'DECK_DESIGNER_READY' }, '*'); }, 500);
+
+// ================================================================
+// TGB SALES UPGRADE — Quick Quote, Price Bar, Client View,
+//                     Size Presets, Save/Load Projects
+// Non-destructive: appended after existing code, hooks into
+// existing DOM elements and global functions.
+// ================================================================
+(function tgbUpgrade() {
+  'use strict';
+
+  // ---- A: QUICK QUOTE MODE -----------------------------------
+  // Mark advanced/non-essential sections so CSS can hide them
+  var ADVANCED = ['Picture Frame Border','Border Colour','Inlay Pattern',
+                  'Inlay Colour','Border Ring Colour','Lighting Upgrades'];
+  document.querySelectorAll('.section').forEach(function(s) {
+    var t = s.querySelector('.section-title');
+    if (t && ADVANCED.indexOf(t.textContent.trim()) > -1)
+      s.setAttribute('data-advanced','1');
+  });
+  // Inject Quick Mode toggle into logo bar
+  var logo = document.querySelector('.logo');
+  if (logo) {
+    var qb = document.createElement('button');
+    qb.id = 'btn-quick-mode'; qb.textContent = 'Quick';
+    qb.title = 'Quick Quote Mode — essentials only';
+    qb.onclick = function() {
+      var on = document.body.classList.toggle('quick-mode');
+      qb.classList.toggle('on', on);
+      qb.textContent = on ? 'Full' : 'Quick';
+    };
+    logo.appendChild(qb);
+  }
+
+  // ---- B: SIZE PRESETS ---------------------------------------
+  var SIZES = [{l:'10x12',w:10,d:12},{l:'12x16',w:12,d:16},
+               {l:'16x20',w:16,d:20},{l:'20x24',w:20,d:24},
+               {l:'12x20',w:12,d:20},{l:'16x24',w:16,d:24}];
+  var platSec = Array.from(document.querySelectorAll('.section')).find(function(s){
+    var t = s.querySelector('.section-title');
+    return t && t.textContent.trim() === 'Selected Platform';
+  });
+  if (platSec) {
+    var pw = document.createElement('div'); pw.id = 'tgb-presets';
+    pw.innerHTML = '<div class="tgb-plbl">QUICK SIZE (ft)</div><div class="tgb-size-btns"></div>';
+    var pb = pw.querySelector('.tgb-size-btns');
+    SIZES.forEach(function(sz) {
+      var b = document.createElement('button'); b.className='tgb-sz'; b.textContent=sz.l;
+      b.onclick = function(){ applySize(sz.w, sz.d); };
+      pb.appendChild(b);
+    });
+    platSec.after(pw);
+  }
+  function applySize(w, d) {
+    if (typeof S==='undefined' || !S.sections || !S.sections.length) {
+      alert('Draw a platform first, then tap a size to resize it.'); return;
+    }
+    var sec = S.sections[0];
+    sec.gw = w; sec.gh = d;
+    if (typeof buildDeck==='function') buildDeck();
+    if (typeof renderSelPanel==='function') renderSelPanel();
+  }
+
+  // ---- C: LIVE PRICE BAR -------------------------------------
+  var livePrice  = document.getElementById('tgb-live-price');
+  var liveLabour = document.getElementById('tgb-live-labour');
+  function watchEl(id, cb) {
+    var el = document.getElementById(id); if (!el) return;
+    new MutationObserver(function(){ cb(el.textContent); })
+      .observe(el, {childList:true, characterData:true, subtree:true});
+    cb(el.textContent);
+  }
+  watchEl('statCost', function(t){
+    if (t && t !== '--') { livePrice.textContent = t; livePrice.style.color='#c8a96a'; }
+  });
+  watchEl('statLabour', function(t){
+    if (t && t !== '--') liveLabour.textContent = 'Labour: ' + t;
+  });
+  document.getElementById('btn-gen-quote').onclick = function() {
+    if (typeof exportQuote==='function') exportQuote();
+    else { var b=document.getElementById('exportQuoteBtn'); if(b) b.click(); }
+  };
+
+  // ---- D: CLIENT VIEW ----------------------------------------
+  var cvPanel = document.getElementById('tgb-cv');
+  document.getElementById('btn-client-view').onclick = function() {
+    document.getElementById('tgb-cv-price').textContent =
+      livePrice.textContent;
+    document.getElementById('cv-sqft').textContent =
+      (document.getElementById('statSqft')||{}).textContent || '--';
+    document.getElementById('cv-mat').textContent =
+      (document.querySelector('#materialSelect option:checked')||{}).textContent || '--';
+    document.getElementById('cv-labour').textContent =
+      (document.getElementById('statLabour')||{}).textContent || '--';
+    document.body.classList.add('client-mode');
+    cvPanel.classList.add('open');
+    setTimeout(function(){
+      if (typeof renderer!=='undefined') {
+        renderer.setSize(window.innerWidth, window.innerHeight-80);
+        renderer.render(scene,camera);
+      }
+    }, 60);
+  };
+  document.getElementById('btn-cv-close').onclick = function() {
+    document.body.classList.remove('client-mode');
+    cvPanel.classList.remove('open');
+    setTimeout(function(){ window.dispatchEvent(new Event('resize')); }, 60);
+  };
+
+  // ---- E: SAVE / LOAD PROJECTS -------------------------------
+  var statsPanel = document.querySelector('.stats-panel');
+  if (statsPanel) {
+    var sp = document.createElement('div'); sp.id='tgb-save-wrap';
+    sp.innerHTML =
+      '<div class="tgb-stitle">SAVED PROJECTS</div>' +
+      '<div class="tgb-sbtns">' +
+        '<button class="tgb-sbtn" id="btn-tgb-save">Save</button>' +
+        '<button class="tgb-sbtn" id="btn-tgb-load">Load</button>' +
+      '</div>' +
+      '<div id="tgb-proj-list"></div>';
+    statsPanel.appendChild(sp);
+    document.getElementById('btn-tgb-save').onclick = saveProject;
+    document.getElementById('btn-tgb-load').onclick = function(){
+      var l=document.getElementById('tgb-proj-list');
+      l.style.display = l.style.display==='none'?'':'none';
+    };
+    renderProjList();
+  }
+  function saveProject() {
+    if (typeof S==='undefined'||!S.sections||!S.sections.length) {
+      alert('Draw a deck first.'); return;
+    }
+    var name = prompt('Project name:', 'Deck '+new Date().toLocaleDateString());
+    if (!name) return;
+    var list = JSON.parse(localStorage.getItem('tgb_proj')||'[]');
+    list.unshift({ name:name, date:new Date().toISOString(),
+      price: livePrice.textContent,
+      state:{ sections:JSON.parse(JSON.stringify(S.sections)),
+              material:S.material, color:S.color, railings:S.railings,
+              posts:S.posts, joistSpacing:S.joistSpacing, pattern:S.pattern,
+              railColor:S.railColor, stairs:JSON.parse(JSON.stringify(S.stairs||[])) }
+    });
+    if (list.length>10) list.pop();
+    localStorage.setItem('tgb_proj', JSON.stringify(list));
+    renderProjList();
+  }
+  function renderProjList() {
+    var el = document.getElementById('tgb-proj-list'); if(!el) return;
+    var list = JSON.parse(localStorage.getItem('tgb_proj')||'[]');
+    if (!list.length) { el.innerHTML='<div class="tgb-empty">No saved projects</div>'; return; }
+    el.innerHTML = list.map(function(p,i){
+      return '<div class="tgb-pi" onclick="tgbLoad('+i+')">' +
+             '<span>'+p.name+'</span><span class="tgb-pi-p">'+(p.price||'')+'</span></div>';
+    }).join('');
+  }
+  window.tgbLoad = function(i) {
+    var list = JSON.parse(localStorage.getItem('tgb_proj')||'[]');
+    var p = list[i]; if (!p) return;
+    if (!confirm('Load "'+p.name+'"? Current deck will be replaced.')) return;
+    if (typeof S==='undefined') return;
+    var st=p.state;
+    S.sections=st.sections||[]; S.material=st.material; S.color=st.color;
+    S.railings=st.railings; S.posts=st.posts; S.joistSpacing=st.joistSpacing||16;
+    S.pattern=st.pattern; S.railColor=st.railColor; S.stairs=st.stairs||[];
+    if (typeof buildDeck==='function') buildDeck();
+    if (typeof renderSelPanel==='function') renderSelPanel();
+    if (typeof renderColors==='function') renderColors();
+  };
+
+})();
 </script>
 </body>
-</html>
+</html> 
