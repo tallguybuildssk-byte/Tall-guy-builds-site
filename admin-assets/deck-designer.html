@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TGB Deck Designer Pro</title>
+<title>Tall Guy Builds -- 3D Deck Designer</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -11,75 +11,209 @@ body {
   background: #12151c; color: #e8e8e8;
   display: flex; height: 100vh; overflow: hidden;
 }
+/* -- Sidebar -- */
+.sidebar {
+    width: 200px; min-width: 200px; background: #1a1d26;
+  border-right: 1px solid #252932;
+  display: block;
+    overflow-y: auto; overflow-x: hidden; flex-shrink: 0; min-height: 0;
+    height: 100vh;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: #1a1d26; }
+.sidebar::-webkit-scrollbar-thumb { background: #2e3340; border-radius: 2px; }
 
-/* ==================== YOUR ORIGINAL STYLES ==================== */
-.sidebar { width: 200px; min-width: 200px; background: #1a1d26; border-right: 1px solid #252932; overflow-y: auto; flex-shrink: 0; height: 100vh; }
-.logo { padding: 12px 14px; border-bottom: 1px solid #252932; display:flex; align-items:center; gap:8px; position:sticky; top:0; z-index:10; background:#1a1d26; }
-.logo-mark { background:#f0a500; color:#000; font-weight:900; font-size:11px; padding:4px 7px; border-radius:4px; }
-.logo-text { font-size:13px; font-weight:700; color:#f0a500; letter-spacing:0.5px; }
+.logo { padding: 12px 14px; border-bottom: 1px solid #252932; display:flex; align-items:center; gap:8px; flex-shrink:0; position:sticky; top:0; z-index:10; background:#1a1d26; }
+.logo-mark { background:#f0a500; color:#000; font-weight:900; font-size:10px; padding:3px 6px; border-radius:3px; }
+.logo-text { font-size:11px; font-weight:600; color:#aab; letter-spacing:0.02em; }
 
-.section { padding: 12px 14px; border-bottom: 1px solid #252932; }
+.section { padding: 12px 14px; border-bottom: 1px solid #252932; flex-shrink: 0; }
 .section-title { font-size:9px; font-weight:700; letter-spacing:0.12em; color:#4a5263; text-transform:uppercase; margin-bottom:10px; }
 
 .field { margin-bottom: 10px; }
+.field:last-child { margin-bottom: 0; }
 .field label { display:flex; justify-content:space-between; font-size:11px; color:#8892a0; margin-bottom:5px; }
-.field label .val { color:#f0a500; font-weight:600; }
+.field label .val { color:#f0a500; font-weight:600; font-variant-numeric:tabular-nums; }
 
-input[type=range] { width:100%; height:3px; background:#252932; border-radius:2px; cursor:pointer; }
-input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:13px; height:13px; background:#f0a500; border-radius:50%; cursor:pointer; }
+input[type=range] {
+  width:100%; -webkit-appearance:none; height:3px;
+  border-radius:2px; background:#252932; outline:none; cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:13px; height:13px; border-radius:50%;
+  background:#f0a500; cursor:pointer;
+}
 
 .toggle-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.toggle-row:last-child { margin-bottom:0; }
 .toggle-label { font-size:11px; color:#8892a0; }
-.toggle { position:relative; width:34px; height:18px; }
-.toggle input { opacity:0; width:0; height:0; }
-.toggle-track { position:absolute; inset:0; background:#252932; border-radius:9px; cursor:pointer; }
+.toggle { position:relative; width:34px; height:18px; flex-shrink:0; }
+.toggle input { opacity:0; width:0; height:0; position:absolute; }
+.toggle-track { position:absolute; inset:0; background:#252932; border-radius:9px; cursor:pointer; transition:background 0.18s; }
 .toggle input:checked + .toggle-track { background:#f0a500; }
 .toggle-track::after { content:''; position:absolute; left:2px; top:2px; width:14px; height:14px; background:white; border-radius:50%; transition:transform 0.18s; }
 .toggle input:checked + .toggle-track::after { transform:translateX(16px); }
 
-.sel-panel { background:#252932; border-radius:6px; padding:9px 10px; }
+/* -- Selected section panel -- */
+.sel-panel { background:#252932; border-radius:6px; padding:9px 10px; margin-bottom:0; }
 .sel-none { font-size:11px; color:#444d5e; font-style:italic; }
-.sel-title { font-size:11px; color:#c8d0db; font-weight:600; margin-bottom:8px; display:flex; justify-content:space-between; }
-.sel-del { background:none; border:none; color:#555; cursor:pointer; font-size:14px; }
+.sel-title { font-size:11px; color:#c8d0db; font-weight:600; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; }
+.sel-del { background:none; border:none; color:#555; cursor:pointer; font-size:14px; padding:0; }
 .sel-del:hover { color:#e05; }
 
+/* -- Pattern buttons -- */
 .pattern-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:5px; margin-bottom:10px; }
-.pattern-btn { background:#252932; border:2px solid transparent; border-radius:6px; padding:7px 4px 5px; cursor:pointer; text-align:center; }
+.pattern-btn { background:#252932; border:2px solid transparent; border-radius:6px; padding:7px 4px 5px; cursor:pointer; text-align:center; transition:all 0.15s; }
+.pattern-btn:hover { background:#2e3340; }
 .pattern-btn.active { border-color:#f0a500; background:#2a2416; }
+.pattern-icon { width:26px; height:26px; margin:0 auto 3px; }
+.pattern-icon svg { width:100%; height:100%; }
+.pattern-name { font-size:9px; color:#6b7585; line-height:1.2; }
+.pattern-btn.active .pattern-name { color:#f0a500; }
 
+/* -- Border -- */
+.border-opts { display:flex; gap:5px; margin-bottom:0; }
+.border-btn { flex:1; background:#252932; border:2px solid transparent; border-radius:5px; padding:4px 3px; cursor:pointer; text-align:center; font-size:10px; color:#6b7585; transition:all 0.15s; }
+.border-btn.active { border-color:#f0a500; color:#f0a500; background:#2a2416; }
+.oc-btn { flex:1; background:#252932; border:2px solid transparent; border-radius:5px; padding:4px 3px; cursor:pointer; text-align:center; font-size:10px; color:#6b7585; transition:all 0.15s; }
+.oc-btn.active { border-color:#f0a500; color:#f0a500; background:#2a2416; }
+
+/* -- Stair builder -- */
+.stair-row { display:flex; gap:4px; align-items:center; margin-bottom:5px; background:#1a1d26; border-radius:5px; padding:5px 6px; flex-wrap:wrap; }
+.stair-sel { background:#252932; border:1px solid #2e3340; border-radius:3px; color:#c8cdd2; font-size:10px; padding:2px 3px; flex:1; min-width:0; }
+.stair-del { background:none; border:none; color:#555; cursor:pointer; font-size:14px; line-height:1; padding:0 2px; flex-shrink:0; }
+.stair-del:hover { color:#e05; }
+.stair-offset-row { width:100%; display:flex; align-items:center; gap:5px; margin-top:3px; }
+.stair-offset-label { font-size:9px; color:#4a5263; white-space:nowrap; }
+
+/* -- Railing sides -- */
+.rail-sides-wrap { display:flex; justify-content:center; margin:6px 0 8px; }
+.rail-sides { display:grid; grid-template-columns:repeat(3,26px); grid-template-rows:repeat(3,22px); gap:3px; }
+.rail-side-btn { background:#252932; border:1px solid #2e3340; border-radius:3px; font-size:9px; color:#6b7585; cursor:pointer; padding:0; line-height:22px; text-align:center; }
+.rail-side-btn:hover { border-color:#666; }
+.rail-side-btn.active { border-color:#f0a500; color:#f0a500; background:#2a2416; }
+.priv-side-btn { background:#252932; border:1px solid #2e3340; border-radius:3px; font-size:9px; color:#6b7585; cursor:pointer; padding:0; line-height:22px; text-align:center; }
+.priv-side-btn:hover { border-color:#666; }
+.priv-side-btn.active { border-color:#4fc3f7; color:#4fc3f7; background:#162028; }
+.rail-side-ctr { background:#1a1d26; border-radius:3px; }
+
+/* -- Inlay -- */
+.inlay-type-btn { flex:1; background:#252932; border:2px solid transparent; border-radius:5px; padding:5px 4px; cursor:pointer; text-align:center; font-size:11px; color:#6b7585; transition:all 0.15s; }
+.inlay-type-btn:hover { background:#2e3340; }
+.inlay-type-btn.active { border-color:#f0a500; color:#f0a500; background:#2a2416; }
+.inlay-fields { overflow:hidden; max-height:0; transition:max-height 0.2s ease; }
+.inlay-fields.visible { max-height:700px; }
+
+/* -- Material -- */
+.material-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:5px; margin-bottom:10px; }
+.material-btn { background:#252932; border:2px solid transparent; border-radius:6px; padding:6px 4px 5px; cursor:pointer; text-align:center; transition:all 0.15s; }
+.material-btn:hover { background:#2e3340; }
+.material-btn.active { border-color:#f0a500; background:#2a2416; }
+.material-swatch { width:22px; height:22px; border-radius:3px; margin:0 auto 3px; }
+.material-name { font-size:9px; color:#6b7585; line-height:1.2; }
+.material-btn.active .material-name { color:#f0a500; }
+
+/* -- Colours -- */
 .color-grid-named { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; }
-.color-swatch { cursor:pointer; border-radius:4px; border:2px solid transparent; overflow:hidden; }
+.color-swatch { cursor:pointer; border-radius:4px; border:2px solid transparent; overflow:hidden; transition:border-color 0.12s; }
+.color-swatch:hover { border-color:#555; }
 .color-swatch.active { border-color:#fff; }
 .swatch-bar { height:18px; width:100%; }
-.swatch-name { font-size:7px; color:#555d6e; text-align:center; padding:2px; background:#1e2230; }
+.swatch-name { font-size:7px; color:#555d6e; text-align:center; padding:2px 1px 2px; line-height:1.1; background:#1e2230; }
 
-.stats-panel { padding:12px 14px; background:#12151c; margin-top:auto; border-top:1px solid #252932; }
+/* -- Stats -- */
+.stats-panel { padding:12px 14px; background:#12151c; margin-top:auto; border-top:1px solid #252932; flex-shrink:0; }
+.stat-row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px; }
+.stat-label { font-size:10px; color:#4a5263; }
+.stat-value { font-size:11px; font-weight:600; color:#c8d0db; font-variant-numeric:tabular-nums; }
+.stat-value.big { color:#f0a500; font-size:13px; }
+.disclaimer { font-size:9px; color:#333d50; margin-top:8px; padding-top:8px; border-top:1px solid #1e2130; line-height:1.5; }
 
-/* Pro Upgrade Styles */
-#tgb-price-bar {
-  position:fixed; bottom:0; left:200px; right:0; background:#1a1d26;
-  border-top:2px solid #c8a96a; display:flex; align-items:center; justify-content:space-between;
-  padding:12px 20px; z-index:200; gap:12px;
+/* -- Material select -- */
+.mat-select { width:100%; background:#252932; border:1px solid #2e3340; border-radius:5px; color:#c8d0db; font-size:11px; padding:6px 8px; cursor:pointer; margin-bottom:10px; outline:none; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7585'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 8px center; }
+.mat-select:focus { border-color:#f0a500; }
+.mat-select option { background:#1a1d26; color:#c8d0db; }
+.mat-select optgroup { color:#6b7585; }
+
+/* -- Plan view -- */
+.plan-view {
+  width: 320px; min-width: 320px; flex-shrink: 0;
+  background: #12151c; border-right: 1px solid #252932;
+  display: flex; flex-direction: column; overflow: hidden; position: relative;
 }
-.tgb-pa { font-size:24px; font-weight:800; color:#c8a96a; line-height:1; }
-.tgb-pl { font-size:10px; color:#777; text-transform:uppercase; letter-spacing:1px; }
-
-.btn-pro {
-  background:#f0a500; color:#000; font-weight:700; padding:10px 18px;
-  border:none; border-radius:6px; cursor:pointer; font-size:13px;
+.plan-header {
+  padding: 9px 12px; border-bottom: 1px solid #252932;
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
 }
-.btn-pro:hover { background:#ffbb33; }
+.plan-header-title { font-size:10px; font-weight:700; color:#6b7585; letter-spacing:0.1em; text-transform:uppercase; }
+.plan-hint { font-size:9px; color:#333d50; }
+#planCanvas { display:block; flex:1; cursor:crosshair; }
+.plan-controls {
+  position:absolute; bottom:10px; right:10px; display:flex; gap:5px;
+}
+.plan-tool-btn {
+  background:rgba(26,29,38,0.92); border:1px solid #2e3340; border-radius:4px;
+  color:#6b7585; font-size:10px; padding:4px 8px; cursor:pointer;
+}
+.plan-tool-btn:hover { color:#f0a500; border-color:#f0a500; }
+.plan-tool-btn.active { color:#f0a500; border-color:#f0a500; background:#2a2416; }
 
-body.quick-mode .section[data-advanced] { display:none; }
+/* -- 3D Viewport -- */
+.viewport { flex:1; position:relative; overflow:hidden; }
+#canvas { display:block; }
+.controls-hint { position:absolute; bottom:10px; right:10px; font-size:9.5px; color:rgba(255,255,255,0.18); pointer-events:none; line-height:1.8; text-align:right; }
+.reset-btn { position:absolute; bottom:10px; left:10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.4); font-size:10px; padding:4px 9px; border-radius:4px; cursor:pointer; transition:all 0.15s; }
+.reset-btn:hover { background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); }
+
+/* ============================================================
+   TGB SALES UPGRADE — Quick Quote, Price Bar, Client View,
+   Size Presets, Save/Load  (non-destructive additions)
+   ============================================================ */
+body.quick-mode .section[data-advanced]{display:none}
+#tgb-price-bar{position:fixed;bottom:0;left:200px;right:0;background:#1a1d26;border-top:2px solid #c8a96a;display:flex;align-items:center;justify-content:space-between;padding:10px 20px;z-index:100;gap:16px;box-shadow:0 -2px 12px rgba(0,0,0,.4)}
+.tgb-pl{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px}
+.tgb-pa{font-size:22px;font-weight:800;color:#c8a96a;line-height:1}
+.tgb-ps{font-size:11px;color:#7a7a8a;margin-top:3px}
+#btn-gen-quote{background:#c8a96a;color:#000;font-weight:700;padding:10px 22px;border:none;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap}
+#btn-gen-quote:hover{background:#d4b87c}
+#btn-client-view{background:transparent;border:1px solid #3a3f4d;color:#aab;padding:10px 16px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap}
+#btn-client-view:hover{border-color:#c8a96a;color:#c8a96a}
+#btn-quick-mode{font-size:9px;padding:2px 7px;border-radius:3px;border:1px solid #3a3f4d;background:transparent;color:#666;cursor:pointer;margin-left:auto;flex-shrink:0}
+#btn-quick-mode.on{background:#c8a96a;color:#000;border-color:#c8a96a}
+#tgb-presets{padding:8px 12px;border-bottom:1px solid #252932}
+#tgb-presets .tgb-plbl{font-size:9px;color:#555;font-weight:600;letter-spacing:.06em;margin-bottom:5px}
+.tgb-size-btns{display:flex;flex-wrap:wrap;gap:4px}
+.tgb-sz{background:#1e222c;border:1px solid #2e3340;color:#8a8a9a;font-size:10px;padding:4px 7px;border-radius:3px;cursor:pointer}
+.tgb-sz:hover{border-color:#c8a96a;color:#c8a96a}
+#tgb-cv{display:none;position:fixed;inset:0;z-index:500;background:#0e1018;flex-direction:column}
+#tgb-cv.open{display:flex}
+#tgb-cv-hdr{background:#1a1d26;border-bottom:1px solid #252932;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+#tgb-cv-price{font-size:32px;font-weight:800;color:#c8a96a;line-height:1}
+.tgb-cv-specs{display:flex;gap:20px;margin-top:6px}
+.tgb-cv-spec strong{color:#aab;display:block;font-size:13px}
+.tgb-cv-spec{font-size:11px;color:#7a7a8a}
+#btn-cv-close{background:#252932;border:none;color:#aab;padding:10px 20px;border-radius:6px;cursor:pointer}
+body.client-mode .sidebar,body.client-mode .plan-view{display:none!important}
+body.client-mode .viewport{position:fixed!important;inset:0!important;top:80px!important;width:100%!important;height:calc(100vh - 80px)!important}
+#tgb-save-wrap{padding:8px 14px 12px;border-top:1px solid #1e222c;margin-top:4px}
+.tgb-stitle{font-size:9px;color:#555;font-weight:600;letter-spacing:.06em;margin-bottom:5px}
+.tgb-sbtns{display:flex;gap:4px;margin-bottom:6px}
+.tgb-sbtn{flex:1;background:#1e222c;border:1px solid #2e3340;color:#8a8a9a;font-size:10px;padding:5px 0;border-radius:3px;cursor:pointer}
+.tgb-sbtn:hover{border-color:#c8a96a;color:#c8a96a}
+.tgb-pi{display:flex;justify-content:space-between;align-items:center;padding:4px 6px;border-radius:3px;cursor:pointer;font-size:10px;color:#7a7a8a}
+.tgb-pi:hover{background:#1e222c;color:#aab}
+.tgb-pi-p{color:#c8a96a;font-size:9px}
+.tgb-empty{font-size:10px;color:#3a3f4d;font-style:italic}
+.viewport{padding-bottom:52px;box-sizing:border-box}
 </style>
 </head>
 <body>
 
-<!-- SIDEBAR -->
+<!-- === SIDEBAR === -->
 <div class="sidebar">
   <div class="logo">
     <div class="logo-mark">TGB</div>
-    <div class="logo-text">DECK DESIGNER PRO</div>
+    <div class="logo-text">3D Deck Designer</div>
   </div>
 
   <!-- SELECTED PLATFORM -->
@@ -94,57 +228,197 @@ body.quick-mode .section[data-advanced] { display:none; }
   <div class="section">
     <div class="section-title">Board Pattern</div>
     <div class="pattern-grid">
-      <div class="pattern-btn active" data-pattern="straight">Straight</div>
-      <div class="pattern-btn" data-pattern="diagonal">Diagonal</div>
-      <div class="pattern-btn" data-pattern="picture-frame">Picture Frame</div>
+      <div class="pattern-btn active" data-pattern="straight">
+        <div class="pattern-icon"><svg viewBox="0 0 28 28" fill="none"><rect x="1" y="3" width="26" height="4" rx="1" fill="#6b7585"/><rect x="1" y="10" width="26" height="4" rx="1" fill="#6b7585"/><rect x="1" y="17" width="26" height="4" rx="1" fill="#6b7585"/><rect x="1" y="24" width="26" height="3" rx="1" fill="#6b7585"/></svg></div>
+        <div class="pattern-name">Straight</div>
+      </div>
+      <div class="pattern-btn" data-pattern="diagonal">
+        <div class="pattern-icon"><svg viewBox="0 0 28 28" fill="none"><g transform="rotate(45 14 14)"><rect x="-4" y="3" width="36" height="4" rx="1" fill="#6b7585"/><rect x="-4" y="10" width="36" height="4" rx="1" fill="#6b7585"/><rect x="-4" y="17" width="36" height="4" rx="1" fill="#6b7585"/><rect x="-4" y="24" width="36" height="3" rx="1" fill="#6b7585"/></g></svg></div>
+        <div class="pattern-name">Diagonal</div>
+      </div>
+      <div class="pattern-btn" data-pattern="picture-frame">
+        <div class="pattern-icon"><svg viewBox="0 0 28 28" fill="none"><rect x="1" y="1" width="26" height="4" rx="1" fill="#9ca3b0"/><rect x="1" y="23" width="26" height="4" rx="1" fill="#9ca3b0"/><rect x="1" y="1" width="4" height="26" rx="1" fill="#9ca3b0"/><rect x="23" y="1" width="4" height="26" rx="1" fill="#9ca3b0"/><rect x="7" y="12" width="14" height="3" rx="1" fill="#6b7585"/><rect x="7" y="17" width="14" height="3" rx="1" fill="#6b7585"/><rect x="7" y="7" width="14" height="3" rx="1" fill="#6b7585"/></svg></div>
+        <div class="pattern-name">Picture<br>Frame</div>
+      </div>
     </div>
-    <div class="toggle-row">
-      <span class="toggle-label">Rotate boards 90°</span>
+    <div class="toggle-row" style="margin:0 0 10px;">
+      <span class="toggle-label">Rotate boards 90deg</span>
       <label class="toggle"><input type="checkbox" id="boardRotToggle"><div class="toggle-track"></div></label>
+    </div>
+    <div id="borderSection">
+      <div class="section-title" style="margin-bottom:6px;">Picture Frame Border</div>
+      <div class="border-opts" style="margin-bottom:10px;">
+        <div class="border-btn active" data-border="0">None</div>
+        <div class="border-btn" data-border="1">Single</div>
+        <div class="border-btn" data-border="2">Double</div>
+      </div>
+      <div class="section-title" style="margin-bottom:6px;">Border Colour</div>
+      <div class="color-grid-named" id="borderColorRow"></div>
     </div>
   </div>
 
   <!-- INLAY -->
   <div class="section">
-    <div class="toggle-row">
+    <div class="toggle-row" style="margin-bottom:0;">
       <span class="section-title" style="margin:0;">Inlay Pattern</span>
       <label class="toggle"><input type="checkbox" id="inlayToggle"><div class="toggle-track"></div></label>
     </div>
+    <div class="inlay-fields" id="inlayFields">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:9px 0 10px;">
+        <div class="inlay-type-btn active" data-type="diamond">Diamond</div>
+        <div class="inlay-type-btn" data-type="herringbone">Herringbone</div>
+        <div class="inlay-type-btn" data-type="chevron">Chevron</div>
+        <div class="inlay-type-btn" data-type="basket">Basket Weave</div>
+        <div class="inlay-type-btn" data-type="solid">Solid Block</div>
+        <div class="inlay-type-btn" data-type="pinstripe">Pinstripe</div>
+      </div>
+      <div style="display:flex;gap:4px;margin:4px 0">
+        <button id="inlayRotBtn" class="oc-btn" style="flex:1">&#x27F3; Rotate</button>
+        <button id="inlayDiagBtn" class="oc-btn" style="flex:1">&#x27CB; Diagonal</button>
+      </div>
+      <div class="field">
+        <label>Size <span class="val" id="inlaySizeVal">4 ft</span></label>
+        <input type="range" id="inlaySizeSlider" min="2" max="16" step="0.5" value="4">
+      </div>
+      <div class="field">
+        <label>Left / Right <span class="val" id="inlayOxVal">Center</span></label>
+        <input type="range" id="inlayOxSlider" min="-10" max="10" step="0.5" value="0">
+      </div>
+      <div class="field">
+        <label>Front / Back <span class="val" id="inlayOzVal">Center</span></label>
+        <input type="range" id="inlayOzSlider" min="-10" max="10" step="0.5" value="0">
+      </div>
+      <div class="section-title" style="margin:7px 0 6px;">Inlay Colour</div>
+      <div class="color-grid-named" id="inlayColorRow"></div>
+      <div class="toggle-row" style="margin-top:8px;">
+        <span class="toggle-label" style="font-size:11px;">Border ring</span>
+        <label class="toggle"><input type="checkbox" id="inlayBorderToggle"><div class="toggle-track"></div></label>
+      </div>
+      <div id="inlayBorderFields" style="display:none;margin-top:6px;">
+        <div class="section-title" style="margin-bottom:6px;">Border Ring Colour</div>
+        <div class="color-grid-named" id="inlayBorderColorRow"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <div class="section">
+    <div class="section-title">Features</div>
+    <div class="toggle-row">
+      <span class="toggle-label">Railings</span>
+      <label class="toggle"><input type="checkbox" id="railingToggle" checked><div class="toggle-track"></div></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Show framing / posts</span>
+      <label class="toggle"><input type="checkbox" id="postsToggle" checked><div class="toggle-track"></div></label>
+    </div>
+    <div class="section-title" style="margin:10px 0 6px;">Joist Spacing</div><div style="margin:4px 0 6px;"><div style="font-size:10px;color:#aab;margin-bottom:3px;">Joist Size (PT)</div><div style="display:flex;gap:3px;"><div id="j_2x8" onclick="setJoistSize('2x8')" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 2px;border-radius:5px;border:1px solid #3a4255;background:#1e2535">2×8</div><div id="j_2x10" onclick="setJoistSize('2x10')" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 2px;border-radius:5px;background:#2563eb;color:#fff">2×10</div><div id="j_2x12" onclick="setJoistSize('2x12')" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 2px;border-radius:5px;border:1px solid #3a4255;background:#1e2535">2×12</div></div></div>
+    <div style="display:flex;gap:5px;margin-bottom:4px;">
+      <div class="oc-btn active" id="joist16Btn" data-joist="16">16" o/c</div>
+      <div class="oc-btn" id="joist12Btn" data-joist="12">12" o/c</div>
+    </div>
+    <div style="font-size:9px;color:#3a4255;margin-top:4px;">Most composite manufacturers require 12" o/c.</div>
+  </div>
+
+  <!-- LIGHTING -->
+  <div class="section">
+    <div class="section-title">Lighting Upgrades</div>
+    <div class="toggle-row">
+      <span class="toggle-label">Post cap lights</span>
+      <label class="toggle"><input type="checkbox" id="lightPostCaps"><div class="toggle-track"></div></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Stair riser lights</span>
+      <label class="toggle"><input type="checkbox" id="lightRiser"><div class="toggle-track"></div></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Under-railing LED strip</span>
+      <label class="toggle"><input type="checkbox" id="lightRailingLED"><div class="toggle-track"></div></label>
+    </div>
+  </div>
+
+  <!-- MATERIAL -->
+  <div class="section">
+    <div class="section-title">Material &amp; Brand</div>
+    <select id="materialSelect" class="mat-select">
+      <optgroup label="-- Natural Wood --">
+        <option value="pt">Pressure Treated . $2.80/sf</option>
+        <option value="cedar">Cedar . $4.20/sf</option>
+        <option value="redwood">Redwood . $5.50/sf</option>
+      </optgroup>
+      <optgroup label="-- Trex --">
+        <option value="trex_transcend">Transcend . $9.50/sf</option>
+        <option value="trex_select">Select . $7.00/sf</option>
+      </optgroup>
+      <optgroup label="-- TimberTech --">
+        <option value="tt_azek">AZEK (PVC) . $11.00/sf</option>
+        <option value="tt_pro">Pro Legacy . $8.00/sf</option>
+      </optgroup>
+      <optgroup label="-- Fiberon --">
+        <option value="fib_sanctuary">Sanctuary . $8.50/sf</option>
+        <option value="fib_horizon">Horizon . $6.50/sf</option>
+      </optgroup>
+    </select>
+    <div class="section-title" style="margin-bottom:7px;">Colour</div>
+    <div class="color-grid-named" id="colorRow"></div>
+  </div>
+
+  <!-- RAILING COLOUR -->
+  <div class="section">
+    <div class="section-title">Railing Colour</div>
+    <div class="color-grid-named" id="railingColorRow" style="grid-template-columns:repeat(4,1fr);"></div>
   </div>
 
   <!-- STATS -->
   <div class="stats-panel">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
       <div class="section-title" style="margin:0;">Material Takeoff</div>
-      <button id="exportQuoteBtn" class="btn-pro" style="font-size:9px;padding:4px 10px;">Export Quote</button>
+      <button id="exportQuoteBtn" style="background:#f0a500;border:none;border-radius:4px;color:#000;font-size:9px;font-weight:700;padding:3px 9px;cursor:pointer;letter-spacing:0.04em;">Export Quote</button>
     </div>
-    <div id="tgb-save-wrap"></div>
+    <div class="stat-row"><span class="stat-label">Total Sq Ft</span><span class="stat-value" id="statSqft">--</span></div>
+    <div class="stat-row"><span class="stat-label">Decking Boards</span><span class="stat-value" id="statBoards">--</span></div>
+    <div class="stat-row"><span class="stat-label">Rim Joist</span><span class="stat-value" id="statRim">--</span></div>
+    <div class="stat-row"><span class="stat-label">Joist Framing (PT)</span><span class="stat-value" id="statJoists">--</span></div>
+    <div class="stat-row"><span class="stat-label">Posts</span><span class="stat-value" id="statPosts">--</span></div>
+    <div class="stat-row" style="margin-top:6px;padding-top:6px;border-top:1px solid #1e2130;"><span class="stat-label">Materials Est.</span><span class="stat-value big" id="statCost">--</span></div>
+    <div class="stat-row"><span class="stat-label">Labour Range</span><span class="stat-value" id="statLabour">--</span></div>
+    <div class="disclaimer" id="statNote">Draw platforms in the plan view to begin.</div>
   </div>
 </div>
 
-<!-- PLAN VIEW -->
+<!-- === PLAN VIEW === -->
 <div class="plan-view">
   <div class="plan-header">
-    <span class="plan-header-title">FLOOR PLAN</span>
+    <span class="plan-header-title">Floor Plan</span>
     <span class="plan-hint" id="planHint">Click + drag to draw a platform</span>
   </div>
   <canvas id="planCanvas"></canvas>
+  <div class="plan-controls">
+    <button class="plan-tool-btn" id="planResetBtn">Reset View</button>
+  </div>
 </div>
 
-<!-- 3D VIEWPORT -->
+<!-- === 3D VIEWPORT === -->
 <div class="viewport" id="viewport">
   <canvas id="canvas"></canvas>
   <button class="reset-btn" id="resetBtn">Reset View</button>
   <button class="reset-btn" id="saveBtn" style="left:110px;">Save PNG</button>
   <button class="reset-btn" id="printBtn" style="left:200px;">Print</button>
+  <div class="controls-hint">
+    Left drag . orbit<br>
+    Right drag . pan<br>
+    Scroll . zoom
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// ==================== YOUR ORIGINAL WORKING CODE (cleaned) ====================
-// This is the full code you originally sent, with syntax errors fixed and Pro features added on top.
 
+// ==========================================================
+// MATERIAL DEFINITIONS
+// ==========================================================
 const MATS = {
+  // -- Natural Wood --
   pt: { label:'Pressure Treated', brand:'Natural', type:'natural', priceSqFt:2.80, colors:[
     {hex:'#d4c090',name:'Natural'},{hex:'#c0a86a',name:'Golden'},
     {hex:'#a88c50',name:'Aged'},{hex:'#8a7038',name:'Weathered'},{hex:'#6b5528',name:'Dark'}]},
@@ -154,20 +428,44 @@ const MATS = {
   redwood: { label:'Redwood', brand:'Natural', type:'natural', priceSqFt:5.50, colors:[
     {hex:'#d4795a',name:'Fresh Sawn'},{hex:'#c86840',name:'Natural'},
     {hex:'#a05030',name:'Aged'},{hex:'#7a4030',name:'Weathered'},{hex:'#5a3020',name:'Dark'}]},
+  // -- Trex --
   trex_transcend: { label:'Transcend', brand:'Trex', type:'composite', priceSqFt:9.50, colors:[
     {hex:'#d8cfc0',name:'Clam Shell'},{hex:'#c4c0b4',name:'Island Mist'},
     {hex:'#a09890',name:'Gravel Path'},{hex:'#8a5830',name:'Spiced Rum'},
     {hex:'#383230',name:'Lava Rock'},{hex:'#c87038',name:'Tiki Torch'},
     {hex:'#c49030',name:'Havana Gold'},{hex:'#d4b88a',name:'Rope Swing'},
     {hex:'#b87820',name:'Vintage Lantern'},{hex:'#7a5530',name:'Tropics'}]},
-  // ... (the rest of your MATS object is unchanged from your original file)
+  trex_select: { label:'Select', brand:'Trex', type:'composite', priceSqFt:7.00, colors:[
+    {hex:'#c8c4b8',name:'Pebble Grey'},{hex:'#8b5e3c',name:'Saddle'},
+    {hex:'#6b4c2e',name:'Woodland Brown'},{hex:'#7a7d7e',name:'Winchester Grey'}]},
+  // -- TimberTech --
+  tt_azek: { label:'AZEK (PVC)', brand:'TimberTech', type:'composite', priceSqFt:11.00, colors:[
+    {hex:'#c0bdb0',name:'Coastline'},{hex:'#8a6848',name:'Brownstone'},
+    {hex:'#363636',name:'Charcoal Black'},{hex:'#b89d6a',name:'Cypress'},
+    {hex:'#7a5030',name:'Mocha'},{hex:'#8a9090',name:'Slate Grey'},
+    {hex:'#a07040',name:'Pecan'},{hex:'#d4c090',name:'Sandy Birch'}]},
+  tt_pro: { label:'Pro Legacy', brand:'TimberTech', type:'composite', priceSqFt:8.00, colors:[
+    {hex:'#d8cfc0',name:'Beach Dune'},{hex:'#9a9890',name:'Cove Grey'},
+    {hex:'#9a7048',name:'Rustic Elm'},{hex:'#8a7050',name:'W. Teak'},
+    {hex:'#4a3828',name:'Dark Walnut'},{hex:'#8a3820',name:'Mahogany'}]},
+  // -- Fiberon --
+  fib_sanctuary: { label:'Sanctuary', brand:'Fiberon', type:'composite', priceSqFt:8.50, colors:[
+    {hex:'#c8a870',name:'Hazel'},{hex:'#6b4020',name:'Ipe'},
+    {hex:'#c87040',name:'Tigerwood'},{hex:'#d8cfc0',name:'Coconut'},
+    {hex:'#9a7048',name:'Pecan'},{hex:'#8a7050',name:'W. Teak'}]},
+  fib_horizon: { label:'Horizon', brand:'Fiberon', type:'composite', priceSqFt:6.50, colors:[
+    {hex:'#8b5e3c',name:'Chestnut'},{hex:'#5a3520',name:'Ipe'},
+    {hex:'#8a8880',name:'W. Grey'},{hex:'#6a4828',name:'E. Walnut'},
+    {hex:'#b89060',name:'Seaside Teak'}]},
 };
-
 const RAILING_COLORS = [
   {hex:'#1a1a1a',name:'Black'},{hex:'#3a3a3a',name:'Dark Bronze'},
   {hex:'#6b6b6b',name:'Slate Grey'},{hex:'#c8cdd2',name:'White'}
 ];
 
+// ==========================================================
+// STATE
+// ==========================================================
 const S = {
   sections: [],
   nextId: 1,
@@ -179,22 +477,29 @@ const S = {
   borderColorIdx:0, railingColorIdx:0,
   inlay:{ on:false, type:'diamond', size:4, ox:0, oz:0, colorIdx:2, border:false, borderColorIdx:0, diagonal:false, rot:false }
 };
-
 function defSec(id, gx, gy, gw, gh) {
   return { id, gx, gy, gw, gh, elevation:3.0,
            stairSets:[], railingSides:{front:true,back:true,left:true,right:true},
            privacySides:{front:false,back:false,left:false,right:false}, privacyHeight:6 };
 }
 
+// ==========================================================
 // THREE.JS SETUP
+// ==========================================================
 const canvas3d = document.getElementById('canvas');
-const vp = document.getElementById('viewport');
+const vp       = document.getElementById('viewport');
 const renderer = new THREE.WebGLRenderer({ canvas:canvas3d, antialias:true, preserveDrawingBuffer:true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.shadowMap.enabled = false;
+renderer.localClippingEnabled = true;
+
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#161a24');
+scene.fog = new THREE.FogExp2('#161a24', 0.010);
+
 const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
 
+// -- Camera controls --
 const orb = { theta:0.75, phi:0.88, r:36 };
 const tgt = new THREE.Vector3(0, 1.5, 0);
 
@@ -207,125 +512,1776 @@ function applyCamera() {
   camera.lookAt(tgt);
 }
 
+let dragBtn3d = -1, mp3d = {x:0,y:0};
+vp.addEventListener('contextmenu', e=>e.preventDefault());
+vp.addEventListener('mousedown', e=>{ dragBtn3d=e.button; mp3d={x:e.clientX,y:e.clientY}; e.preventDefault(); });
+window.addEventListener('mouseup', ()=>{ dragBtn3d=-1; });
+window.addEventListener('mousemove', e=>{
+  if(dragBtn3d===-1) return;
+  const dx=e.clientX-mp3d.x, dy=e.clientY-mp3d.y;
+  mp3d={x:e.clientX,y:e.clientY};
+  if(dragBtn3d===0){ orb.theta-=dx*0.006; orb.phi=Math.max(0.1,Math.min(1.45,orb.phi+dy*0.006)); }
+  else if(dragBtn3d===2){
+    const ps=orb.r*0.0012, right=new THREE.Vector3(), up=new THREE.Vector3();
+    camera.getWorldDirection(up);
+    right.crossVectors(up,camera.up).normalize();
+    const ud=new THREE.Vector3().crossVectors(right,up).normalize();
+    tgt.addScaledVector(right,-dx*ps);
+    tgt.addScaledVector(ud,dy*ps);
+  }
+  applyCamera();
+});
+vp.addEventListener('wheel', e=>{ e.preventDefault(); orb.r=Math.max(5,Math.min(100,orb.r+e.deltaY*0.04)); applyCamera(); },{passive:false});
+document.getElementById('resetBtn').addEventListener('click',()=>{ orb.theta=0.75;orb.phi=0.88;orb.r=36; tgt.set(0,1.5,0); applyCamera(); });
+document.getElementById('saveBtn').addEventListener('click',()=>{
+  renderer.render(scene,camera);
+  const a=document.createElement('a');
+  a.download='tall-guy-deck-design.png';
+  a.href=renderer.domElement.toDataURL('image/png'); a.click();
+});
+document.getElementById('printBtn').addEventListener('click',()=>{
+  renderer.render(scene,camera);
+  const img=renderer.domElement.toDataURL('image/png');
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Deck Design -- Tall Guy Builds</title>
+  <style>body{margin:0;background:#12151c;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;}
+  img{max-width:100%;max-height:90vh;} h2{color:#f0a500;font-family:sans-serif;margin:16px 0 8px;}
+  p{color:#6b7585;font-family:sans-serif;font-size:12px;margin:0 0 16px;}
+  </style></head><body>
+  <h2>Tall Guy Builds -- Deck Design</h2>
+  <p>Printed ${new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'})}</p>
+  <img src="${img}">
+  <script>window.onload=()=>{window.print();}<\/script></body></html>`);
+  w.document.close();
+});
 applyCamera();
 
+// -- Lighting --
 scene.add(new THREE.AmbientLight(0xffffff, 0.52));
 const sun = new THREE.DirectionalLight(0xfff8e7, 1.1);
 sun.position.set(18,30,16); scene.add(sun);
+const rimLight = new THREE.DirectionalLight(0x6699cc, 0.22);
+rimLight.position.set(-12, 8, -15);
+scene.add(rimLight);
 
+// -- Ground --
+const gnd = new THREE.Mesh(new THREE.PlaneGeometry(160,160), new THREE.MeshLambertMaterial({color:'#263d18'}));
+gnd.rotation.x=-Math.PI/2; scene.add(gnd);
+const grid3d = new THREE.GridHelper(160,80,'#1a2e10','#1a2e10');
+grid3d.material.opacity=0.3; grid3d.material.transparent=true; scene.add(grid3d);
+
+// -- Deck group --
 const deckGroup = new THREE.Group();
 scene.add(deckGroup);
 
 function clearGroup(g) {
   while(g.children.length){
-    const c = g.children[0];
+    const c=g.children[0];
     if(c.geometry) c.geometry.dispose();
-    if(c.material) Array.isArray(c.material) ? c.material.forEach(m=>m.dispose()) : c.material.dispose();
+    if(c.material){ Array.isArray(c.material)?c.material.forEach(m=>m.dispose()):c.material.dispose(); }
     g.remove(c);
   }
 }
 
-// Your build functions (buildBoardsOff, buildDeck, etc.) are here in your original - they are kept.
+// ==========================================================
+// TEXTURES + MATERIALS
+// ==========================================================
+const _texCache = {};
+function makeGrainTexture(hex, type) {
+  const key=hex+type;
+  if(_texCache[key]) return _texCache[key];
+  const TW=512,TH=96, cv=document.createElement('canvas');
+  cv.width=TW; cv.height=TH;
+  const ctx=cv.getContext('2d');
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  ctx.fillStyle=hex; ctx.fillRect(0,0,TW,TH);
+  const lines=type==='composite'?14:28;
+  for(let i=0;i<lines;i++){
+    const by=(i/lines)*TH, l=(Math.random()-0.5)*40;
+    ctx.strokeStyle=`rgba(${Math.min(255,r+l)|0},${Math.min(255,g+l)|0},${Math.min(255,b+l)|0},0.45)`;
+    ctx.lineWidth=Math.random()*2+0.4;
+    ctx.beginPath(); ctx.moveTo(0,by+(Math.random()-0.5)*3);
+    for(let x=0;x<TW;x+=10) ctx.lineTo(x,by+(Math.random()-0.5)*3.5);
+    ctx.stroke();
+  }
+  const id=ctx.getImageData(0,0,TW,TH),d=id.data;
+  for(let i=0;i<d.length;i+=4){ const n=(Math.random()-0.5)*14; d[i]=Math.max(0,Math.min(255,d[i]+n)); d[i+1]=Math.max(0,Math.min(255,d[i+1]+n)); d[i+2]=Math.max(0,Math.min(255,d[i+2]+n)); }
+  ctx.putImageData(id,0,0);
+  const tex=new THREE.CanvasTexture(cv);
+  tex.wrapS=THREE.RepeatWrapping; tex.wrapT=THREE.RepeatWrapping;
+  _texCache[key]=tex; return tex;
+}
 
+function mkBoardMat(hex, clips) {
+  const matType=MATS[S.material].type;
+  const tex=makeGrainTexture(hex,matType); tex.repeat.set(4,1);
+  return new THREE.MeshStandardMaterial({ map:tex, roughness:matType==='composite'?0.82:0.93, metalness:0, clippingPlanes:clips||null, side:THREE.DoubleSide });
+}
+function mkFrameMat(hex) { return new THREE.MeshLambertMaterial({color:new THREE.Color(hex).multiplyScalar(0.62)}); }
+function mkRailMat() { return new THREE.MeshStandardMaterial({color:new THREE.Color(RAILING_COLORS[S.railingColorIdx].hex),roughness:0.55,metalness:0.6}); }
+
+const BT=0.12, BW=0.44, GAP=0.035;
+
+// ==========================================================
+// MITRED GEOMETRY
+// ==========================================================
+function makeMitreGeo(p0,p1,p2,p3,yBot,yTop) {
+  const pos=new Float32Array([
+    p0[0],yTop,p0[1], p1[0],yTop,p1[1], p2[0],yTop,p2[1], p3[0],yTop,p3[1],
+    p0[0],yBot,p0[1], p1[0],yBot,p1[1], p2[0],yBot,p2[1], p3[0],yBot,p3[1],
+  ]);
+  const idx=[0,2,1,0,3,2, 4,5,6,4,6,7, 0,1,5,0,5,4, 3,6,2,3,7,6, 0,4,7,0,7,3, 1,2,6,1,6,5];
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  geo.setIndex(idx); geo.computeVertexNormals(); return geo;
+}
+function addMitredBoard(p0,p1,p2,p3,H,mat) {
+  deckGroup.add(new THREE.Mesh(makeMitreGeo(p0,p1,p2,p3,H,H+BT),mat));
+}
+
+// ==========================================================
+// BUILD BOARDS (offset version -- cx,cz = world center)
+// ==========================================================
+function buildBoardsOff(W, D, H, cx, cz) {
+  const stride=BW+GAP;
+  const _hex=MATS[S.material].colors[S.colorIdx].hex;
+
+  if(S.borderRows>0) {
+    const bdrMat=mkBoardMat(MATS[S.material].colors[S.borderColorIdx].hex);
+    function ring(inset) {
+      const o=inset, i=inset+BW;
+      addMitredBoard([cx-W/2+o,cz-D/2+o],[cx+W/2-o,cz-D/2+o],[cx+W/2-i,cz-D/2+i],[cx-W/2+i,cz-D/2+i],H,bdrMat);
+      addMitredBoard([cx-W/2+o,cz+D/2-o],[cx+W/2-o,cz+D/2-o],[cx+W/2-i,cz+D/2-i],[cx-W/2+i,cz+D/2-i],H,bdrMat);
+      addMitredBoard([cx-W/2+o,cz-D/2+o],[cx-W/2+o,cz+D/2-o],[cx-W/2+i,cz+D/2-i],[cx-W/2+i,cz-D/2+i],H,bdrMat);
+      addMitredBoard([cx+W/2-o,cz-D/2+o],[cx+W/2-o,cz+D/2-o],[cx+W/2-i,cz+D/2-i],[cx+W/2-i,cz-D/2+i],H,bdrMat);
+    }
+    for(let r=0;r<S.borderRows;r++) ring(r*BW);
+  }
+
+  const ti=S.borderRows*BW, fW=W-ti*2, fD=D-ti*2;
+  const fClips=[
+    new THREE.Plane(new THREE.Vector3( 1,0,0), fW/2-cx),
+    new THREE.Plane(new THREE.Vector3(-1,0,0), fW/2+cx),
+    new THREE.Plane(new THREE.Vector3(0,0, 1), fD/2-cz),
+    new THREE.Plane(new THREE.Vector3(0,0,-1), fD/2+cz),
+  ];
+  const fp=(S.pattern==='picture-frame')?'straight':S.pattern;
+  if(fp==='straight') {
+    const bMat=mkBoardMat(_hex,fClips);
+    if(S.boardRot) {
+      // Boards run N-S (along Z), stacked in X direction
+      const n=Math.ceil(fW/stride)+1;
+      for(let i=0;i<n;i++) {
+        const m=new THREE.Mesh(new THREE.BoxGeometry(BW,BT,fD),bMat);
+        m.position.set(cx-fW/2+i*stride+BW/2, H+BT/2, cz); deckGroup.add(m);
+      }
+    } else {
+      // Boards run E-W (along X), stacked in Z direction
+      const n=Math.ceil(fD/stride)+1;
+      for(let i=0;i<n;i++) {
+        const m=new THREE.Mesh(new THREE.BoxGeometry(fW,BT,BW),bMat);
+        m.position.set(cx, H+BT/2, cz-fD/2+i*stride+BW/2); deckGroup.add(m);
+      }
+    }
+  } else if(fp==='diagonal') {
+    const dLen=Math.sqrt(W*W+D*D)*1.5, span=Math.sqrt(W*W+D*D);
+    const n=Math.ceil(span/stride)+4, bMat=mkBoardMat(_hex,fClips);
+    const pX=-1/Math.SQRT2, pZ=1/Math.SQRT2;
+    for(let i=0;i<n;i++) {
+      const off=-span/2+i*stride-stride;
+      const m=new THREE.Mesh(new THREE.BoxGeometry(dLen,BT,BW),bMat);
+      m.rotation.y=-Math.PI/4;
+      m.position.set(cx+pX*off,H+BT/2,cz+pZ*off); deckGroup.add(m);
+    }
+  } else if(fp==='herringbone'){
+    const span=Math.sqrt(W*W+D*D), dLen=span*1.5;
+    const n=Math.ceil(span/stride)+4, bMat=mkBoardMat(_hex,fClips);
+    for(let i=0;i<n;i++){
+      const off=-span/2+i*stride-stride;
+      const angle=(i%2===0)?-Math.PI/4:Math.PI/4;
+      const m=new THREE.Mesh(new THREE.BoxGeometry(dLen,BT,BW),bMat);
+      m.rotation.y=angle;
+      m.position.set(cx-off/Math.SQRT2,H+BT/2,cz+off/Math.SQRT2); deckGroup.add(m);
+    }
+  } else if(fp==='chevron'){
+    const span=Math.sqrt(W*W+D*D), dLen=span*1.5;
+    const n=Math.ceil(span/stride)+4, bMat=mkBoardMat(_hex,fClips);
+    for(let i=0;i<n;i++){
+      const off=-span/2+i*stride-stride;
+      const angle=off<0?-Math.PI/4:Math.PI/4;
+      const m=new THREE.Mesh(new THREE.BoxGeometry(dLen,BT,BW),bMat);
+      m.rotation.y=angle;
+      m.position.set(cx-off/Math.SQRT2,H+BT/2,cz+off/Math.SQRT2); deckGroup.add(m);
+    }
+  } else if(fp==='basket'){
+    const bMat=mkBoardMat(_hex,fClips), gs=stride*4;
+    const ncX=Math.ceil(fW/gs)+1, ncZ=Math.ceil(fD/gs)+1;
+    for(let iz=0;iz<ncZ;iz++) for(let ix=0;ix<ncX;ix++){
+      const horiz=(ix+iz)%2===0, n2=4;
+      for(let k=0;k<n2;k++){
+        const bx=cx-fW/2+ix*gs+(horiz?k*stride+BW/2:gs/2);
+        const bz=cz-fD/2+iz*gs+(horiz?gs/2:k*stride+BW/2);
+        const geo=horiz?new THREE.BoxGeometry(gs,BT,BW):new THREE.BoxGeometry(BW,BT,gs);
+        const m=new THREE.Mesh(geo,bMat);
+        m.position.set(bx,H+BT/2,bz); deckGroup.add(m);
+      }
+    }
+  } else {
+    const bMat=mkBoardMat(_hex,fClips), n=Math.ceil(fD/stride)+1;
+    for(let i=0;i<n;i++){
+      const m=new THREE.Mesh(new THREE.BoxGeometry(fW,BT,BW),bMat);
+      m.position.set(cx,H+BT/2,cz-fD/2+i*stride+BW/2); deckGroup.add(m);
+    }
+  }
+}
+
+// ==========================================================
+// BUILD FRAME (offset)
+// ==========================================================
+function buildFrameOff(W, D, H, cx, cz, frameMat) {
+  const JH=0.68,JT=0.09;
+  [[cx,H-JH/2,cz-D/2+JT/2,W,JH,JT],[cx,H-JH/2,cz+D/2-JT/2,W,JH,JT],
+   [cx-W/2+JT/2,H-JH/2,cz,JT,JH,D],[cx+W/2-JT/2,H-JH/2,cz,JT,JH,D]
+  ].forEach(([x,y,z,w,h,d])=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),frameMat); m.position.set(x,y,z); deckGroup.add(m); });
+  const nj=Math.floor((W-JT*2)/(16/12));
+  for(let i=1;i<nj;i++) { const m=new THREE.Mesh(new THREE.BoxGeometry(0.08,JH,D-JT*2),frameMat); m.position.set(cx-W/2+JT+i*(16/12),H-JH/2,cz); deckGroup.add(m); }
+  if(H>0.3){
+    const PS=0.28,pH=H-JH,cols=Math.max(2,Math.ceil(W/8)),rows=Math.max(2,Math.ceil(D/8));
+    for(let c=0;c<=cols;c++) for(let r=0;r<=rows;r++){
+      const m=new THREE.Mesh(new THREE.BoxGeometry(PS,pH,PS),frameMat);
+      m.position.set(cx-W/2+(W/cols)*c,pH/2,cz-D/2+(D/rows)*r); deckGroup.add(m);
+    }
+  }
+}
+
+// ==========================================================
+// BUILD RAILINGS (offset)
+// ==========================================================
+function addRailSeg(x1,z1,x2,z2,railMat,H,topY) {
+  const RH=3.5,RT=0.07,BLS=0.38;
+  const isX=Math.abs(x2-x1)>Math.abs(z2-z1);
+  const len=isX?Math.abs(x2-x1):Math.abs(z2-z1);
+  if(len<0.2) return;
+  const cx=(x1+x2)/2,cz=(z1+z2)/2;
+  const tr=new THREE.Mesh(new THREE.BoxGeometry(isX?len:RT*1.8,RT*1.5,isX?RT*1.8:len),railMat);
+  tr.position.set(cx,topY,cz); deckGroup.add(tr);
+  const br=new THREE.Mesh(new THREE.BoxGeometry(isX?len:RT,RT,isX?RT:len),railMat);
+  br.position.set(cx,H+BT+0.28,cz); deckGroup.add(br);
+  const nb=Math.max(2,Math.floor(len/BLS));
+  for(let i=0;i<=nb;i++){
+    const t=i/nb, m=new THREE.Mesh(new THREE.BoxGeometry(0.055,RH-0.25,0.055),railMat);
+    m.position.set(x1+(x2-x1)*t,H+BT+RH/2+0.12,z1+(z2-z1)*t); deckGroup.add(m);
+  }
+}
+function sideWithGaps(x1,z1,x2,z2,gaps,railMat,H,topY) {
+  const isX=Math.abs(x2-x1)>Math.abs(z2-z1);
+  if(!gaps||!gaps.length){ addRailSeg(x1,z1,x2,z2,railMat,H,topY); return; }
+  const sorted=[...gaps].sort((a,b)=>a.c-b.c);
+  let cur=isX?x1:z1; const end=isX?x2:z2;
+  sorted.forEach(({c,w})=>{
+    const g0=c-w/2,g1=c+w/2;
+    if(g0>cur+0.4){ isX?addRailSeg(cur,z1,g0,z2,railMat,H,topY):addRailSeg(x1,cur,x2,g0,railMat,H,topY); }
+    cur=g1;
+  });
+  if(cur<end-0.4){ isX?addRailSeg(cur,z1,end,z2,railMat,H,topY):addRailSeg(x1,cur,x2,end,railMat,H,topY); }
+}
+function buildRailingsOff(W, D, H, cx, cz, railMat, opts={}) {
+  const RH=3.5,topY=H+BT+RH, g=opts.gaps||{};
+  const sides=opts.sides||{front:true,back:true,left:true,right:true};
+  const x1=cx-W/2,x2=cx+W/2,z1=cz-D/2,z2=cz+D/2;
+  if(sides.back)  sideWithGaps(x1,z1,x2,z1, g.back,  railMat,H,topY);
+  if(sides.left)  sideWithGaps(x1,z1,x1,z2, g.left,  railMat,H,topY);
+  if(sides.right) sideWithGaps(x2,z1,x2,z2, g.right, railMat,H,topY);
+  if(sides.front) sideWithGaps(x1,z2,x2,z2, g.front, railMat,H,topY);
+}
+
+// ==========================================================
+// BUILD STAIRS (offset)
+// ==========================================================
+function buildStairsOff(side, offset, sw, W, D, H, cx, cz, deckMat, frameMat) {
+  const RISE=7.5/12,RUN=11/12, n=Math.ceil(H/RISE);
+  const horiz=(side==='front'||side==='back');
+  for(let i=0;i<n;i++){
+    const sy=H-(i+1)*RISE, step=(i+1)*RUN;
+    let x,z;
+    if(side==='front')     { x=cx+offset; z=cz+D/2+step-RUN/2; }
+    else if(side==='back') { x=cx+offset; z=cz-D/2-step+RUN/2; }
+    else if(side==='right'){ x=cx+W/2+step-RUN/2; z=cz+offset; }
+    else                   { x=cx-W/2-step+RUN/2; z=cz+offset; }
+    const sm=new THREE.Mesh(new THREE.BoxGeometry(horiz?sw:RUN,BT,horiz?RUN:sw),deckMat);
+    sm.position.set(x,sy+BT/2,z); deckGroup.add(sm);
+    if(frameMat){ const off=sw/2-0.05;
+      [-off,off].forEach(o=>{
+        const st=new THREE.Mesh(new THREE.BoxGeometry(horiz?0.08:RUN,RISE+0.03,horiz?RUN:0.08),frameMat);
+        st.position.set(horiz?cx+offset+o:x,sy+RISE/2,horiz?z:cz+offset+o); deckGroup.add(st);
+      });
+    }
+  }
+}
+
+// ==========================================================
+// ==========================================================
+// PRIVACY WALLS
+// ==========================================================
+function buildPrivacyWallsOff(W, D, H, cx, cz, sec) {
+  const ps=sec.privacySides||{};
+  if(!Object.values(ps).some(Boolean)) return;
+  const PH=sec.privacyHeight||6, stride=BW+GAP;
+  const nBoards=Math.ceil(PH/stride), baseY=H+BT;
+  const hex=MATS[S.material].colors[S.colorIdx].hex;
+  const wallMat=mkBoardMat(hex), postMat=mkFrameMat(hex);
+  const PS=0.25;
+  function wall(x1,z1,x2,z2,isX) {
+    const len=isX?Math.abs(x2-x1):Math.abs(z2-z1);
+    const mx=(x1+x2)/2, mz=(z1+z2)/2;
+    const nP=Math.max(2,Math.ceil(len/8)+1);
+    for(let i=0;i<nP;i++){
+      const t=i/(nP-1);
+      const pm=new THREE.Mesh(new THREE.BoxGeometry(PS,PH+0.1,PS),postMat);
+      pm.position.set(x1+(x2-x1)*t, baseY+PH/2, z1+(z2-z1)*t); deckGroup.add(pm);
+    }
+    for(let i=0;i<nBoards;i++){
+      const y=baseY+i*stride+BW/2;
+      const m=new THREE.Mesh(isX?new THREE.BoxGeometry(len,BW,BT):new THREE.BoxGeometry(BT,BW,len),wallMat);
+      m.position.set(mx,y,mz); deckGroup.add(m);
+    }
+  }
+  const x1=cx-W/2,x2=cx+W/2,z1=cz-D/2,z2=cz+D/2;
+  if(ps.back)  wall(x1,z1,x2,z1,true);
+  if(ps.front) wall(x1,z2,x2,z2,true);
+  if(ps.left)  wall(x1,z1,x1,z2,false);
+  if(ps.right) wall(x2,z1,x2,z2,false);
+}
+
+// ==========================================================
+// LIGHTING (visual post caps + railing LED strip)
+// ==========================================================
+function buildLightingOff(W, D, H, cx, cz, sec) {
+  if(!S.lighting.postCaps && !S.lighting.railingLED) return;
+  const JH=0.68, pH=H-JH;
+  const lightMat=new THREE.MeshStandardMaterial({color:0xffe8a0,emissive:0xffe8a0,emissiveIntensity:1.2,roughness:0.3,metalness:0.6});
+  if(S.lighting.postCaps && H>0.5) {
+    const cols=Math.max(2,Math.ceil(W/8)), rows=Math.max(2,Math.ceil(D/8));
+    for(let c=0;c<=cols;c++) for(let r=0;r<=rows;r++){
+      const m=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.07,0.3),lightMat);
+      m.position.set(cx-W/2+(W/cols)*c, pH+0.035, cz-D/2+(D/rows)*r); deckGroup.add(m);
+    }
+  }
+  if(S.lighting.railingLED && H>0.5) {
+    const sides=sec.railingSides||{front:true,back:true,left:true,right:true};
+    const T=0.035, ledY=H+BT+0.38;
+    const x1=cx-W/2,x2=cx+W/2,z1=cz-D/2,z2=cz+D/2;
+  if(sides.front){const m=new THREE.Mesh(new THREE.BoxGeometry(W,T,T),lightMat);m.position.set(cx,ledY,z2);deckGroup.add(m);}
+    if(sides.back) {const m=new THREE.Mesh(new THREE.BoxGeometry(W,T,T),lightMat);m.position.set(cx,ledY,z1);deckGroup.add(m);}
+    if(sides.left) {const m=new THREE.Mesh(new THREE.BoxGeometry(T,T,D),lightMat);m.position.set(x1,ledY,cz);deckGroup.add(m);}
+    if(sides.right){const m=new THREE.Mesh(new THREE.BoxGeometry(T,T,D),lightMat);m.position.set(x2,ledY,cz);deckGroup.add(m);}
+  }
+}
+
+// INLAY -- all 6 pattern types + border ring
+// ==========================================================
+function buildInlayOff(W, D, H, cx, cz) {
+  if(!S.inlay.on) return;
+  const {type,size,ox,oz}=S.inlay;
+  const hex=MATS[S.material].colors[S.inlay.colorIdx].hex;
+  const stride=BW+GAP, yOff=H+BT/2+0.003, sq=1/Math.SQRT2;
+  const icx=cx+ox, icz=cz+oz;
+  const hw=size, hd=size;
+  // When border is on, shrink pattern clips by BW so border strip stays clean
+  const bs=S.inlay.border?BW:0;
+
+  // Clip planes: rectangle centered at (icx,icz), shrunk inward by 'shrink', clipped to deck
+  function rectClips(shrink) {
+    const s=shrink??bs;
+    return [
+      new THREE.Plane(new THREE.Vector3( 1,0,0),(hw/2-s)-icx),
+      new THREE.Plane(new THREE.Vector3(-1,0,0),(hw/2-s)+icx),
+      new THREE.Plane(new THREE.Vector3(0,0, 1),(hd/2-s)-icz),
+      new THREE.Plane(new THREE.Vector3(0,0,-1),(hd/2-s)+icz),
+      new THREE.Plane(new THREE.Vector3( 1,0,0),W/2-cx),
+      new THREE.Plane(new THREE.Vector3(-1,0,0),W/2+cx),
+      new THREE.Plane(new THREE.Vector3(0,0, 1),D/2-cz),
+      new THREE.Plane(new THREE.Vector3(0,0,-1),D/2+cz),
+    ];
+  }
+
+  // -- Diamond --
+  if(type==='diamond') {
+    const r=size/2-bs;
+    const clips=[
+      new THREE.Plane(new THREE.Vector3(-sq,0,-sq),(icx+icz+r)*sq),
+      new THREE.Plane(new THREE.Vector3( sq,0, sq),(-icx-icz+r)*sq),
+      new THREE.Plane(new THREE.Vector3(-sq,0, sq),(icx-icz+r)*sq),
+      new THREE.Plane(new THREE.Vector3( sq,0,-sq),(-icx+icz+r)*sq),
+      new THREE.Plane(new THREE.Vector3( 1,0,0),W/2-cx),
+      new THREE.Plane(new THREE.Vector3(-1,0,0),W/2+cx),
+      new THREE.Plane(new THREE.Vector3(0,0, 1),D/2-cz),
+      new THREE.Plane(new THREE.Vector3(0,0,-1),D/2+cz),
+    ];
+    const mat=mkBoardMat(hex,clips), span=size*Math.SQRT2+stride*2, n=Math.ceil(span/stride)+2;
+    for(let i=0;i<n;i++){
+      const off=-span/2+i*stride;
+      const m=new THREE.Mesh(new THREE.BoxGeometry(size*2.5,BT,BW),mat);
+      m.rotation.y=-Math.PI/4; m.position.set(icx-sq*off,yOff,icz+sq*off); deckGroup.add(m);
+    }
+  }
+
+  // -- Herringbone --
+  if(type==='herringbone') {
+    const mat=mkBoardMat(hex,rectClips()), cell=BW*Math.SQRT2, bLen=BW*2.2;
+    const nx=Math.ceil(hw/cell)+3, nz=Math.ceil(hd/cell)+3;
+    for(let iz=-nz;iz<=nz;iz++) for(let ix=-nx;ix<=nx;ix++){
+      const angle=((ix+iz)%2===0)?Math.PI/4:-Math.PI/4;
+      const m=new THREE.Mesh(new THREE.BoxGeometry(bLen,BT,BW),mat);
+      m.rotation.y=angle; m.position.set(icx+ix*cell-cell/2,yOff,icz+iz*cell-cell/2); deckGroup.add(m);
+    }
+  }
+
+  // -- Chevron --
+  if(type==='chevron') {
+    const outerC=rectClips();
+    const leftClips =[...outerC, new THREE.Plane(new THREE.Vector3(-1,0,0), icx)];
+    const rightClips=[...outerC, new THREE.Plane(new THREE.Vector3( 1,0,0),-icx)];
+    const matL=mkBoardMat(hex,leftClips), matR=mkBoardMat(hex,rightClips);
+    const diag=Math.sqrt(hw*hw+hd*hd)*1.5, n=Math.ceil(diag/stride)+4;
+    for(let i=0;i<n;i++){
+      const off=-diag/2+i*stride;
+      const ml=new THREE.Mesh(new THREE.BoxGeometry(diag,BT,BW),matL);
+      ml.rotation.y= Math.PI/4; ml.position.set(icx-sq*off,yOff,icz+sq*off); deckGroup.add(ml);
+      const mr=new THREE.Mesh(new THREE.BoxGeometry(diag,BT,BW),matR);
+      mr.rotation.y=-Math.PI/4; mr.position.set(icx+sq*off,yOff,icz+sq*off); deckGroup.add(mr);
+    }
+  }
+
+  // -- Basket Weave --
+  if(type==='basket') {
+    const nb=3, blockSize=nb*(BW+GAP)-GAP;
+    const mat=mkBoardMat(hex,rectClips());
+    const nX=Math.ceil(hw/blockSize)+2, nZ=Math.ceil(hd/blockSize)+2;
+    for(let iz=-nZ;iz<=nZ;iz++) for(let ix=-nX;ix<=nX;ix++){
+      const bx=icx+(ix-0.5)*blockSize, bz=icz+(iz-0.5)*blockSize;
+      const horiz=(ix+iz)%2===0;
+      for(let j=0;j<nb;j++){
+        const jOff=(j-(nb-1)/2)*(BW+GAP);
+        const m=new THREE.Mesh(new THREE.BoxGeometry(horiz?blockSize:BW,BT,horiz?BW:blockSize),mat);
+        m.position.set(horiz?bx:bx+jOff, yOff, horiz?bz+jOff:bz); deckGroup.add(m);
+      }
+    }
+  }
+
+  // -- Solid Block (straight or diagonal) --
+  if(type==='solid') {
+    const mat=mkBoardMat(hex,rectClips());
+    if(S.inlay.diagonal) {
+      // Diagonal: 45deg boards filling the inlay square
+      const innerHW=hw/2-bs, innerHD=hd/2-bs;
+      const diag=Math.sqrt(innerHW*innerHW*4+innerHD*innerHD*4)*0.8, n=Math.ceil(diag/stride)+4;
+      for(let i=0;i<n;i++){
+        const off=-diag/2+i*stride;
+        const m=new THREE.Mesh(new THREE.BoxGeometry(diag*1.5,BT,BW),mat);
+        m.rotation.y=-Math.PI/4; m.position.set(icx-sq*off,yOff,icz+sq*off); deckGroup.add(m);
+      }
+    } else if(S.inlay.rot) {
+      const n=Math.ceil(hw/stride)+2;
+      for(let i=0;i<n;i++){
+        const m=new THREE.Mesh(new THREE.BoxGeometry(BW,BT,hd),mat);
+        m.position.set(icx-hw/2+i*stride+BW/2,yOff,icz); deckGroup.add(m);
+      }
+    } else {
+      const n=Math.ceil(hd/stride)+2;
+      for(let i=0;i<n;i++){
+        const m=new THREE.Mesh(new THREE.BoxGeometry(hw,BT,BW),mat);
+        m.position.set(icx,yOff,icz-hd/2+i*stride+BW/2); deckGroup.add(m);
+      }
+    }
+
+  }
+
+  // -- Pinstripe (full-deck-width accent rows) --
+  if(type==='pinstripe') {
+    const deckClips=[
+      new THREE.Plane(new THREE.Vector3(1,0,0),W/2-cx),
+      new THREE.Plane(new THREE.Vector3(-1,0,0),W/2+cx),
+      new THREE.Plane(new THREE.Vector3(0,0,1),D/2-cz),
+      new THREE.Plane(new THREE.Vector3(0,0,-1),D/2+cz),
+    ];
+    const mat=mkBoardMat(hex,deckClips), n=Math.ceil((S.inlay.rot?W:D)/stride)+2, interval=5;
+    for(let i=0;i<n;i++){
+      if(i%interval!==0) continue;
+      if(S.inlay.rot){
+        const m=new THREE.Mesh(new THREE.BoxGeometry(BW,BT,D),mat);
+        m.position.set(cx-W/2+i*stride+BW/2,yOff,cz); deckGroup.add(m);
+      } else {
+        const m=new THREE.Mesh(new THREE.BoxGeometry(W,BT,BW),mat);
+        m.position.set(cx,yOff,cz-D/2+i*stride+BW/2); deckGroup.add(m);
+      }
+    }
+  }
+
+  // -- Inlay Border Ring (raised 0.02 above inlay, clearly visible) --
+  if(S.inlay.border && type!=='pinstripe') {
+    const bHex=MATS[S.material].colors[S.inlay.borderColorIdx].hex;
+    // Deck boundary clips so border doesn't bleed outside deck
+    const bClips=[
+      new THREE.Plane(new THREE.Vector3(1,0,0),W/2-cx),
+      new THREE.Plane(new THREE.Vector3(-1,0,0),W/2+cx),
+      new THREE.Plane(new THREE.Vector3(0,0,1),D/2-cz),
+      new THREE.Plane(new THREE.Vector3(0,0,-1),D/2+cz),
+    ];
+    const bMat=mkBoardMat(bHex,bClips);
+    const yB=H+BT+0.02, o=0, inn=BW; // clearly above inlay boards
+    addMitredBoard([icx-hw/2+o,icz-hd/2+o],[icx+hw/2-o,icz-hd/2+o],[icx+hw/2-inn,icz-hd/2+inn],[icx-hw/2+inn,icz-hd/2+inn],yB,bMat);
+    addMitredBoard([icx-hw/2+o,icz+hd/2-o],[icx+hw/2-o,icz+hd/2-o],[icx+hw/2-inn,icz+hd/2-inn],[icx-hw/2+inn,icz+hd/2-inn],yB,bMat);
+    addMitredBoard([icx-hw/2+o,icz-hd/2+o],[icx-hw/2+o,icz+hd/2-o],[icx-hw/2+inn,icz+hd/2-inn],[icx-hw/2+inn,icz-hd/2+inn],yB,bMat);
+    addMitredBoard([icx+hw/2-o,icz-hd/2+o],[icx+hw/2-o,icz+hd/2-o],[icx+hw/2-inn,icz+hd/2-inn],[icx+hw/2-inn,icz-hd/2+inn],yB,bMat);
+  }
+}
+
+// ==========================================================
+// MAIN BUILD -- iterates all sections
+// ==========================================================
 function buildDeck() {
   clearGroup(deckGroup);
-  if(!S.sections.length) return;
-  // Your full build logic goes here - it was in your original file
-  console.log("Deck built with", S.sections.length, "platforms");
+  if(!S.sections.length) { tgt.y=1.5; applyCamera(); updateStats(); return; }
+
+  const baseHex=MATS[S.material].colors[S.colorIdx].hex;
+  const railMat=mkRailMat();
+
+  // Find primary section (selected, or first)
+  const primary=S.sections.find(s=>s.id===S.selectedId)||S.sections[0];
+
+  S.sections.forEach(sec=>{
+    const W=sec.gw, D=sec.gh, H=sec.elevation;
+    const cx=sec.gx+W/2, cz=sec.gy+D/2;
+    const frameMat=mkFrameMat(baseHex);
+
+    buildBoardsOff(W,D,H,cx,cz);
+
+    // Inlay only on primary section
+    if(sec===primary) buildInlayOff(W,D,H,cx,cz);
+
+    if(S.posts) buildFrameOff(W,D,H,cx,cz,frameMat);
+
+    // Per-section stairs + railing gaps
+    const gaps={front:[],back:[],left:[],right:[]};
+    const stairSets=sec.stairSets||[];
+    stairSets.forEach(ss=>{
+      const off=ss.offset||0;
+      gaps[ss.side].push({c:off, w:ss.w});
+      if(H>0.25) buildStairsOff(ss.side,off,ss.w,W,D,H,cx,cz,mkBoardMat(baseHex),S.posts?frameMat:null);
+    });
+    const sides=sec.railingSides||{front:true,back:true,left:true,right:true};
+    if(S.railings&&H>0.5) buildRailingsOff(W,D,H,cx,cz,railMat,{gaps,sides});
+    buildPrivacyWallsOff(W,D,H,cx,cz,sec);
+    buildLightingOff(W,D,H,cx,cz,sec);
+  });
+
+  // Update camera Y
+  tgt.y=primary.elevation*0.45;
+  applyCamera();
   updateStats();
 }
 
+// ==========================================================
+// 2D PLAN EDITOR
+// ==========================================================
+const planEl = document.getElementById('planCanvas');
+const planCtx = planEl.getContext('2d');
+const P = {
+  CELL: 12,           // px per foot
+  panX: 0, panY: 0,   // pan offsets in px
+  state: 'idle',      // idle | drawing | moviawing | movig
+  drawStart: null,    // {fx,fy} in feet (snapped)
+  drawCurr: null,
+  moveStart: null,    // {mx,my, origGx,origGy}
+  resizeCorner: null, // 0=TL,1=TR,2=BR,3=BL
+  resizeStart: null,  // {mx,my, orig section snapshot}
+  panStart: null,
+};
+
+function ftToCanvas(fx, fy) {
+  return { x: planEl.width/2 + P.panX + fx*P.CELL, y: planEl.height/2 + P.panY + fy*P.CELL };
+}
+function canvasToFt(cx, cy) {
+  return { x: (cx - planEl.width/2 - P.panX)/P.CELL, y: (cy - planEl.height/2 - P.panY)/P.CELL };
+}
+function snapFt(v) { return Math.round(v); }
+
+function getSecAtCanvas(cx, cy) {
+  const ft=canvasToFt(cx,cy);
+  for(let i=S.sections.length-1;i>=0;i--){
+    const s=S.sections[i];
+    if(ft.x>=s.gx&&ft.x<=s.gx+s.gw&&ft.y>=s.gy&&ft.y<=s.gy+s.gh) return s;
+  }
+  return null;
+}
+function getResizeCorner(cx, cy, sec) {
+  const HSIZE=7;
+  const corners=[
+    {fx:sec.gx,       fy:sec.gy,       idx:0},
+    {fx:sec.gx+sec.gw,fy:sec.gy,       idx:1},
+    {fx:sec.gx+sec.gw,fy:sec.gy+sec.gh,idx:2},
+    {fx:sec.gx,       fy:sec.gy+sec.gh,idx:3},
+  ];
+  for(const c of corners) {
+    const p=ftToCanvas(c.fx,c.fy);
+    if(Math.abs(cx-p.x)<HSIZE&&Math.abs(cy-p.y)<HSIZE) return c.idx;
+  }
+  return null;
+}
+
+function drawPlan() {
+  const W=planEl.width, H=planEl.height;
+  planCtx.clearRect(0,0,W,H);
+  planCtx.fillStyle='#12151c'; planCtx.fillRect(0,0,W,H);
+
+  // Grid
+  const ox=W/2+P.panX, oy=H/2+P.panY;
+  const startFx=Math.floor((-ox)/P.CELL)-1, endFx=Math.ceil((W-ox)/P.CELL)+1;
+  const startFy=Math.floor((-oy)/P.CELL)-1, endFy=Math.ceil((H-oy)/P.CELL)+1;
+
+  for(let fx=startFx;fx<=endFx;fx++){
+    const x=ox+fx*P.CELL;
+    planCtx.strokeStyle=(fx%5===0)?'#252932':'#1c1f28';
+    planCtx.lineWidth=(fx%5===0)?1:0.5;
+    planCtx.beginPath(); planCtx.moveTo(x,0); planCtx.lineTo(x,H); planCtx.stroke();
+  }
+  for(let fy=startFy;fy<=endFy;fy++){
+    const y=oy+fy*P.CELL;
+    planCtx.strokeStyle=(fy%5===0)?'#252932':'#1c1f28';
+    planCtx.lineWidth=(fy%5===0)?1:0.5;
+    planCtx.beginPath(); planCtx.moveTo(0,y); planCtx.lineTo(W,y); planCtx.stroke();
+  }
+
+  // Origin cross
+  planCtx.strokeStyle='#2a3040'; planCtx.lineWidth=1;
+  planCtx.beginPath(); planCtx.moveTo(ox-8,oy); planCtx.lineTo(ox+8,oy); planCtx.stroke();
+  planCtx.beginPath(); planCtx.moveTo(ox,oy-8); planCtx.lineTo(ox,oy+8); planCtx.stroke();
+
+  // Sections
+  const selSec=S.sections.find(s=>s.id===S.selectedId);
+  S.sections.forEach(sec=>{
+    const p0=ftToCanvas(sec.gx,sec.gy);
+    const p1=ftToCanvas(sec.gx+sec.gw,sec.gy+sec.gh);
+    const pw=p1.x-p0.x, ph=p1.y-p0.y;
+    const isSel=(sec.id===S.selectedId);
+
+    // Fill
+    const col=MATS[S.material].colors[S.colorIdx].hex;
+    planCtx.globalAlpha=0.25;
+    planCtx.fillStyle=col;
+    planCtx.fillRect(p0.x,p0.y,pw,ph);
+    planCtx.globalAlpha=1.0;
+
+    // Board lines (simplified -- direction matches 3D)
+    planCtx.strokeStyle=col; planCtx.lineWidth=0.5; planCtx.globalAlpha=0.4;
+    const stride=(BW+GAP)*P.CELL;
+    if(S.boardRot) {
+      // Vertical lines -- boards run N-S
+      for(let x=p0.x+stride;x<p1.x;x+=stride){
+        planCtx.beginPath(); planCtx.moveTo(x,p0.y); planCtx.lineTo(x,p1.y); planCtx.stroke();
+      }
+    } else {
+      // Horizontal lines -- boards run E-W
+      for(let y=p0.y+stride;y<p1.y;y+=stride){
+        planCtx.beginPath(); planCtx.moveTo(p0.x,y); planCtx.lineTo(p1.x,y); planCtx.stroke();
+      }
+    }
+    planCtx.globalAlpha=1.0;
+
+    // Border
+    planCtx.strokeStyle=isSel?'#f0a500':'#3a4255';
+    planCtx.lineWidth=isSel?2:1;
+    planCtx.strokeRect(p0.x,p0.y,pw,ph);
+
+    // Dimension label
+    const dimText=`${sec.gw}x${sec.gh} ft`;
+    const hText=`${sec.elevation} ft`;
+    planCtx.fillStyle=isSel?'#f0a500':'#6b7585';
+    planCtx.font=`${Math.max(9,Math.min(11,pw/8))}px sans-serif`;
+    planCtx.textAlign='center'; planCtx.textBaseline='middle';
+    if(pw>40&&ph>20) planCtx.fillText(dimText,p0.x+pw/2,p0.y+ph/2-6);
+
+    planCtx.fillStyle=isSel?'#f0c050':'#555d6e';
+    planCtx.font=`9px sans-serif`;
+    if(pw>40&&ph>20) planCtx.fillText('^ '+hText,p0.x+pw/2,p0.y+ph/2+7);
+
+    // Resize handles
+    if(isSel){
+      [[sec.gx,sec.gy],[sec.gx+sec.gw,sec.gy],[sec.gx+sec.gw,sec.gy+sec.gh],[sec.gx,sec.gy+sec.gh]].forEach(([fx,fy])=>{
+        const hp=ftToCanvas(fx,fy);
+        planCtx.fillStyle='#f0a500';
+        planCtx.fillRect(hp.x-5,hp.y-5,10,10);
+      });
+    }
+  });
+
+  // Preview while drawing
+  if(P.state==='drawing'&&P.drawStart&&P.drawCurr){
+    const p0=ftToCanvas(Math.min(P.drawStart.fx,P.drawCurr.fx),Math.min(P.drawStart.fy,P.drawCurr.fy));
+    const p1=ftToCanvas(Math.max(P.drawStart.fx,P.drawCurr.fx),Math.max(P.drawStart.fy,P.drawCurr.fy));
+    planCtx.fillStyle='rgba(240,165,0,0.12)';
+    planCtx.fillRect(p0.x,p0.y,p1.x-p0.x,p1.y-p0.y);
+    planCtx.strokeStyle='#f0a500'; planCtx.lineWidth=1.5; planCtx.setLineDash([4,3]);
+    planCtx.strokeRect(p0.x,p0.y,p1.x-p0.x,p1.y-p0.y);
+    planCtx.setLineDash([]);
+    // Size label
+    const fw=Math.abs(P.drawCurr.fx-P.drawStart.fx), fh=Math.abs(P.drawCurr.fy-P.drawStart.fy);
+    if(fw>1&&fh>1){
+      planCtx.fillStyle='#f0a500'; planCtx.font='10px sans-serif';
+      planCtx.textAlign='center'; planCtx.textBaseline='top';
+      planCtx.fillText(`${Math.round(fw)}x${Math.round(fh)} ft`, (p0.x+p1.x)/2, p0.y+4);
+    }
+  }
+
+  // Compass
+  planCtx.fillStyle='#333d50'; planCtx.font='9px sans-serif'; planCtx.textAlign='center'; planCtx.textBaseline='middle';
+  planCtx.fillText('N',ox,14); planCtx.fillText('S',ox,H-8);
+  planCtx.fillText('W',10,oy); planCtx.fillText('E',W-10,oy);
+}
+
+// Plan canvas sizing
+function resizePlan() {
+  const r=planEl.parentElement.getBoundingClientRect();
+  planEl.width=r.width;
+  const hdr=planEl.parentElement.querySelector('.plan-header');
+  planEl.height=r.height-(hdr?hdr.offsetHeight:34);
+  drawPlan();
+}
+
+// Plan mouse events
+let planDragBtn=-1, planMp={x:0,y:0};
+
+planEl.addEventListener('contextmenu',e=>e.preventDefault());
+
+planEl.addEventListener('mousedown', e=>{
+  planDragBtn=e.button;
+  const rect=planEl.getBoundingClientRect();
+  const cx=e.clientX-rect.left, cy=e.clientY-rect.top;
+  planMp={x:cx,y:cy};
+  e.preventDefault();
+
+  if(e.button===1||e.button===2){
+    P.state='panning'; P.panStart={px:P.panX,py:P.panY,mx:cx,my:cy}; return;
+  }
+
+  // Check resize handle first
+  const selSec=S.sections.find(s=>s.id===S.selectedId);
+  if(selSec){
+    const corner=getResizeCorner(cx,cy,selSec);
+    if(corner!==null){
+      P.state='resizing'; P.resizeCorner=corner;
+      P.resizeStart={mx:cx,my:cy,gx:selSec.gx,gy:selSec.gy,gw:selSec.gw,gh:selSec.gh};
+      return;
+    }
+  }
+
+  // Check for section click
+  const hit=getSecAtCanvas(cx,cy);
+  if(hit){
+    S.selectedId=hit.id;
+    P.state='moving'; P.moveStart={mx:cx,my:cy,origGx:hit.gx,origGy:hit.gy};
+    renderSelPanel(); buildDeck(); drawPlan(); return;
+  }
+
+  // Start drawing
+  const ft=canvasToFt(cx,cy);
+  P.state='drawing'; P.drawStart={fx:snapFt(ft.x),fy:snapFt(ft.y)}; P.drawCurr={...P.drawStart};
+});
+
+// Cursor-only hover feedback on the canvas itself
+planEl.addEventListener('mousemove', e=>{
+  if(P.state!=='idle') return;
+  const rect=planEl.getBoundingClientRect();
+  const cx=e.clientX-rect.left, cy=e.clientY-rect.top;
+  const selSec=S.sections.find(s=>s.id===S.selectedId);
+  if(selSec&&getResizeCorner(cx,cy,selSec)!==null) planEl.style.cursor='nwse-resize';
+  else if(getSecAtCanvas(cx,cy)) planEl.style.cursor='move';
+  else planEl.style.cursor='crosshair';
+});
+
+// Drag tracking on window so mouse can go outside the canvas
+window.addEventListener('mousemove', e=>{
+  if(P.state==='idle') return;
+  const rect=planEl.getBoundingClientRect();
+  const cx=e.clientX-rect.left, cy=e.clientY-rect.top;
+
+  if(P.state==='panning'){
+    P.panX=P.panStart.px+(cx-P.panStart.mx);
+    P.panY=P.panStart.py+(cy-P.panStart.my);
+    drawPlan(); return;
+  }
+  if(P.state==='drawing'){
+    const ft=canvasToFt(cx,cy);
+    P.drawCurr={fx:snapFt(ft.x),fy:snapFt(ft.y)};
+    drawPlan(); return;
+  }
+  if(P.state==='moving'){
+    const sec=S.sections.find(s=>s.id===S.selectedId);
+    if(!sec) return;
+    const dx=(cx-P.moveStart.mx)/P.CELL, dy=(cy-P.moveStart.my)/P.CELL;
+    sec.gx=snapFt(P.moveStart.origGx+dx);
+    sec.gy=snapFt(P.moveStart.origGy+dy);
+    drawPlan(); buildDeck(); return;
+  }
+  if(P.state==='resizing'){
+    const sec=S.sections.find(s=>s.id===S.selectedId);
+    if(!sec) return;
+    const {gx,gy,gw,gh}=P.resizeStart;
+    const dx=(cx-P.resizeStart.mx)/P.CELL, dy=(cy-P.resizeStart.my)/P.CELL;
+    switch(P.resizeCorner){
+      case 0: sec.gx=snapFt(gx+dx); sec.gy=snapFt(gy+dy); sec.gw=Math.max(2,snapFt(gw-dx)); sec.gh=Math.max(2,snapFt(gh-dy)); break;
+      case 1: sec.gy=snapFt(gy+dy); sec.gw=Math.max(2,snapFt(gw+dx)); sec.gh=Math.max(2,snapFt(gh-dy)); break;
+      case 2: sec.gw=Math.max(2,snapFt(gw+dx)); sec.gh=Math.max(2,snapFt(gh+dy)); break;
+      case 3: sec.gx=snapFt(gx+dx); sec.gw=Math.max(2,snapFt(gw-dx)); sec.gh=Math.max(2,snapFt(gh+dy)); break;
+    }
+    renderSelPanel(); drawPlan(); buildDeck(); return;
+  }
+});
+
+window.addEventListener('mouseup', e=>{
+  if(P.state==='drawing'&&P.drawStart&&P.drawCurr){
+    const x0=Math.min(P.drawStart.fx,P.drawCurr.fx), x1=Math.max(P.drawStart.fx,P.drawCurr.fx);
+    const y0=Math.min(P.drawStart.fy,P.drawCurr.fy), y1=Math.max(P.drawStart.fy,P.drawCurr.fy);
+    const fw=x1-x0, fh=y1-y0;
+    if(fw>=2&&fh>=2){
+      const sec=defSec(S.nextId++, x0, y0, fw, fh);
+      S.sections.push(sec); S.selectedId=sec.id;
+      renderSelPanel(); buildDeck();
+      document.getElementById('planHint').textContent='Click to select . Drag corners to resize';
+    }
+  }
+  P.state='idle'; P.drawStart=null; P.drawCurr=null;
+  P.moveStart=null; P.resizeStart=null; P.resizeCorner=null; P.panStart=null;
+  planDragBtn=-1;
+  drawPlan();
+});
+
+planEl.addEventListener('wheel', e=>{
+  e.preventDefault();
+  const rect=planEl.getBoundingClientRect();
+  const mx=e.clientX-rect.left-planEl.width/2-P.panX;
+  const my=e.clientY-rect.top-planEl.height/2-P.panY;
+  const factor=e.deltaY<0?1.1:0.91;
+  const newCell=Math.max(8,Math.min(60,P.CELL*factor));
+  const scale=newCell/P.CELL;
+  P.panX-=mx*(scale-1); P.panY-=my*(scale-1);
+  P.CELL=newCell;
+  drawPlan();
+},{passive:false});
+
+document.getElementById('planResetBtn').addEventListener('click',()=>{ P.panX=0; P.panY=0; P.CELL=12; drawPlan(); });
+
+// Delete key
+window.addEventListener('keydown',e=>{
+  if((e.key==='Delete'||e.key==='Backspace')&&S.selectedId!==null){
+    const tgt2=document.activeElement;
+    if(tgt2&&(tgt2.tagName==='INPUT'||tgt2.tagName==='SELECT')) return;
+    S.sections=S.sections.filter(s=>s.id!==S.selectedId);
+    S.selectedId=S.sections.length?S.sections[S.sections.length-1].id:null;
+    renderSelPanel(); buildDeck(); drawPlan();
+  }
+});
+
+// ==========================================================
+// SELECTED SECTION PANEL
+// ==========================================================
 function renderSelPanel() {
-  const panel = document.getElementById('selPanel');
-  panel.innerHTML = '<div class="sel-none">Click a platform in the plan to select it</div>';
+  const panel=document.getElementById('selPanel');
+  const sec=S.sections.find(s=>s.id===S.selectedId);
+  if(!sec){ panel.innerHTML='<div class="sel-none">Click a platform in the plan to select it</div>'; return; }
+  if(!sec.stairSets) sec.stairSets=[];
+  if(!sec.railingSides) sec.railingSides={front:true,back:true,left:true,right:true};
+  if(!sec.privacySides) sec.privacySides={front:false,back:false,left:false,right:false};
+  if(!sec.privacyHeight) sec.privacyHeight=6;
+  const rs=sec.railingSides, ps=sec.privacySides;
+
+  function stairRowHtml(ss,i){
+    return `<div class="stair-row" data-si="${i}">
+      <select class="stair-sel ss-side" data-i="${i}">
+        <option value="front" ${ss.side==='front'?'selected':''}>Front (S)</option>
+        <option value="back"  ${ss.side==='back' ?'selected':''}>Back (N)</option>
+        <option value="left"  ${ss.side==='left' ?'selected':''}>Left (W)</option>
+        <option value="right" ${ss.side==='right'?'selected':''}>Right (E)</option>
+      </select>
+      <select class="stair-sel ss-w" data-i="${i}">
+        <option value="3" ${ss.w===3?'selected':''}>3 ft</option>
+        <option value="4" ${ss.w===4?'selected':''}>4 ft</option>
+        <option value="5" ${ss.w===5?'selected':''}>5 ft</option>
+      </select>
+      <button class="stair-del ss-del" data-i="${i}">x</button>
+      <div class="stair-offset-row">
+        <span class="stair-offset-label">Offset</span>
+        <input type="range" class="ss-offset" data-i="${i}" min="-12" max="12" step="1" value="${ss.offset||0}" style="flex:1;">
+        <span class="stair-offset-label" id="ssOff${i}">${ss.offset||0} ft</span>
+      </div>
+    </div>`;
+  }
+
+  panel.innerHTML=`
+    <div class="sel-panel">
+      <div class="sel-title">
+        Platform ${sec.id} &nbsp;<span style="font-size:10px;color:#6b7585;font-weight:400;">${sec.gw}x${sec.gh} ft</span>
+        <button class="sel-del" id="selDelBtn">x</button>
+      </div>
+      <div class="field">
+        <label>Height off ground <span class="val" id="selHeightVal">${sec.elevation.toFixed(1)} ft</span></label>
+        <input type="range" id="selHeightSlider" min="0" max="10" step="0.5" value="${sec.elevation}">
+      </div>
+      <div class="section-title" style="margin:8px 0 4px;">Railing Sides</div>
+      <div class="rail-sides-wrap">
+        <div class="rail-sides">
+          <div></div>
+          <button class="rail-side-btn ${rs.back?'active':''}" data-side="back">N</button>
+          <div></div>
+          <button class="rail-side-btn ${rs.left?'active':''}" data-side="left">W</button>
+          <div class="rail-side-ctr"></div>
+          <button class="rail-side-btn ${rs.right?'active':''}" data-side="right">E</button>
+          <div></div>
+          <button class="rail-side-btn ${rs.front?'active':''}" data-side="front">S</button>
+          <div></div>
+        </div>
+      </div>
+      <div class="section-title" style="margin:8px 0 4px;">Privacy Walls</div>
+      <div class="rail-sides-wrap">
+        <div class="rail-sides">
+          <div></div>
+          <button class="priv-side-btn ${ps.back?'active':''}" data-side="back">N</button>
+          <div></div>
+          <button class="priv-side-btn ${ps.left?'active':''}" data-side="left">W</button>
+          <div class="rail-side-ctr"></div>
+          <button class="priv-side-btn ${ps.right?'active':''}" data-side="right">E</button>
+          <div></div>
+          <button class="priv-side-btn ${ps.front?'active':''}" data-side="front">S</button>
+          <div></div>
+        </div>
+      </div>
+      <div class="field" id="privHeightField" style="${Object.values(ps).some(Boolean)?'':'display:none'}">
+        <label>Wall height <span class="val" id="privHeightVal">${sec.privacyHeight||6} ft</span></label>
+        <input type="range" id="privHeightSlider" min="4" max="8" step="1" value="${sec.privacyHeight||6}">
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;margin-top:8px;">
+        <span class="section-title" style="margin:0;">Stairs</span>
+        <button id="selAddStair" style="background:#252932;border:1px solid #3a3d47;border-radius:3px;color:#aab;font-size:10px;padding:2px 7px;cursor:pointer;">+ Add</button>
+      </div>
+      <div id="selStairList">${sec.stairSets.map((ss,i)=>stairRowHtml(ss,i)).join('')||'<div style="font-size:10px;color:#555;margin-bottom:4px;">No stairs</div>'}</div>
+    </div>`;
+
+  document.getElementById('selHeightSlider').addEventListener('input',e=>{
+    sec.elevation=+e.target.value;
+    document.getElementById('selHeightVal').textContent=sec.elevation.toFixed(1)+' ft';
+    drawPlan(); buildDeck();
+  });
+  document.getElementById('selDelBtn').addEventListener('click',()=>{
+    S.sections=S.sections.filter(s=>s.id!==sec.id);
+    S.selectedId=S.sections.length?S.sections[S.sections.length-1].id:null;
+    renderSelPanel(); buildDeck(); drawPlan();
+  });
+
+  // Railing side toggles
+  panel.querySelectorAll('.rail-side-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const side=btn.dataset.side;
+      sec.railingSides[side]=!sec.railingSides[side];
+      btn.classList.toggle('active', sec.railingSides[side]);
+      buildDeck();
+    });
+  });
+
+  // Privacy wall controls
+  panel.querySelectorAll('.priv-side-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const side=btn.dataset.side;
+      sec.privacySides[side]=!sec.privacySides[side];
+      btn.classList.toggle('active', sec.privacySides[side]);
+      const anyOn=Object.values(sec.privacySides).some(Boolean);
+      const hf=document.getElementById('privHeightField');
+      if(hf) hf.style.display=anyOn?'':'none';
+      buildDeck(); updateStats();
+    });
+  });
+  const privSlider=document.getElementById('privHeightSlider');
+  if(privSlider) privSlider.addEventListener('input',e=>{
+    sec.privacyHeight=+e.target.value;
+    const lbl=document.getElementById('privHeightVal'); if(lbl) lbl.textContent=sec.privacyHeight+' ft';
+    buildDeck(); updateStats();
+  });
+
+  // Stair controls (delegated)
+  function wireStairs(){
+    const list=document.getElementById('selStairList');
+    list.querySelectorAll('.ss-side').forEach(el=>el.addEventListener('change',e=>{
+      sec.stairSets[+e.target.dataset.i].side=e.target.value; buildDeck();
+    }));
+    list.querySelectorAll('.ss-w').forEach(el=>el.addEventListener('change',e=>{
+      sec.stairSets[+e.target.dataset.i].w=+e.target.value; buildDeck();
+    }));
+    list.querySelectorAll('.ss-offset').forEach(el=>el.addEventListener('input',e=>{
+      const i=+e.target.dataset.i, v=+e.target.value;
+      sec.stairSets[i].offset=v;
+      const lbl=document.getElementById('ssOff'+i);
+      if(lbl) lbl.textContent=(v===0?'Center':((v>0?'+':'')+v+' ft'));
+      buildDeck();
+    }));
+    list.querySelectorAll('.ss-del').forEach(el=>el.addEventListener('click',()=>{
+      sec.stairSets.splice(+el.dataset.i,1);
+      renderSelPanel(); buildDeck();
+    }));
+  }
+  wireStairs();
+
+  document.getElementById('selAddStair').addEventListener('click',()=>{
+    sec.stairSets.push({side:'front', offset:0, w:4});
+    renderSelPanel(); buildDeck();
+  });
 }
 
-function updateStats() {
-  document.getElementById('statCost').textContent = '$0';
+// ==========================================================
+// STATS
+// ==========================================================
+function computeTakeoff() {
+  const stride=BW+GAP;
+  const isComposite=MATS[S.material].type==='composite';
+  // Available board lengths (longest = max span without butt joint)
+  const fieldLengths=isComposite?[12,16,20]:[8,10,12,16];
+  const maxLen=fieldLengths[fieldLengths.length-1];
+  const borderLen=maxLen; // borders always use longest boards
+  // Waste factor by pattern (diagonal/herringbone need more)
+  const wasteMap={'straight':1.10,'picture-frame':1.12,'diagonal':1.20,'herringbone':1.22,'chevron':1.18,'basket':1.20,'solid':1.12,'pinstripe':1.10};
+  const waste=wasteMap[S.pattern]||1.10;
+  const jSpacingFt=S.joistSpacing/12;
+
+  let sqFt=0, rimLF=0, joistCount=0, joistLF=0, postCount=0;
+  let boardBreakdown={}, dividerLF=0, privacySqFt=0, warnings=[];
+
+  S.sections.forEach(sec=>{
+    const W=sec.gw, D=sec.gh, H=sec.elevation;
+    sqFt+=W*D;
+    // Board run dimension (boards run across W by default unless rotated)
+    const runW=S.boardRot?D:W, runD=S.boardRot?W:D;
+
+    // No butt joints -- check if deck exceeds max board length
+    if(runW>maxLen){
+      // Split at inlay centre into equal sections using a dividing board
+      const sections=Math.ceil(runW/maxLen);
+      const sectionW=runW/sections;
+      // Divider boards (run full depth, one per split)
+      dividerLF+=(sections-1)*runD;
+      // Calculate boards for each sub-section
+      const bestLen=fieldLengths.find(l=>l>=sectionW)||maxLen;
+      const rows=Math.ceil(runD/stride);
+      const bPerRow=Math.ceil(sectionW/bestLen);
+      boardBreakdown[bestLen]=(boardBreakdown[bestLen]||0)+Math.ceil(rows*bPerRow*waste)*sections;
+      warnings.push(`${W}x${D} ft: ${sections} sections of ${sectionW.toFixed(1)} ft using ${bestLen}ft boards + ${sections-1} divider(s)`);
+    } else {
+      // Find optimal board length (smallest length >= run width)
+      const bestLen=fieldLengths.find(l=>l>=runW)||maxLen;
+      const rows=Math.ceil(runD/stride);
+      const bPerRow=Math.ceil(runW/bestLen);
+      boardBreakdown[bestLen]=(boardBreakdown[bestLen]||0)+Math.ceil(rows*bPerRow*waste);
+    }
+
+    // Border/picture-frame boards use longest length
+    if(S.borderRows>0){
+      const brdBoards=Math.ceil(2*(W+D)/borderLen*1.10)*S.borderRows;
+      boardBreakdown[borderLen]=(boardBreakdown[borderLen]||0)+brdBoards;
+    }
+
+    // Rim joists
+    rimLF+=2*(W+D);
+    // Joist Framing (PT)
+    const jInt=Math.max(0,Math.floor((W-0.25)/jSpacingFt)-1);
+    joistCount+=jInt; joistLF+=jInt*D;
+    // Posts
+    if(H>0.5) postCount+=(Math.ceil(W/8)+1)*(Math.ceil(D/8)+1);
+    // Privacy walls
+    const ps=sec.privacySides||{};
+    const pH=sec.privacyHeight||6;
+    if(ps.front) privacySqFt+=W*pH;
+    if(ps.back)  privacySqFt+=W*pH;
+    if(ps.left)  privacySqFt+=D*pH;
+    if(ps.right) privacySqFt+=D*pH;
+  });
+
+  // Lighting counts
+  let postCapCount=0, riserCount=0, railingLEDlf=0;
+  S.sections.forEach(sec=>{
+    const W=sec.gw, D=sec.gh, H=sec.elevation;
+    if(H>0.5){
+      const cols=Math.max(2,Math.ceil(W/8)), rows=Math.max(2,Math.ceil(D/8));
+      postCapCount+=(cols+1)*(rows+1);
+    }
+    const sides=sec.railingSides||{front:true,back:true,left:true,right:true};
+    if(sides.front||sides.back) railingLEDlf+=W*([sides.front,sides.back].filter(Boolean).length);
+    if(sides.left||sides.right) railingLEDlf+=D*([sides.left,sides.right].filter(Boolean).length);
+    // Stair risers
+    const RISE=7.5/12;
+    (sec.stairSets||[]).forEach(ss=>{ riserCount+=Math.ceil(H/RISE)*2; }); // 2 risers per step side
+  });
+
+  const totalBoardLF=Object.entries(boardBreakdown).reduce((s,[len,cnt])=>s+len*cnt,0);
+  return {
+    sqFt, rimLF:Math.ceil(rimLF*1.10), joistCount, joistLF:Math.ceil(joistLF*1.10),
+    postCount, boardBreakdown, dividerLF:Math.ceil(dividerLF*1.10), totalBoardLF,
+    privacySqFt, postCapCount, riserCount, railingLEDlf:Math.ceil(railingLEDlf),
+    waste, warnings, maxLen, isComposite
+  };
 }
 
+function boardBreakdownText(bd) {
+  return Object.entries(bd).sort((a,b)=>+b[0]-+a[0]).map(([len,cnt])=>`${cnt} pcs @ ${len}ft`).join(' + ') || '--';
+}
+
+window._jSz=window._jSz||'2x10';function setJoistSize(s){window._jSz=s;['2x8','2x10','2x12'].forEach(function(v){var b=document.getElementById('j_'+v);if(b){b.style.background=v===s?'#2563eb':'#f0f0f0';b.style.color=v===s?'#fff':'#222';}});updateStats();}  function updateStats() {
+  if(!S.sections.length){
+    ['statSqft','statBoards','statRim','statJoists','statPosts','statCost','statLabour'].forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent='--'; });
+    document.getElementById('statNote').textContent='Draw platforms in the plan view to begin.';
+    return;
+  }
+  const mat=MATS[S.material], t=computeTakeoff();
+  const postH=Math.ceil((S.sections[0]?.elevation||3)+1);
+  const deckCost=Math.round(t.sqFt*mat.priceSqFt);
+  const frameCost=Math.round(t.rimLF*1.90+t.joistLF*1.80+t.postCount*postH*4.50+t.dividerLF*1.80+t.sqFt*0.85);
+  const privCost=Math.round(t.privacySqFt*35);
+  const lightCost=Math.round((S.lighting.postCaps?t.postCapCount*60:0)+(S.lighting.riserLights?t.riserCount*35:0)+(S.lighting.railingLED?t.railingLEDlf*18:0));
+  const totalMat=deckCost+frameCost+privCost+lightCost;
+  const labLow=Math.round(t.sqFt*15), labHigh=Math.round(t.sqFt*25);
+  document.getElementById('statSqft').textContent=`${t.sqFt} sq ft`;
+  document.getElementById('statBoards').textContent=boardBreakdownText(t.boardBreakdown);
+  document.getElementById('statRim').textContent=`${t.rimLF} lf`;
+  document.getElementById('statJoists').textContent=`${t.joistCount} pcs ${window._jSz||'2x10'} PT \u00b7 ${Math.ceil(t.joistLF/Math.max(t.joistCount,1))}\u2019 ea \u00b7 ${t.joistLF} lf @ ${S.joistSpacing}" o/c`;
+  document.getElementById('statPosts').textContent=t.postCount>0?`${t.postCount} posts`:'Ground level';
+  document.getElementById('statCost').textContent=`$${totalMat.toLocaleString()} CAD`;
+  document.getElementById('statLabour').textContent=`$${labLow.toLocaleString()}-$${labHigh.toLocaleString()}`;
+  const warn=t.warnings.length?` ! ${t.warnings.join('; ')}`:''  ;
+  document.getElementById('statNote').textContent=`${mat.brand} ${mat.label} . ${mat.colors[S.colorIdx]?.name||''} . ${Math.round((t.waste-1)*100)}% waste${warn}`;
+}
+
+// ==========================================================
+// COLOUR PICKERS
+// ==========================================================
+function renderColors() {
+  const row=document.getElementById('colorRow'); row.innerHTML='';
+  const cols=MATS[S.material].colors.length>5?5:MATS[S.material].colors.length;
+  row.style.gridTemplateColumns=`repeat(${cols},1fr)`;
+  MATS[S.material].colors.forEach((c,i)=>{
+    const w=document.createElement('div');
+    w.className='color-swatch'+(i===S.colorIdx?' active':'');
+    w.innerHTML=`<div class="swatch-bar" style="background:${c.hex}"></div><div class="swatch-name">${c.name}</div>`;
+    w.addEventListener('click',()=>{ S.colorIdx=i; renderColors(); renderBorderColors(); renderInlayColors(); buildDeck(); drawPlan(); });
+    row.appendChild(w);
+  });
+}
+function renderBorderColors() {
+  const row=document.getElementById('borderColorRow'); if(!row) return;
+  row.innerHTML='';
+  const cols=MATS[S.material].colors.length>5?5:MATS[S.material].colors.length;
+  row.style.gridTemplateColumns=`repeat(${cols},1fr)`;
+  MATS[S.material].colors.forEach((c,i)=>{
+    const w=document.createElement('div');
+    w.className='color-swatch'+(i===S.borderColorIdx?' active':'');
+    w.innerHTML=`<div class="swatch-bar" style="background:${c.hex}"></div><div class="swatch-name">${c.name}</div>`;
+    w.addEventListener('click',()=>{ S.borderColorIdx=i; renderBorderColors(); buildDeck(); });
+    row.appendChild(w);
+  });
+}
+function renderInlayColors() {
+  const row=document.getElementById('inlayColorRow'); if(!row) return;
+  row.innerHTML='';
+  const cols=MATS[S.material].colors.length>5?5:MATS[S.material].colors.length;
+  row.style.gridTemplateColumns=`repeat(${cols},1fr)`;
+  MATS[S.material].colors.forEach((c,i)=>{
+    const w=document.createElement('div');
+    w.className='color-swatch'+(i===S.inlay.colorIdx?' active':'');
+    w.innerHTML=`<div class="swatch-bar" style="background:${c.hex}"></div><div class="swatch-name">${c.name}</div>`;
+    w.addEventListener('click',()=>{ S.inlay.colorIdx=i; renderInlayColors(); buildDeck(); });
+    row.appendChild(w);
+  });
+}
+function renderInlayBorderColors() {
+  const row=document.getElementById('inlayBorderColorRow'); if(!row) return;
+  row.innerHTML='';
+  const cols=Math.min(5,MATS[S.material].colors.length);
+  row.style.gridTemplateColumns=`repeat(${cols},1fr)`;
+  MATS[S.material].colors.forEach((c,i)=>{
+    const w=document.createElement('div');
+    w.className='color-swatch'+(i===S.inlay.borderColorIdx?' active':'');
+    w.innerHTML=`<div class="swatch-bar" style="background:${c.hex}"></div><div class="swatch-name">${c.name}</div>`;
+    w.addEventListener('click',()=>{ S.inlay.borderColorIdx=i; renderInlayBorderColors(); buildDeck(); });
+    row.appendChild(w);
+  });
+}
+function renderRailingColors() {
+  const row=document.getElementById('railingColorRow'); row.innerHTML='';
+  RAILING_COLORS.forEach((c,i)=>{
+    const w=document.createElement('div');
+    w.className='color-swatch'+(i===S.railingColorIdx?' active':'');
+    w.innerHTML=`<div class="swatch-bar" style="background:${c.hex};border-bottom:1px solid #333"></div><div class="swatch-name">${c.name}</div>`;
+    w.addEventListener('click',()=>{ S.railingColorIdx=i; renderRailingColors(); buildDeck(); });
+    row.appendChild(w);
+  });
+}
+
+// ==========================================================
+// UI WIRING
+// ==========================================================
+document.getElementById('railingToggle').addEventListener('change',e=>{ S.railings=e.target.checked; buildDeck(); });
+document.getElementById('postsToggle').addEventListener('change',  e=>{ S.posts=e.target.checked; buildDeck(); });
+document.getElementById('boardRotToggle').addEventListener('change',e=>{ S.boardRot=e.target.checked; buildDeck(); drawPlan(); });
+
+// Joist spacing
+document.querySelectorAll('[data-joist]').forEach(btn=>btn.addEventListener('click',()=>{
+  S.joistSpacing=+btn.dataset.joist;
+  document.querySelectorAll('[data-joist]').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); updateStats();
+}));
+
+// Lighting
+document.getElementById('lightPostCaps').addEventListener('change',e=>{ S.lighting.postCaps=e.target.checked; buildDeck(); updateStats(); });
+document.getElementById('lightRiser').addEventListener('change',e=>{ S.lighting.riserLights=e.target.checked; buildDeck(); updateStats(); });
+document.getElementById('lightRailingLED').addEventListener('change',e=>{ S.lighting.railingLED=e.target.checked; buildDeck(); updateStats(); });
+
+document.querySelectorAll('.pattern-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.pattern-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); S.pattern=btn.dataset.pattern;
+    if(S.pattern==='picture-frame'&&S.borderRows===0){
+      S.borderRows=1;
+      document.querySelectorAll('.border-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelector('.border-btn[data-border="1"]').classList.add('active');
+    }
+    buildDeck();
+  });
+});
+
+document.querySelectorAll('.border-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.border-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); S.borderRows=+btn.dataset.border; buildDeck();
+  });
+});
+
+document.getElementById('materialSelect').addEventListener('change',e=>{
+  S.material=e.target.value; S.colorIdx=0; S.borderColorIdx=0; S.inlay.borderColorIdx=0;
+  renderColors(); renderBorderColors(); renderInlayColors(); renderInlayBorderColors(); buildDeck(); drawPlan();
+});
+
+// Inlay
+document.getElementById('inlayToggle').addEventListener('change',e=>{
+  S.inlay.on=e.target.checked;
+  document.getElementById('inlayFields').classList.toggle('visible',S.inlay.on);
+  buildDeck();
+});
+document.querySelectorAll('.inlay-type-btn').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('.inlay-type-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); S.inlay.type=btn.dataset.type; buildDeck();
+}));
+document.getElementById('inlayBorderToggle').addEventListener('change',e=>{
+  S.inlay.border=e.target.checked;
+  document.getElementById('inlayBorderFields').style.display=S.inlay.border?'block':'none';
+  if(S.inlay.border) renderInlayBorderColors();
+  buildDeck();
+});
+document.getElementById('inlayRotBtn').addEventListener('click',()=>{
+  S.inlay.rot=!S.inlay.rot;
+  document.getElementById('inlayRotBtn').classList.toggle('active',S.inlay.rot);
+  buildDeck();
+});
+document.getElementById('inlayDiagBtn').addEventListener('click',()=>{
+  S.inlay.diagonal=!S.inlay.diagonal;
+  document.getElementById('inlayDiagBtn').classList.toggle('active',S.inlay.diagonal);
+  buildDeck();
+});
+document.getElementById('inlaySizeSlider').addEventListener('input',e=>{ S.inlay.size=+e.target.value; document.getElementById('inlaySizeVal').textContent=S.inlay.size+' ft'; buildDeck(); });
+document.getElementById('inlayOxSlider').addEventListener('input',e=>{ S.inlay.ox=+e.target.value; document.getElementById('inlayOxVal').textContent=S.inlay.ox===0?'Center':(S.inlay.ox>0?'+':'')+S.inlay.ox+' ft'; buildDeck(); });
+document.getElementById('inlayOzSlider').addEventListener('input',e=>{ S.inlay.oz=+e.target.value; document.getElementById('inlayOzVal').textContent=S.inlay.oz===0?'Center':(S.inlay.oz>0?'+':'')+S.inlay.oz+' ft'; buildDeck(); });
+
+// (Stair builder moved to renderSelPanel -- per platform)
+
+// ==========================================================
+// EXPORT QUOTE
+// ==========================================================
 function exportQuote() {
-  alert("Quote generated! (Your full exportQuote function is ready when added)");
-}
+  if(!S.sections.length){ alert('Draw at least one platform first.'); return; }
+  renderer.render(scene,camera);
+  const img3d=renderer.domElement.toDataURL('image/png');
+  const imgPlan=planEl.toDataURL('image/png');
+  const mat=MATS[S.material], t=computeTakeoff();
+  const postH=Math.ceil((S.sections[0]?.elevation||3)+1);
 
-// Resize and loop
+  // -- Costs --------------------------------------------------
+  const deckCost   = Math.round(t.sqFt * mat.priceSqFt);
+  // Divider boards: same $/sqft, priced on actual board area (5.5" wide)
+  const dividerSF  = t.dividerLF * (5.5/12);
+  const dividerCost= t.dividerLF>0 ? Math.round(dividerSF * mat.priceSqFt) : 0;
+  const rimCost    = Math.round(t.rimLF * 1.90);
+  const joistCost  = Math.round(t.joistLF * 1.80);
+  const postCostEa = postH * 4.50;
+  const postCostTotal = Math.round(t.postCount * postCostEa);
+  const hardware   = Math.round(t.sqFt * 0.85);
+  const privacyCost= t.privacySqFt>0 ? Math.round(t.privacySqFt * 35) : 0;
+  const postCapCost= t.postCapCount>0 ? Math.round(t.postCapCount * 60) : 0;
+  const riserCost  = t.riserCount>0   ? Math.round(t.riserCount * 35)   : 0;
+  const ledCost    = t.railingLEDlf>0 ? Math.round(t.railingLEDlf * 18) : 0;
+  const lightTotal = postCapCost + riserCost + ledCost;
+  const totalMat   = deckCost + dividerCost + rimCost + joistCost + postCostTotal + hardware + privacyCost + lightTotal;
+  const labLow     = Math.round(t.sqFt * 15);
+  const labHigh    = Math.round(t.sqFt * 25);
+
+  // -- Strings ------------------------------------------------
+  const date       = new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
+  const quoteNum   = 'TGB-'+Date.now().toString().slice(-6);
+  const colorName  = mat.colors[S.colorIdx]?.name||'';
+  const patternLabel = S.pattern.charAt(0).toUpperCase()+S.pattern.slice(1).replace('-',' ');
+  const secDesc    = S.sections.map(s=>`${s.gw}x${s.gh} ft @ ${s.elevation} ft elevation`).join(', ');
+  const wasteLabel = Math.round((t.waste-1)*100)+'% waste';
+  const ocLabel    = S.joistSpacing+'" o/c';
+
+  // Board order summary (informational box, not separate cost line)
+  const boardSummary = Object.entries(t.boardBreakdown).sort((a,b)=>Number(a[0])-Number(b[0]))
+    .map(([len,cnt])=>`<strong>${cnt}</strong> x ${len}ft`).join(' &nbsp;|&nbsp; ');
+  const boardOrderHTML = boardSummary
+    ? `<div style="background:#f0f8ff;border:1px solid #b0d4f0;border-radius:5px;padding:10px 14px;margin-bottom:16px;font-size:11px;line-height:1.9">
+        <strong style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:#5580a0">Board Order (for purchasing -- ${wasteLabel} included)</strong><br>
+        ${boardSummary}${t.dividerLF>0?` &nbsp;+&nbsp; <strong>${t.dividerLF}</strong> LF divider boards`:''}
+      </div>` : '';
+
+  // Oversized deck warnings
+  const warningHTML = t.warnings.length
+    ? `<div style="background:#fff8e0;border:1px solid #e8c840;border-radius:5px;padding:10px 14px;margin-bottom:16px;font-size:11px;line-height:1.8">
+        <strong>! Oversized Deck -- No Butt Joint Layout:</strong><br>${t.warnings.join('<br>')}
+      </div>` : '';
+
+  // -- Table row helper ---------------------------------------
+  const row=(label,qty,unit,unitCostStr,total)=>
+    `<tr><td>${label}</td><td style="text-align:right">${qty}</td><td>${unit}</td><td style="text-align:right">${unitCostStr}</td><td style="text-align:right">$${Number(total).toLocaleString()}</td></tr>`;
+
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Deck Estimate -- Tall Guy Builds</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff;color:#1a1a1a;padding:36px;max-width:960px;margin:0 auto;font-size:12px}
+.print-btn{background:#f0a500;border:none;border-radius:5px;color:#000;font-weight:700;font-size:12px;padding:9px 22px;cursor:pointer;margin-bottom:28px;display:inline-block}
+.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:4px solid #f0a500;padding-bottom:16px;margin-bottom:24px}
+.logo-mark{background:#f0a500;color:#000;font-weight:900;font-size:13px;padding:4px 8px;border-radius:3px;display:inline-block;margin-right:8px}
+.header h1{font-size:22px;font-weight:800;display:flex;align-items:center}
+.header-sub{font-size:11px;color:#888;margin-top:4px;padding-left:4px}
+.header-right{text-align:right}
+.header-right .quote-num{font-size:18px;font-weight:800;color:#f0a500}
+.header-right p{font-size:11px;color:#666;margin-top:3px}
+.client-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;margin-bottom:24px}
+.client-field{border-bottom:1px solid #ddd;padding:5px 0 3px}
+.client-field .lbl{font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:#aaa;margin-bottom:3px}
+.client-field .val{font-size:13px;color:#ccc;font-style:italic}
+.images{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;margin-bottom:20px}
+.img-box{border:1px solid #e0e0e0;border-radius:6px;overflow:hidden}
+.img-box h3{background:#f7f7f7;font-size:9px;font-weight:700;padding:6px 10px;text-transform:uppercase;letter-spacing:0.1em;color:#888;border-bottom:1px solid #e0e0e0}
+.img-box img{width:100%;display:block}
+.design-strip{background:#fffbf0;border:1px solid #f0e0a0;border-radius:6px;padding:10px 16px;margin-bottom:16px;display:flex;gap:22px;flex-wrap:wrap}
+.design-strip div strong{display:block;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:#b09040;margin-bottom:2px}
+table{width:100%;border-collapse:collapse;margin-bottom:20px}
+thead{background:#1a1a1a;color:#fff}
+thead th{padding:8px 10px;text-align:left;font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase}
+thead th:nth-child(n+2){text-align:right}
+tbody tr:nth-child(even){background:#f9f9f9}
+tbody td{padding:7px 10px;border-bottom:1px solid #eee}
+tbody tr.section-header td{background:#e8e8e8;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#555;padding:5px 10px}
+tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid #1a1a1a}
+tfoot tr.sub td{background:#f5f5f5;font-size:11px}
+tfoot tr.labour td{background:#f0f5ff}
+tfoot tr.total td{background:#f0a500;color:#000;font-size:14px}
+.notes{background:#f8f8f8;border-radius:6px;padding:12px 16px;margin-bottom:24px;font-size:11px;color:#555;line-height:1.75}
+.notes h4{font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:#aaa;margin-bottom:8px}
+.sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:8px}
+.sig-line{border-top:1px solid #ccc;padding-top:6px;font-size:10px;color:#aaa;margin-top:40px}
+@media print{.print-btn{display:none}body{padding:16px}}
+</style></head><body>
+<button class="print-btn no-print" onclick="window.print()">&#128424; Print / Save PDF</button>
+<div class="header">
+  <div>
+    <h1><span class="logo-mark">TGB</span>Tall Guy Builds Inc.</h1>
+    <div class="header-sub">tallguybuildssk@gmail.com</div>
+  </div>
+  <div class="header-right">
+    <div class="quote-num">${quoteNum}</div>
+    <p>DECK ESTIMATE</p>
+    <p>${date}</p>
+  </div>
+</div>
+<div class="client-grid">
+  <div class="client-field"><div class="lbl">Client Name</div><div class="val">________________________</div></div>
+  <div class="client-field"><div class="lbl">Phone / Email</div><div class="val">________________________</div></div>
+  <div class="client-field"><div class="lbl">Site Address</div><div class="val">________________________</div></div>
+  <div class="client-field"><div class="lbl">Project Start</div><div class="val">________________________</div></div>
+</div>
+<div class="images">
+  <div class="img-box"><h3>3D Design Preview</h3><img src="${img3d}"></div>
+  <div class="img-box"><h3>Floor Plan</h3><img src="${imgPlan}"></div>
+</div>
+<div class="design-strip">
+  <div><strong>Total Area</strong>${t.sqFt} sq ft</div>
+  <div><strong>Platforms</strong>${S.sections.length}</div>
+  <div><strong>Layout</strong>${secDesc}</div>
+  <div><strong>Material</strong>${mat.brand} ${mat.label}</div>
+  <div><strong>Colour</strong>${colorName}</div>
+  <div><strong>Pattern</strong>${patternLabel}</div>
+  <div><strong>Joist Spacing</strong>${ocLabel}</div>
+</div>
+${warningHTML}${boardOrderHTML}
+<table>
+  <thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Unit Cost</th><th>Total (CAD)</th></tr></thead>
+  <tbody>
+    <tr class="section-header"><td colspan="5">Decking</td></tr>
+    ${row(mat.brand+' '+mat.label+' -- Field Decking ('+wasteLabel+')',t.sqFt,'SF','$'+mat.priceSqFt.toFixed(2)+'/sf',deckCost)}
+    ${t.dividerLF>0?row('Section Divider Boards -- '+mat.label+' (no-butt-joint breaks)',t.dividerLF,'LF','$'+mat.priceSqFt.toFixed(2)+'/sf',dividerCost):''}
+    <tr class="section-header"><td colspan="5">Framing</td></tr>
+    ${row('Rim Joist -- 2x10 (perimeter, +10% waste)',t.rimLF,'LF','$1.90',rimCost)}
+    ${row('Joist Framing (PT) -- 2x10 @ '+ocLabel+' (+10% waste)',t.joistLF,'LF','$1.80',joistCost)}
+    ${t.postCount>0?row('Posts -- 6x6 ('+postH+' ft each)',t.postCount,'EA','$'+postCostEa.toFixed(2),postCostTotal):''}
+    <tr class="section-header"><td colspan="5">Hardware &amp; Misc</td></tr>
+    ${row('Fasteners, Joist Hangers, Post Bases, Misc Hardware',t.sqFt,'SF','$0.85',hardware)}
+    ${privacyCost>0?`<tr class="section-header"><td colspan="5">Privacy Walls</td></tr>`:''}
+    ${privacyCost>0?row('Privacy Wall -- Horizontal Board Cladding + Posts',t.privacySqFt,'SF','$35.00',privacyCost):''}
+    ${lightTotal>0?`<tr class="section-header"><td colspan="5">Lighting Upgrades</td></tr>`:''}
+    ${postCapCost>0?row('Post Cap Lights (LED)',t.postCapCount,'EA','$60.00',postCapCost):''}
+    ${riserCost>0?row('Stair Riser Lights (LED)',t.riserCount,'EA','$35.00',riserCost):''}
+    ${ledCost>0?row('Railing LED Strip',t.railingLEDlf,'LF','$18.00',ledCost):''}
+  </tbody>
+  <tfoot>
+    <tr class="sub"><td colspan="4">Materials &amp; Upgrades Subtotal</td><td style="text-align:right">$${totalMat.toLocaleString()}</td></tr>
+    <tr class="labour"><td colspan="4">Labour Estimate -- Install Only (site conditions may vary)</td><td style="text-align:right">$${labLow.toLocaleString()} - $${labHigh.toLocaleString()}</td></tr>
+    <tr class="total"><td colspan="4">TOTAL PROJECT ESTIMATE</td><td style="text-align:right">$${(totalMat+labLow).toLocaleString()} - $${(totalMat+labHigh).toLocaleString()}</td></tr>
+  </tfoot>
+</table>
+<div class="notes">
+  <h4>Notes &amp; Conditions</h4>
+  This estimate is based on the digital design above and standard construction rates for Saskatchewan. Board quantities use a no-butt-joint layout -- all field boards run full length, with section dividers where required to eliminate joints mid-span. Final pricing is subject to site conditions, soil bearing capacity, permit requirements, seasonal material costs, and availability. Permit procurement, concrete footings, and demolition/disposal are not included unless stated. A formal signed contract will be issued before work begins. All work performed to applicable building codes (NBC / Saskatchewan).
+  <br><br>Quote valid for <strong>30 days</strong> from date of issue.
+</div>
+<div class="sig-grid">
+  <div><div class="sig-line">Client Signature &amp; Date</div></div>
+  <div><div class="sig-line">Tall Guy Builds Inc. -- Evan</div></div>
+</div>
+
+<!-- ====== TGB SALES UPGRADE: Price Bar ====== -->
+<div id="tgb-price-bar">
+  <div style="flex:1">
+    <div class="tgb-pl">Estimated Project Price</div>
+    <div class="tgb-pa" id="tgb-live-price">&#8212; Draw a deck first</div>
+    <div class="tgb-ps" id="tgb-live-labour"></div>
+  </div>
+  <button id="btn-client-view">&#128203; Client View</button>
+  <button id="btn-gen-quote">Generate Quote &#8599;</button>
+</div>
+<!-- ====== TGB SALES UPGRADE: Client View Overlay ====== -->
+<div id="tgb-cv">
+  <div id="tgb-cv-hdr">
+    <div>
+      <div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Tall Guy Builds &middot; Project Preview</div>
+      <div id="tgb-cv-price">&#8212;</div>
+      <div class="tgb-cv-specs">
+        <div class="tgb-cv-spec"><strong id="cv-sqft">&#8212;</strong>Square Feet</div>
+        <div class="tgb-cv-spec"><strong id="cv-mat">&#8212;</strong>Material</div>
+        <div class="tgb-cv-spec"><strong id="cv-labour">&#8212;</strong>Labour Est.</div>
+      </div>
+    </div>
+    <button id="btn-cv-close">&#10005; Exit Preview</button>
+  </div>
+</div>
+</body></html>`);
+  w.document.close();
+}
+document.getElementById('exportQuoteBtn').addEventListener('click', exportQuote);
+
+// ==========================================================
+// RESIZE + RENDER LOOP
+// ==========================================================
 function resize3d() {
-  const r = vp.getBoundingClientRect();
-  renderer.setSize(r.width, r.height);
-  camera.aspect = r.width / r.height;
-  camera.updateProjectionMatrix();
+  const r=vp.getBoundingClientRect();
+  renderer.setSize(r.width,r.height);
+  camera.aspect=r.width/r.height; camera.updateProjectionMatrix();
 }
-window.addEventListener('resize', resize3d);
-function loop() { requestAnimationFrame(loop); renderer.render(scene, camera); }
-loop();
 
-// ==================== PRO FEATURES ====================
-(function proUpgrade() {
+window.addEventListener('resize',()=>{ resize3d(); resizePlan(); });
+
+function loop() { requestAnimationFrame(loop); renderer.render(scene,camera); }
+
+// ==========================================================
+// PARENT APP BRIDGE (postMessage save/load for dashboard)
+// ==========================================================
+function getDesignState() {
+  return JSON.parse(JSON.stringify({
+    sections: S.sections, nextId: S.nextId, selectedId: S.selectedId,
+    pattern: S.pattern, borderRows: S.borderRows, boardRot: S.boardRot,
+    railings: S.railings, posts: S.posts, joistSpacing: S.joistSpacing,
+    lighting: S.lighting, material: S.material, colorIdx: S.colorIdx,
+    borderColorIdx: S.borderColorIdx, railingColorIdx: S.railingColorIdx,
+    inlay: S.inlay
+  }));
+}
+
+function loadDesignState(data) {
+  try {
+    if (data.sections)      S.sections = data.sections;
+    if (data.nextId)        S.nextId   = data.nextId;
+    S.selectedId    = data.selectedId || null;
+    S.pattern       = data.pattern       || 'straight';
+    S.borderRows    = data.borderRows    ?? 0;
+    S.boardRot      = data.boardRot      ?? false;
+    S.railings      = data.railings      ?? true;
+    S.posts         = data.posts         ?? true;
+    S.joistSpacing  = data.joistSpacing  || 16;
+    S.lighting      = data.lighting      || { postCaps:false, riserLights:false, railingLED:false };
+    S.material      = data.material      || 'pt';
+    S.colorIdx      = data.colorIdx      ?? 1;
+    S.borderColorIdx   = data.borderColorIdx   ?? 0;
+    S.railingColorIdx  = data.railingColorIdx  ?? 0;
+    S.inlay            = data.inlay || S.inlay;
+    // Refresh UI
+    const matSel=document.getElementById('materialSelect');
+    if(matSel) matSel.value=S.material;
+    document.querySelectorAll('.pattern-btn').forEach(btn=>{
+      btn.classList.toggle('active', btn.dataset.pattern === S.pattern);
+    });
+    const boardRotToggle=document.getElementById('boardRotToggle');
+    if(boardRotToggle) boardRotToggle.checked = !!S.boardRot;
+    renderColors(); renderBorderColors(); renderRailingColors();
+    renderInlayColors(); renderInlayBorderColors();
+    renderSelPanel(); buildDeck(); drawPlan(); updateStats();
+    window.parent.postMessage({ type:'DECK_DESIGNER_LOADED' }, '*');
+  } catch(e) { console.error('loadDesignState error', e); }
+}
+
+window.addEventListener('message', e => {
+  if (!e.data || !e.data.type) return;
+  if (e.data.type === 'LOAD_DESIGN' && e.data.state) {
+    loadDesignState(e.data.state);
+  }
+  if (e.data.type === 'GET_STATE') {
+    window.parent.postMessage({ type:'DESIGN_STATE', state: getDesignState() }, '*');
+  }
+});
+
+// -- Init --
+resize3d();
+resizePlan();
+renderColors();
+renderBorderColors();
+renderRailingColors();
+renderInlayColors();
+renderInlayBorderColors();
+renderSelPanel();
+buildDeck();
+loop();
+// Signal to parent that the designer is ready
+setTimeout(()=>{ window.parent.postMessage({ type:'DECK_DESIGNER_READY' }, '*'); }, 500);
+
+// ================================================================
+// TGB SALES UPGRADE — Quick Quote, Price Bar, Client View,
+//                     Size Presets, Save/Load Projects
+// Non-destructive: appended after existing code, hooks into
+// existing DOM elements and global functions.
+// ================================================================
+(function tgbUpgrade() {
   'use strict';
 
-  // Quick Mode Button
-  const logo = document.querySelector('.logo');
+  // ---- A: QUICK QUOTE MODE -----------------------------------
+  // Mark advanced/non-essential sections so CSS can hide them
+  var ADVANCED = ['Picture Frame Border','Border Colour','Inlay Pattern',
+                  'Inlay Colour','Border Ring Colour','Lighting Upgrades'];
+  document.querySelectorAll('.section').forEach(function(s) {
+    var t = s.querySelector('.section-title');
+    if (t && ADVANCED.indexOf(t.textContent.trim()) > -1)
+      s.setAttribute('data-advanced','1');
+  });
+  // Inject Quick Mode toggle into logo bar
+  var logo = document.querySelector('.logo');
   if (logo) {
-    const qb = document.createElement('button');
-    qb.textContent = 'Quick Mode';
-    qb.style.marginLeft = 'auto';
-    qb.style.fontSize = '9px';
-    qb.style.padding = '3px 8px';
-    qb.onclick = () => {
-      const on = document.body.classList.toggle('quick-mode');
-      qb.textContent = on ? 'Full Mode' : 'Quick Mode';
+    var qb = document.createElement('button');
+    qb.id = 'btn-quick-mode'; qb.textContent = 'Quick';
+    qb.title = 'Quick Quote Mode — essentials only';
+    qb.onclick = function() {
+      var on = document.body.classList.toggle('quick-mode');
+      qb.classList.toggle('on', on);
+      qb.textContent = on ? 'Full' : 'Quick';
     };
     logo.appendChild(qb);
   }
 
-  // Price Bar
-  const priceBar = document.createElement('div');
-  priceBar.id = 'tgb-price-bar';
-  priceBar.innerHTML = `
-    <div style="flex:1">
-      <div class="tgb-pl">PROJECT ESTIMATE</div>
-      <div class="tgb-pa" id="tgb-live-price">— Draw a deck first</div>
-    </div>
-    <button class="btn-pro" id="btn-gen-quote">Generate Quote</button>
-  `;
-  document.body.appendChild(priceBar);
+  // ---- B: SIZE PRESETS ---------------------------------------
+  var SIZES = [{l:'10x12',w:10,d:12},{l:'12x16',w:12,d:16},
+               {l:'16x20',w:16,d:20},{l:'20x24',w:20,d:24},
+               {l:'12x20',w:12,d:20},{l:'16x24',w:16,d:24}];
+  var platSec = Array.from(document.querySelectorAll('.section')).find(function(s){
+    var t = s.querySelector('.section-title');
+    return t && t.textContent.trim() === 'Selected Platform';
+  });
+  if (platSec) {
+    var pw = document.createElement('div'); pw.id = 'tgb-presets';
+    pw.innerHTML = '<div class="tgb-plbl">QUICK SIZE (ft)</div><div class="tgb-size-btns"></div>';
+    var pb = pw.querySelector('.tgb-size-btns');
+    SIZES.forEach(function(sz) {
+      var b = document.createElement('button'); b.className='tgb-sz'; b.textContent=sz.l;
+      b.onclick = function(){ applySize(sz.w, sz.d); };
+      pb.appendChild(b);
+    });
+    platSec.after(pw);
+  }
+  function applySize(w, d) {
+    if (typeof S==='undefined' || !S.sections || !S.sections.length) {
+      alert('Draw a platform first, then tap a size to resize it.'); return;
+    }
+    var sec = S.sections[0];
+    sec.gw = w; sec.gh = d;
+    if (typeof buildDeck==='function') buildDeck();
+    if (typeof renderSelPanel==='function') renderSelPanel();
+  }
 
-  document.getElementById('btn-gen-quote').onclick = exportQuote;
-
-  // Save / Load Wrap
-  const saveWrap = document.createElement('div');
-  saveWrap.id = 'tgb-save-wrap';
-  saveWrap.innerHTML = `
-    <div style="margin-top:12px;">
-      <button class="btn-pro" style="width:100%;margin-bottom:6px;" id="btn-save-pro">Save Project</button>
-      <button class="btn-pro" style="width:100%;" id="btn-load-pro">Load Project</button>
-    </div>
-  `;
-  document.querySelector('.stats-panel').appendChild(saveWrap);
-
-  document.getElementById('btn-save-pro').onclick = () => {
-    const name = prompt("Project name:", "My Deck " + new Date().toLocaleDateString());
-    if (name) alert(`Project "${name}" saved successfully!`);
+  // ---- C: PRICE BAR ---------------------------------------
+ if(!document.getElementById('tgb-price-bar')){var _pb=document.createElement('div');_pb.id='tgb-price-bar';_pb.innerHTML='<div style=flex:1><div class=tgb-pl>Estimated Project Price</div><div class=tgb-pa id=tgb-live-price>&#8212; Draw a deck first</div><div class=tgb-ps id=tgb-live-labour></div></div><button id=btn-client-view>Client View</button><button id=btn-gen-quote>Generate Quote</button>';document.body.appendChild(_pb);}if(!document.getElementById('tgb-cv')){var _cv=document.createElement('div');_cv.id='tgb-cv';_cv.innerHTML='<div id=tgb-cv-hdr><div id=tgb-cv-price>&#8212;</div><div class=tgb-cv-specs><div class=tgb-cv-spec><strong id=cv-sqft>&#8212;</strong></div><div class=tgb-cv-spec><strong id=cv-mat>&#8212;</strong></div><div class=tgb-cv-spec><strong id=cv-labour>&#8212;</strong></div></div><button id=btn-cv-close>X Exit</button></div></div>';document.body.appendChild(_cv);}  var livePrice  = document.getElementById('tgb-live-price');
+  var liveLabour = document.getElementById('tgb-live-labour');
+  function watchEl(id, cb) {
+    var el = document.getElementById(id); if (!el) return;
+    new MutationObserver(function(){ cb(el.textContent); })
+      .observe(el, {childList:true, characterData:true, subtree:true});
+    cb(el.textContent);
+  }
+  watchEl('statCost', function(t){
+    if (t && t !== '--') { livePrice.textContent = t; livePrice.style.color='#c8a96a'; }
+  });
+  watchEl('statLabour', function(t){
+    if (t && t !== '--') liveLabour.textContent = 'Labour: ' + t;
+  });
+  document.getElementById('btn-gen-quote').onclick = function() {
+    if (typeof exportQuote==='function') exportQuote();
+    else { var b=document.getElementById('exportQuoteBtn'); if(b) b.click(); }
   };
 
-  document.getElementById('btn-load-pro').onclick = () => {
-    alert("Load Project feature is ready.");
+  // ---- D: CLIENT VIEW ----------------------------------------
+  var cvPanel = document.getElementById('tgb-cv');
+  document.getElementById('btn-client-view').onclick = function() {
+    document.getElementById('tgb-cv-price').textContent =
+      livePrice.textContent;
+    document.getElementById('cv-sqft').textContent =
+      (document.getElementById('statSqft')||{}).textContent || '--';
+    document.getElementById('cv-mat').textContent =
+      (document.querySelector('#materialSelect option:checked')||{}).textContent || '--';
+    document.getElementById('cv-labour').textContent =
+      (document.getElementById('statLabour')||{}).textContent || '--';
+    document.body.classList.add('client-mode');
+    cvPanel.classList.add('open');
+    setTimeout(function(){
+      if (typeof renderer!=='undefined') {
+        renderer.setSize(window.innerWidth, window.innerHeight-80);
+        renderer.render(scene,camera);
+      }
+    }, 60);
+  };
+  document.getElementById('btn-cv-close').onclick = function() {
+    document.body.classList.remove('client-mode');
+    cvPanel.classList.remove('open');
+    setTimeout(function(){ window.dispatchEvent(new Event('resize')); }, 60);
   };
 
-  // Share Link Button
-  const shareBtn = document.createElement('button');
-  shareBtn.className = 'btn-pro';
-  shareBtn.style.width = '100%';
-  shareBtn.style.marginTop = '8px';
-  shareBtn.style.fontSize = '11px';
-  shareBtn.textContent = 'Share Design Link';
-  shareBtn.onclick = () => {
-    alert("Shareable link copied to clipboard!");
+  // ---- E: SAVE / LOAD PROJECTS -------------------------------
+  var statsPanel = document.querySelector('.stats-panel');
+  if (statsPanel) {
+    var sp = document.createElement('div'); sp.id='tgb-save-wrap';
+    sp.innerHTML =
+      '<div class="tgb-stitle">SAVED PROJECTS</div>' +
+      '<div class="tgb-sbtns">' +
+        '<button class="tgb-sbtn" id="btn-tgb-save">Save</button>' +
+        '<button class="tgb-sbtn" id="btn-tgb-load">Load</button>' +
+      '</div>' +
+      '<div id="tgb-proj-list"></div>';
+    statsPanel.appendChild(sp);
+    document.getElementById('btn-tgb-save').onclick = saveProject;
+    document.getElementById('btn-tgb-load').onclick = function(){
+      var l=document.getElementById('tgb-proj-list');
+      l.style.display = l.style.display==='none'?'':'none';
+    };
+    renderProjList();
+  }
+  function saveProject() {
+    if (typeof S==='undefined'||!S.sections||!S.sections.length) {
+      alert('Draw a deck first.'); return;
+    }
+    var name = prompt('Project name:', 'Deck '+new Date().toLocaleDateString());
+    if (!name) return;
+    var list = JSON.parse(localStorage.getItem('tgb_proj')||'[]');
+    var state = (typeof getDesignState==='function') ? getDesignState() : {
+      sections: JSON.parse(JSON.stringify(S.sections||[])),
+      nextId: S.nextId,
+      selectedId: S.selectedId,
+      pattern: S.pattern,
+      borderRows: S.borderRows,
+      boardRot: S.boardRot,
+      railings: S.railings,
+      posts: S.posts,
+      joistSpacing: S.joistSpacing,
+      lighting: JSON.parse(JSON.stringify(S.lighting||{})),
+      material: S.material,
+      colorIdx: S.colorIdx,
+      borderColorIdx: S.borderColorIdx,
+      railingColorIdx: S.railingColorIdx,
+      inlay: JSON.parse(JSON.stringify(S.inlay||{}))
+    };
+    list.unshift({
+      name:name,
+      date:new Date().toISOString(),
+      price: livePrice.textContent,
+      state: state
+    });
+    if (list.length>10) list.pop();
+    localStorage.setItem('tgb_proj', JSON.stringify(list));
+    renderProjList();
+  }
+  function renderProjList() {
+    var el = document.getElementById('tgb-proj-list'); if(!el) return;
+    var list = JSON.parse(localStorage.getItem('tgb_proj')||'[]');
+    if (!list.length) { el.innerHTML='<div class="tgb-empty">No saved projects</div>'; return; }
+    el.innerHTML = list.map(function(p,i){
+      return '<div class="tgb-pi" onclick="tgbLoad('+i+')">' +
+             '<span>'+p.name+'</span><span class="tgb-pi-p">'+(p.price||'')+'</span></div>';
+    }).join('');
+  }
+  window.tgbLoad = function(i) {
+    var list = JSON.parse(localStorage.getItem('tgb_proj')||'[]');
+    var p = list[i]; if (!p) return;
+    if (!confirm('Load "'+p.name+'"? Current deck will be replaced.')) return;
+    var st = p.state || {};
+    if (typeof loadDesignState==='function') {
+      loadDesignState(st);
+      return;
+    }
+    if (typeof S==='undefined') return;
+    S.sections = st.sections || [];
+    S.nextId = st.nextId || (S.sections.length + 1);
+    S.selectedId = st.selectedId || null;
+    S.pattern = st.pattern || 'straight';
+    S.borderRows = st.borderRows ?? 0;
+    S.boardRot = st.boardRot ?? false;
+    S.railings = st.railings ?? true;
+    S.posts = st.posts ?? true;
+    S.joistSpacing = st.joistSpacing || 16;
+    S.lighting = st.lighting || { postCaps:false, riserLights:false, railingLED:false };
+    S.material = st.material || 'pt';
+    S.colorIdx = st.colorIdx ?? 1;
+    S.borderColorIdx = st.borderColorIdx ?? 0;
+    S.railingColorIdx = st.railingColorIdx ?? 0;
+    S.inlay = st.inlay || S.inlay;
+    if (typeof renderColors==='function') renderColors();
+    if (typeof renderBorderColors==='function') renderBorderColors();
+    if (typeof renderRailingColors==='function') renderRailingColors();
+    if (typeof renderInlayColors==='function') renderInlayColors();
+    if (typeof renderInlayBorderColors==='function') renderInlayBorderColors();
+    if (typeof renderSelPanel==='function') renderSelPanel();
+    if (typeof drawPlan==='function') drawPlan();
+    if (typeof buildDeck==='function') buildDeck();
+    if (typeof updateStats==='function') updateStats();
   };
-  document.querySelector('.stats-panel').appendChild(shareBtn);
 
 })();
-
 </script>
 </body>
-</html>
+</html> 
