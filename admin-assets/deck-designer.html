@@ -2135,7 +2135,7 @@ setTimeout(()=>{ window.parent.postMessage({ type:'DECK_DESIGNER_READY' }, '*');
   }
 
    -------------------------------------
-  var livePrice  = document.getElementById('tgb-live-price');
+  if(!document.getElementById('tgb-price-bar')){var _pb=document.createElement('div');_pb.id='tgb-price-bar';_pb.innerHTML='<div style=flex:1><div class=tgb-pl>Estimated Project Price</div><div class=tgb-pa id=tgb-live-price>&#8212; Draw a deck first</div><div class=tgb-ps id=tgb-live-labour></div></div><button id=btn-client-view>Client View</button><button id=btn-gen-quote>Generate Quote</button>';document.body.appendChild(_pb);}if(!document.getElementById('tgb-cv')){var _cv=document.createElement('div');_cv.id='tgb-cv';_cv.innerHTML='<div id=tgb-cv-hdr><div id=tgb-cv-price>&#8212;</div><div class=tgb-cv-specs><div class=tgb-cv-spec><strong id=cv-sqft>&#8212;</strong></div><div class=tgb-cv-spec><strong id=cv-mat>&#8212;</strong></div><div class=tgb-cv-spec><strong id=cv-labour>&#8212;</strong></div></div><button id=btn-cv-close>X Exit</button></div></div>';document.body.appendChild(_cv);}  var livePrice  = document.getElementById('tgb-live-price');
   var liveLabour = document.getElementById('tgb-live-labour');
   function watchEl(id, cb) {
     var el = document.getElementById(id); if (!el) return;
