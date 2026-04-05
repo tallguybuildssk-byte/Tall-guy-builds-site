@@ -1,5 +1,5 @@
 [build]
-  command = "npm install && npm run build && cp *.jpg *.webp thanks.html setup.html firebase-config.js dist/ 2>/dev/null; true && cp -r app dist/app"
+  command = "npm install && npm run build && cp *.jpg *.webp thanks.html setup.html firebase-config.js dist/ 2>/dev/null; true && cp -r app dist/app && mkdir -p dist/admin-assets && cp admin-assets/deck-designer.html dist/admin-assets/"
   publish = "dist"
   functions = "netlify/functions"
 
@@ -37,3 +37,8 @@
   from = "/dashboard/*"
   to = "/app.html"
   status = 200
+
+[[redirects]]
+  from = "/deck-designer.html"
+    to = "/login"
+      status = 302
