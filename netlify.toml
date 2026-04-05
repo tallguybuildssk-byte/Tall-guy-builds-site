@@ -7,7 +7,7 @@
   node_bundler = "esbuild"
 [[redirects]]
   from = "/"
-    to = "/dashboard"
+      to = "/login"
       status = 302
         force = true
 
