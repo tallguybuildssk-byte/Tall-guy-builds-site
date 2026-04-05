@@ -16,7 +16,7 @@ h
 .sidebar {
   width: 256px; min-width: 256px; background: #1a1d26;
   border-right: 1px solid #252932;
-  display: flex; flex-direction: column;
+  display: block;
   overflow-y: auto; overflow-x: hidden; flex-shrink: 0;
     height: 100vh;
 }
@@ -24,7 +24,7 @@ h
 .sidebar::-webkit-scrollbar-track { background: #1a1d26; }
 .sidebar::-webkit-scrollbar-thumb { background: #2e3340; border-radius: 2px; }
 
-.logo { padding: 12px 14px; border-bottom: 1px solid #252932; display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.logo { padding: 12px 14px; border-bottom: 1px solid #252932; display:flex; align-items:center; gap:8px; flex-shrink:0; position:sticky; top:0; z-index:10; background:#1a1d26; }
 .logo-mark { background:#f0a500; color:#000; font-weight:900; font-size:10px; padding:3px 6px; border-radius:3px; }
 .logo-text { font-size:11px; font-weight:600; color:#aab; letter-spacing:0.02em; }
 
