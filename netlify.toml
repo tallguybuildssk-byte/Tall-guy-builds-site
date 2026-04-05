@@ -5,7 +5,12 @@
 
 [functions]
   node_bundler = "esbuild"
+[[redirects]]
+  from = "/"
+    to = "/dashboard"
+      status = 302
 
+      
 # ── CLIENT PORTAL ────────────────────────────────────────────
 [[redirects]]
   from = "/app"
