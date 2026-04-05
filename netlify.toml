@@ -48,3 +48,8 @@
   from = "/deck-designer.html"
     to = "/login"
       status = 302
+
+[[redirects]]
+  from = "/deck-designer"
+    to = "/admin-assets/deck-designer.html"
+      status = 200
