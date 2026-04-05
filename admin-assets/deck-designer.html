@@ -2,7 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12151c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TGB Deck">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <title>Tall Guy Builds -- 3D Deck Designer</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -205,6 +212,43 @@ body.client-mode .viewport{position:fixed!important;left:0!important;right:0!imp
 .tgb-pi-p{color:#c8a96a;font-size:9px}
 .tgb-empty{font-size:10px;color:#3a3f4d;font-style:italic}
 .viewport{padding-bottom:52px;box-sizing:border-box}
+
+html, body {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+canvas { touch-action: none; }
+@media (max-width: 900px) {
+  body {
+    flex-direction: column;
+    height: 100dvh;
+  }
+  .sidebar {
+    width: 100%;
+    min-width: 0;
+    height: 36dvh;
+  }
+  .plan-view {
+    width: 100%;
+    min-width: 0;
+    height: 24dvh;
+    border-right: none;
+    border-bottom: 1px solid #252932;
+  }
+  .viewport {
+    height: 40dvh;
+    min-height: 0;
+  }
+  #tgb-price-bar {
+    left: 0 !important;
+    padding: 10px 12px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .tgb-pa { font-size: 18px; }
+  .controls-hint { display: none; }
+}
+
 </style>
 </head>
 <body>
@@ -547,11 +591,50 @@ document.getElementById('printBtn').addEventListener('click',()=>{
   <style>body{margin:0;background:#12151c;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;}
   img{max-width:100%;max-height:90vh;} h2{color:#f0a500;font-family:sans-serif;margin:16px 0 8px;}
   p{color:#6b7585;font-family:sans-serif;font-size:12px;margin:0 0 16px;}
-  </style></head><body>
+  
+html, body {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+canvas { touch-action: none; }
+@media (max-width: 900px) {
+  body {
+    flex-direction: column;
+    height: 100dvh;
+  }
+  .sidebar {
+    width: 100%;
+    min-width: 0;
+    height: 36dvh;
+  }
+  .plan-view {
+    width: 100%;
+    min-width: 0;
+    height: 24dvh;
+    border-right: none;
+    border-bottom: 1px solid #252932;
+  }
+  .viewport {
+    height: 40dvh;
+    min-height: 0;
+  }
+  #tgb-price-bar {
+    left: 0 !important;
+    padding: 10px 12px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .tgb-pa { font-size: 18px; }
+  .controls-hint { display: none; }
+}
+
+</style></head><body>
   <h2>Tall Guy Builds -- Deck Design</h2>
   <p>Printed ${new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'})}</p>
   <img src="${img}">
-  <script>window.onload=()=>{window.print();}<\/script></body></html>`);
+  <script>window.onload=()=>{window.print();}<\/script>
+<script type="module" src="/src/pwa.js"></script>
+</body></html>`);
   w.document.close();
 });
 applyCamera();
@@ -807,16 +890,79 @@ function buildStairsOff(side, offset, sw, W, D, H, cx, cz, deckMat, frameMat) {
     if(side==='front')     { x=cx+offset; z=cz+D/2+step-RUN/2; }
     else if(side==='back') { x=cx+offset; z=cz-D/2-step+RUN/2; }
     else if(side==='right'){ x=cx+W/2+step-RUN/2; z=cz+offset; }
-    else                   { x=cx-W/2-step+RUN/2; z=cz+offset; }
+    else                      { x=cx-W/2-step+RUN/2; z=cz+offset; }
     const sm=new THREE.Mesh(new THREE.BoxGeometry(horiz?sw:RUN,BT,horiz?RUN:sw),deckMat);
     sm.position.set(x,sy+BT/2,z); deckGroup.add(sm);
-    if(frameMat){ const off=sw/2-0.05;
+    if(frameMat){
+      const off=sw/2-0.05;
       [-off,off].forEach(o=>{
         const st=new THREE.Mesh(new THREE.BoxGeometry(horiz?0.08:RUN,RISE+0.03,horiz?RUN:0.08),frameMat);
         st.position.set(horiz?cx+offset+o:x,sy+RISE/2,horiz?z:cz+offset+o); deckGroup.add(st);
       });
     }
   }
+}
+
+function addRailRun3D(p0, p1, railMat, thickness=0.07) {
+  const v=new THREE.Vector3(p1.x-p0.x,p1.y-p0.y,p1.z-p0.z);
+  const len=v.length();
+  if(len<0.1) return;
+  const m=new THREE.Mesh(new THREE.BoxGeometry(len, thickness, thickness), railMat);
+  m.position.set((p0.x+p1.x)/2,(p0.y+p1.y)/2,(p0.z+p1.z)/2);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(1,0,0), v.clone().normalize());
+  deckGroup.add(m);
+}
+
+function buildStairRailingsOff(side, offset, sw, W, D, H, cx, cz, railMat, stair={}) {
+  const RISE=7.5/12, RUN=11/12, RH=3.5;
+  const n=Math.ceil(H/RISE);
+  if(n<=0) return;
+
+  const horiz=(side==='front'||side==='back');
+  const runLen=n*RUN;
+  const half=sw/2;
+  const pad=0.04;
+  const wantLeft=stair.railLeft!==false;
+  const wantRight=stair.railRight!==false;
+
+  function addVerticalPost(x,y,z,height=RH){
+    const post=new THREE.Mesh(new THREE.BoxGeometry(0.09,height,0.09), railMat);
+    post.position.set(x,y+height/2,z); deckGroup.add(post);
+  }
+
+  function buildOne(sideSign){
+    let top0, top1, bot0, bot1;
+    if(side==='front'){
+      const x=cx+offset+sideSign*(half+pad), zTop=cz+D/2, zBot=zTop+runLen;
+      top0={x,y:H+BT+RH,z:zTop}; top1={x,y:BT+RH,z:zBot};
+      bot0={x,y:H+BT+0.28,z:zTop}; bot1={x,y:BT+0.28,z:zBot};
+      addVerticalPost(x,H+BT,zTop,RH); addVerticalPost(x,BT,zBot,RH);
+      for(let i=1;i<n;i++){ const z=zTop+i*RUN; const y=H-i*RISE+BT; addVerticalPost(x,y,z,RH-0.35); }
+    } else if(side==='back'){
+      const x=cx+offset+sideSign*(half+pad), zTop=cz-D/2, zBot=zTop-runLen;
+      top0={x,y:H+BT+RH,z:zTop}; top1={x,y:BT+RH,z:zBot};
+      bot0={x,y:H+BT+0.28,z:zTop}; bot1={x,y:BT+0.28,z:zBot};
+      addVerticalPost(x,H+BT,zTop,RH); addVerticalPost(x,BT,zBot,RH);
+      for(let i=1;i<n;i++){ const z=zTop-i*RUN; const y=H-i*RISE+BT; addVerticalPost(x,y,z,RH-0.35); }
+    } else if(side==='right'){
+      const z=cz+offset+sideSign*(half+pad), xTop=cx+W/2, xBot=xTop+runLen;
+      top0={x:xTop,y:H+BT+RH,z}; top1={x:xBot,y:BT+RH,z};
+      bot0={x:xTop,y:H+BT+0.28,z}; bot1={x:xBot,y:BT+0.28,z};
+      addVerticalPost(xTop,H+BT,z,RH); addVerticalPost(xBot,BT,z,RH);
+      for(let i=1;i<n;i++){ const x=xTop+i*RUN; const y=H-i*RISE+BT; addVerticalPost(x,y,z,RH-0.35); }
+    } else {
+      const z=cz+offset+sideSign*(half+pad), xTop=cx-W/2, xBot=xTop-runLen;
+      top0={x:xTop,y:H+BT+RH,z}; top1={x:xBot,y:BT+RH,z};
+      bot0={x:xTop,y:H+BT+0.28,z}; bot1={x:xBot,y:BT+0.28,z};
+      addVerticalPost(xTop,H+BT,z,RH); addVerticalPost(xBot,BT,z,RH);
+      for(let i=1;i<n;i++){ const x=xTop-i*RUN; const y=H-i*RISE+BT; addVerticalPost(x,y,z,RH-0.35); }
+    }
+    addRailRun3D(top0, top1, railMat, 0.09);
+    addRailRun3D(bot0, bot1, railMat, 0.07);
+  }
+
+  if(wantLeft) buildOne(-1);
+  if(wantRight) buildOne(1);
 }
 
 // ==========================================================
@@ -1072,8 +1218,13 @@ function buildDeck() {
     const stairSets=sec.stairSets||[];
     stairSets.forEach(ss=>{
       const off=ss.offset||0;
-      gaps[ss.side].push({c:off, w:ss.w});
-      if(H>0.25) buildStairsOff(ss.side,off,ss.w,W,D,H,cx,cz,mkBoardMat(baseHex),S.posts?frameMat:null);
+      const gapCenter=(ss.side==='front'||ss.side==='back') ? (cx+off) : (cz+off);
+      const gapWidth=(ss.w||4)+0.18;
+      gaps[ss.side].push({c:gapCenter, w:gapWidth});
+      if(H>0.25) {
+        buildStairsOff(ss.side,off,ss.w,W,D,H,cx,cz,mkBoardMat(baseHex),S.posts?frameMat:null);
+        if(S.railings) buildStairRailingsOff(ss.side,off,ss.w,W,D,H,cx,cz,railMat,ss);
+      }
     });
     const sides=sec.railingSides||{front:true,back:true,left:true,right:true};
     if(S.railings&&H>0.5) buildRailingsOff(W,D,H,cx,cz,railMat,{gaps,sides});
@@ -1402,6 +1553,7 @@ function renderSelPanel() {
   const rs=sec.railingSides, ps=sec.privacySides;
 
   function stairRowHtml(ss,i){
+    const leftOn=ss.railLeft!==false, rightOn=ss.railRight!==false;
     return `<div class="stair-row" data-si="${i}">
       <select class="stair-sel ss-side" data-i="${i}">
         <option value="front" ${ss.side==='front'?'selected':''}>Front (S)</option>
@@ -1413,12 +1565,20 @@ function renderSelPanel() {
         <option value="3" ${ss.w===3?'selected':''}>3 ft</option>
         <option value="4" ${ss.w===4?'selected':''}>4 ft</option>
         <option value="5" ${ss.w===5?'selected':''}>5 ft</option>
+        <option value="6" ${ss.w===6?'selected':''}>6 ft</option>
       </select>
       <button class="stair-del ss-del" data-i="${i}">x</button>
       <div class="stair-offset-row">
         <span class="stair-offset-label">Offset</span>
         <input type="range" class="ss-offset" data-i="${i}" min="-12" max="12" step="1" value="${ss.offset||0}" style="flex:1;">
-        <span class="stair-offset-label" id="ssOff${i}">${ss.offset||0} ft</span>
+        <span class="stair-offset-label" id="ssOff${i}">${(ss.offset||0)===0?'Center':((ss.offset||0)>0?'+':'')+(ss.offset||0)+' ft'}</span>
+      </div>
+      <div class="stair-offset-row" style="margin-top:5px;align-items:center;justify-content:space-between;">
+        <span class="stair-offset-label">Stair railings</span>
+        <div style="display:flex;gap:4px;">
+          <button type="button" class="border-btn ss-rail-toggle ${leftOn?'active':''}" data-i="${i}" data-rail="left" style="padding:3px 8px;flex:none;">Left</button>
+          <button type="button" class="border-btn ss-rail-toggle ${rightOn?'active':''}" data-i="${i}" data-rail="right" style="padding:3px 8px;flex:none;">Right</button>
+        </div>
       </div>
     </div>`;
   }
@@ -1528,6 +1688,14 @@ function renderSelPanel() {
       if(lbl) lbl.textContent=(v===0?'Center':((v>0?'+':'')+v+' ft'));
       buildDeck();
     }));
+    list.querySelectorAll('.ss-rail-toggle').forEach(el=>el.addEventListener('click',()=>{
+      const i=+el.dataset.i;
+      const key=el.dataset.rail==='left'?'railLeft':'railRight';
+      const cur=sec.stairSets[i][key]!==false;
+      sec.stairSets[i][key]=!cur;
+      el.classList.toggle('active', !cur);
+      buildDeck();
+    }));
     list.querySelectorAll('.ss-del').forEach(el=>el.addEventListener('click',()=>{
       sec.stairSets.splice(+el.dataset.i,1);
       renderSelPanel(); buildDeck();
@@ -1536,7 +1704,7 @@ function renderSelPanel() {
   wireStairs();
 
   document.getElementById('selAddStair').addEventListener('click',()=>{
-    sec.stairSets.push({side:'front', offset:0, w:4});
+    sec.stairSets.push({side:'front', offset:0, w:4, railLeft:true, railRight:true});
     renderSelPanel(); buildDeck();
   });
 }
@@ -1900,6 +2068,43 @@ tfoot tr.total td{background:#f0a500;color:#000;font-size:14px}
 .sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:8px}
 .sig-line{border-top:1px solid #ccc;padding-top:6px;font-size:10px;color:#aaa;margin-top:40px}
 @media print{.print-btn{display:none}body{padding:16px}}
+
+html, body {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+canvas { touch-action: none; }
+@media (max-width: 900px) {
+  body {
+    flex-direction: column;
+    height: 100dvh;
+  }
+  .sidebar {
+    width: 100%;
+    min-width: 0;
+    height: 36dvh;
+  }
+  .plan-view {
+    width: 100%;
+    min-width: 0;
+    height: 24dvh;
+    border-right: none;
+    border-bottom: 1px solid #252932;
+  }
+  .viewport {
+    height: 40dvh;
+    min-height: 0;
+  }
+  #tgb-price-bar {
+    left: 0 !important;
+    padding: 10px 12px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .tgb-pa { font-size: 18px; }
+  .controls-hint { display: none; }
+}
+
 </style></head><body>
 <button class="print-btn no-print" onclick="window.print()">&#128424; Print / Save PDF</button>
 <div class="header">
@@ -1993,6 +2198,8 @@ ${warningHTML}${boardOrderHTML}
     <button id="btn-cv-close">&#10005; Exit Preview</button>
   </div>
 </div>
+
+<script type="module" src="/src/pwa.js"></script>
 </body></html>`);
   w.document.close();
 }
@@ -2288,5 +2495,7 @@ setTimeout(()=>{ window.parent.postMessage({ type:'DECK_DESIGNER_READY' }, '*');
 
 })();
 </script>
+
+<script type="module" src="/src/pwa.js"></script>
 </body>
 </html> 
