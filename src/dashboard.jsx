@@ -493,6 +493,8 @@ function ClientPortal({jobs,logs,clientMode=false,onSignOut}){
   const ps=selJob.payment_schedule||[];
   const totalPaid=ps.filter(p=>p.paid).reduce((s,p)=>s+(+p.amount||0),0);
   const totalContract=+selJob.value||0;
+  // Use manually entered "Amount Paid" from project info if set, otherwise fall back to payment schedule checkboxes
+  const displayPaid=(+selJob.paid>0)?+selJob.paid:totalPaid;
   const nextDue=ps.filter(p=>!p.paid&&p.due_date).sort((a,b)=>a.due_date.localeCompare(b.due_date))[0];
 
   const TABS=["overview","photos","schedule","payments","updates","messages"];
@@ -557,15 +559,15 @@ function ClientPortal({jobs,logs,clientMode=false,onSignOut}){
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
           {[
             {label:"Contract Total",value:fmt$(totalContract),color:C.white},
-            {label:"Paid to Date",value:fmt$(totalPaid),color:"#4ade80"},
-            {label:"Remaining",value:fmt$(totalContract-totalPaid),color:totalContract-totalPaid===0?"#4ade80":C.warn},
+            {label:"Paid to Date",value:fmt$(displayPaid),color:"#4ade80"},
+            {label:"Remaining",value:fmt$(totalContract-displayPaid),color:totalContract-displayPaid===0?"#4ade80":C.warn},
           ].map(s=><div key={s.label} style={{background:C.navy,borderRadius:8,padding:"10px 12px",border:`1px solid ${C.border}`}}>
             <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>{s.label}</div>
             <div style={{fontSize:15,color:s.color,fontWeight:700}}>{s.value}</div>
           </div>)}
         </div>
         <div style={{background:C.border,borderRadius:6,height:8,marginBottom:8}}>
-          <div style={{background:"#4ade80",borderRadius:6,height:8,width:`${totalContract>0?Math.round((totalPaid/totalContract)*100):0}%`,transition:"width 1s"}}/>
+          <div style={{background:"#4ade80",borderRadius:6,height:8,width:`${totalContract>0?Math.round((displayPaid/totalContract)*100):0}%`,transition:"width 1s"}}/>
         </div>
         {nextDue&&<div style={{fontSize:12,color:C.warn}}>⏰ Next payment due: <strong>{nextDue.label}</strong> — {fmt$(nextDue.amount)} on {fmtDate(nextDue.due_date)}</div>}
       </div>}
