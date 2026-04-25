@@ -1430,19 +1430,20 @@ function DashboardView({jobs,leads,logs,setPage}){
   const recentLogs=[...logs].sort((a,b)=>b.date?.localeCompare(a.date)).slice(0,3);
   return <div>
     <h1 style={{fontFamily:font,color:LC.text,fontSize:26,marginBottom:3}}>Good morning, Evan.</h1>
-    <p style={{color:LC.textMuted,marginBottom:22,fontSize:13}}>Here's where things stand today.</p>
+    <p style={{color:LC.textMuted,marginBottom:8,fontSize:13}}>Here's where things stand today.</p>
+    <div style={{height:3,width:60,background:`linear-gradient(90deg, ${LC.gold}, transparent)`,borderRadius:2,marginBottom:24}}/>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10,marginBottom:22}}>
-      {[{label:"Active Jobs",value:active.length,sub:"in progress",color:C.gold},{label:"Pipeline",value:fmt$(pipe),sub:"open leads",color:"#60A5FA"},{label:"Remaining",value:fmt$(out),sub:"to invoice",color:C.warn},{label:"Won",value:fmt$(won),sub:"closed",color:"#4ade80"}].map(k=>(
-        <Card key={k.label}><div style={{fontSize:10,color:LC.textMuted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4,fontWeight:600}}>{k.label}</div><div style={{fontSize:22,fontFamily:font,color:k.color,marginBottom:1}}>{k.value}</div><div style={{fontSize:10,color:LC.textMuted}}>{k.sub}</div></Card>
+      {[{label:"Active Jobs",value:active.length,sub:"in progress",color:C.gold},{label:"Pipeline",value:fmt$(pipe),sub:"open leads",color:"#3B82F6"},{label:"Remaining",value:fmt$(out),sub:"to invoice",color:C.warn},{label:"Won",value:fmt$(won),sub:"closed",color:"#16A34A"}].map(k=>(
+        <Card key={k.label} style={{borderTop:`3px solid ${k.color}`,paddingTop:14}}><div style={{fontSize:10,color:LC.textMuted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6,fontWeight:700}}>{k.label}</div><div style={{fontSize:24,fontFamily:fb,color:k.color,marginBottom:2,fontWeight:700,letterSpacing:"-0.02em"}}>{k.value}</div><div style={{fontSize:10,color:LC.textMuted}}>{k.sub}</div></Card>
       ))}
     </div>
-    <h2 style={{fontFamily:fb,color:LC.text,fontSize:17,fontWeight:600,letterSpacing:"-0.01em",marginBottom:10}}>Active Projects</h2>
+    <h2 style={{fontFamily:fb,color:LC.text,fontSize:17,fontWeight:700,letterSpacing:"-0.01em",marginBottom:12,marginTop:8,display:"flex",alignItems:"center",gap:10}}><span style={{display:"inline-block",width:4,height:18,background:LC.gold,borderRadius:2}}/>Active Projects</h2>
     <div style={{display:"grid",gap:9,marginBottom:22}}>
       {active.length===0&&<div style={{color:C.muted,fontSize:12}}>No active projects.</div>}
       {active.map(job=>(
-        <Card key={job.id} onClick={()=>setPage("jobs")}>
+        <Card key={job.id} onClick={()=>setPage("jobs")} style={{borderLeft:`3px solid ${LC.gold}`,paddingLeft:16}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:7}}>
-            <div><div style={{fontWeight:700,color:LC.text,fontSize:14}}>{job.name}</div><div style={{color:LC.textMuted,fontSize:11,marginTop:1}}>{job.client} · {job.address}</div></div>
+            <div><div style={{fontWeight:700,color:LC.text,fontSize:15,letterSpacing:"-0.01em"}}>{job.name}</div><div style={{color:LC.textMuted,fontSize:11,marginTop:2}}>{job.client} · {job.address}</div></div>
             <Badge label={job.status}/>
           </div>
           <div style={{marginTop:10}}>
@@ -1452,7 +1453,7 @@ function DashboardView({jobs,leads,logs,setPage}){
         </Card>
       ))}
     </div>
-    {recentLogs.length>0&&<><h2 style={{fontFamily:fb,color:LC.text,fontSize:17,fontWeight:600,letterSpacing:"-0.01em",marginBottom:10}}>Recent Site Logs</h2>
+    {recentLogs.length>0&&<><h2 style={{fontFamily:fb,color:LC.text,fontSize:17,fontWeight:700,letterSpacing:"-0.01em",marginBottom:12,marginTop:8,display:"flex",alignItems:"center",gap:10}}><span style={{display:"inline-block",width:4,height:18,background:"#3B82F6",borderRadius:2}}/>Recent Site Logs</h2>
     <div style={{display:"grid",gap:9,marginBottom:22}}>
       {recentLogs.map(log=>(
         <Card key={log.id} onClick={()=>setPage("logs")} style={{padding:13}}>
@@ -1462,7 +1463,7 @@ function DashboardView({jobs,leads,logs,setPage}){
         </Card>
       ))}
     </div></>}
-    <h2 style={{fontFamily:fb,color:LC.text,fontSize:17,fontWeight:600,letterSpacing:"-0.01em",marginBottom:10}}>Recent Leads</h2>
+    <h2 style={{fontFamily:fb,color:LC.text,fontSize:17,fontWeight:700,letterSpacing:"-0.01em",marginBottom:12,marginTop:8,display:"flex",alignItems:"center",gap:10}}><span style={{display:"inline-block",width:4,height:18,background:"#16A34A",borderRadius:2}}/>Recent Leads</h2>
     <Card>{leads.slice(0,4).map((l,i)=>(
       <div key={l.id} onClick={()=>setPage("leads")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:i<3?`1px solid ${LC.border}`:"none",flexWrap:"wrap",gap:7,cursor:"pointer"}}>
         <div><span style={{color:LC.text,fontWeight:600,fontSize:12}}>{l.name}</span><span style={{color:LC.textMuted,fontSize:11,marginLeft:7}}>{l.type}</span></div>
