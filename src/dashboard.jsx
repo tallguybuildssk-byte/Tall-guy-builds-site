@@ -5,7 +5,7 @@ import DeckDesigner from './DeckDesigner';
 const C={navy:"#1F2A37",navyLight:"#2C3E50",gold:"#C8A96A",muted:"#6B7280",border:"#2E3D4F",warn:"#F59E0B",danger:"#EF4444",white:"#FFFFFF",bg:"#16212E",success:"#4CAF50"};
 // ── LIGHT COLOR PALETTE (Hybrid theme — used by V2 portal & redesigned admin pages) ──
 const LC={
-  bg:"#F4F5F7",
+  bg:"#FAF8F2",
   surface:"#FFFFFF",
   surfaceAlt:"#FAFBFC",
   border:"#E5E7EB",
@@ -24,6 +24,7 @@ const LC={
 
 const font="'Georgia',serif";
 const fb="system-ui,-apple-system,sans-serif";
+const fbHero="system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',sans-serif";
 const fmt$=v=>"$"+Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtDate=d=>d?new Date(d+"T12:00:00").toLocaleDateString("en-CA",{month:"short",day:"numeric",year:"numeric"}):"—";
 const todayStr=()=>new Date().toISOString().slice(0,10);
@@ -1072,7 +1073,7 @@ function ClientPortalV2({jobs,logs,clientMode=false,onSignOut}){
         {clientMode&&onSignOut&&<button onClick={onSignOut} style={{background:LC.surface,border:`1px solid ${LC.border}`,color:LC.textBody,borderRadius:8,padding:"8px 16px",fontSize:12,cursor:"pointer",fontFamily:fb,fontWeight:600,boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>Sign Out</button>}
       </div>
       <div style={{textAlign:"center",padding:"40px 0 32px",borderTop:`1px solid ${LC.border}`,borderBottom:`1px solid ${LC.border}`,marginBottom:28}}>
-        <h1 style={{color:LC.text,fontSize:28,margin:0,fontWeight:600,fontFamily:fb,letterSpacing:"-0.02em"}}>Welcome back</h1>
+        <h1 style={{color:LC.text,fontSize:36,margin:0,fontWeight:800,fontFamily:fbHero,letterSpacing:"-0.03em"}}>Welcome back</h1>
         <p style={{color:LC.textMuted,fontSize:14,marginTop:10,maxWidth:440,margin:"10px auto 0",lineHeight:1.6}}>Select a project to see progress, photos, schedule, and messages.</p>
       </div>
       {sharedJobs.length===0&&<div style={{background:LC.surface,border:`1px dashed ${LC.borderStrong}`,borderRadius:14,padding:48,textAlign:"center"}}>
@@ -1177,13 +1178,13 @@ function ClientPortalV2({jobs,logs,clientMode=false,onSignOut}){
           <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom, transparent 35%, #1F2A37dd 100%)"}}/>
           <div style={{position:"absolute",bottom:18,left:24,right:24}}>
             <div style={{fontSize:10,color:LC.gold,fontWeight:700,letterSpacing:1.6,textTransform:"uppercase"}}>{(selJob.type||"PROJECT")}</div>
-            <h1 style={{color:"#FFFFFF",fontSize:26,margin:"5px 0 3px",fontWeight:600,fontFamily:fb,letterSpacing:"-0.02em"}}>{selJob.name}</h1>
+            <h1 style={{color:"#FFFFFF",fontSize:28,margin:"5px 0 3px",fontWeight:800,fontFamily:fbHero,letterSpacing:"-0.025em"}}>{selJob.name}</h1>
             <div style={{color:"#FFFFFFcc",fontSize:13}}>{selJob.address}</div>
           </div>
         </div>}
         {!heroUrl&&<div style={{padding:"24px 26px 4px"}}>
           <div style={{fontSize:10,color:LC.gold,fontWeight:700,letterSpacing:1.6,textTransform:"uppercase"}}>{(selJob.type||"PROJECT")}</div>
-          <h1 style={{color:LC.text,fontSize:26,margin:"5px 0 3px",fontWeight:600,fontFamily:fb,letterSpacing:"-0.02em"}}>{selJob.name}</h1>
+          <h1 style={{color:LC.text,fontSize:28,margin:"5px 0 3px",fontWeight:800,fontFamily:fbHero,letterSpacing:"-0.025em"}}>{selJob.name}</h1>
           <div style={{color:LC.textMuted,fontSize:13}}>{selJob.address}</div>
         </div>}
         <div style={{padding:"20px 24px"}}>
@@ -1429,15 +1430,15 @@ function DashboardView({jobs,leads,logs,setPage}){
   const won=leads.filter(l=>l.stage==="Won").reduce((s,l)=>s+(l.value||0),0);
   const recentLogs=[...logs].sort((a,b)=>b.date?.localeCompare(a.date)).slice(0,3);
   return <div>
-    <h1 style={{fontFamily:font,color:LC.text,fontSize:26,marginBottom:3}}>Good morning, Evan.</h1>
-    <p style={{color:LC.textMuted,marginBottom:8,fontSize:13}}>Here's where things stand today.</p>
-    <div style={{height:3,width:60,background:`linear-gradient(90deg, ${LC.gold}, transparent)`,borderRadius:2,marginBottom:24}}/>
+    <div style={{fontSize:12,color:LC.textMuted,letterSpacing:"0.05em",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Today</div>
+    <h1 style={{fontFamily:fbHero,color:LC.text,fontSize:42,marginTop:0,marginBottom:0,fontWeight:800,letterSpacing:"-0.03em",lineHeight:1.05}}>What needs attention?</h1>
+    <p style={{color:LC.textMuted,marginTop:12,marginBottom:26,fontSize:14,lineHeight:1.5}}>Active jobs, recent activity, and what&apos;s waiting on you.</p>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10,marginBottom:22}}>
       {[{label:"Active Jobs",value:active.length,sub:"in progress",color:C.gold},{label:"Pipeline",value:fmt$(pipe),sub:"open leads",color:"#3B82F6"},{label:"Remaining",value:fmt$(out),sub:"to invoice",color:C.warn},{label:"Won",value:fmt$(won),sub:"closed",color:"#16A34A"}].map(k=>(
-        <Card key={k.label} style={{borderTop:`3px solid ${k.color}`,paddingTop:14}}><div style={{fontSize:10,color:LC.textMuted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6,fontWeight:700}}>{k.label}</div><div style={{fontSize:24,fontFamily:fb,color:k.color,marginBottom:2,fontWeight:700,letterSpacing:"-0.02em"}}>{k.value}</div><div style={{fontSize:10,color:LC.textMuted}}>{k.sub}</div></Card>
+        <Card key={k.label} style={{padding:"20px 22px"}}><div style={{fontSize:12,color:LC.textMuted,marginBottom:10,fontWeight:500}}>{k.label}</div><div style={{fontSize:32,fontFamily:fbHero,color:k.color,marginBottom:8,fontWeight:800,letterSpacing:"-0.025em",lineHeight:1}}>{k.value}</div><div style={{fontSize:11,color:LC.textMuted}}>{k.sub}</div></Card>
       ))}
     </div>
-    <h2 style={{fontFamily:fb,color:LC.text,fontSize:17,fontWeight:700,letterSpacing:"-0.01em",marginBottom:12,marginTop:8,display:"flex",alignItems:"center",gap:10}}><span style={{display:"inline-block",width:4,height:18,background:LC.gold,borderRadius:2}}/>Active Projects</h2>
+    <h2 style={{fontFamily:fbHero,color:LC.text,fontSize:22,fontWeight:800,letterSpacing:"-0.02em",marginBottom:14,marginTop:18}}>Active Projects</h2>
     <div style={{display:"grid",gap:9,marginBottom:22}}>
       {active.length===0&&<div style={{color:C.muted,fontSize:12}}>No active projects.</div>}
       {active.map(job=>(
@@ -1453,7 +1454,7 @@ function DashboardView({jobs,leads,logs,setPage}){
         </Card>
       ))}
     </div>
-    {recentLogs.length>0&&<><h2 style={{fontFamily:fb,color:LC.text,fontSize:17,fontWeight:700,letterSpacing:"-0.01em",marginBottom:12,marginTop:8,display:"flex",alignItems:"center",gap:10}}><span style={{display:"inline-block",width:4,height:18,background:"#3B82F6",borderRadius:2}}/>Recent Site Logs</h2>
+    {recentLogs.length>0&&<><h2 style={{fontFamily:fbHero,color:LC.text,fontSize:22,fontWeight:800,letterSpacing:"-0.02em",marginBottom:14,marginTop:18}}>Recent Site Logs</h2>
     <div style={{display:"grid",gap:9,marginBottom:22}}>
       {recentLogs.map(log=>(
         <Card key={log.id} onClick={()=>setPage("logs")} style={{padding:13}}>
@@ -1463,7 +1464,7 @@ function DashboardView({jobs,leads,logs,setPage}){
         </Card>
       ))}
     </div></>}
-    <h2 style={{fontFamily:fb,color:LC.text,fontSize:17,fontWeight:700,letterSpacing:"-0.01em",marginBottom:12,marginTop:8,display:"flex",alignItems:"center",gap:10}}><span style={{display:"inline-block",width:4,height:18,background:"#16A34A",borderRadius:2}}/>Recent Leads</h2>
+    <h2 style={{fontFamily:fbHero,color:LC.text,fontSize:22,fontWeight:800,letterSpacing:"-0.02em",marginBottom:14,marginTop:18}}>Recent Leads</h2>
     <Card>{leads.slice(0,4).map((l,i)=>(
       <div key={l.id} onClick={()=>setPage("leads")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:i<3?`1px solid ${LC.border}`:"none",flexWrap:"wrap",gap:7,cursor:"pointer"}}>
         <div><span style={{color:LC.text,fontWeight:600,fontSize:12}}>{l.name}</span><span style={{color:LC.textMuted,fontSize:11,marginLeft:7}}>{l.type}</span></div>
@@ -1688,7 +1689,7 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[],logs=[]}){
 
   return <div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
-      <h1 style={{fontFamily:font,color:LC.text,fontSize:26,margin:0}}>Projects</h1><Btn onClick={openNew}>+ New Project</Btn>
+      <h1 style={{fontFamily:fbHero,color:LC.text,fontSize:30,margin:0,fontWeight:800,letterSpacing:"-0.025em"}}>Projects</h1><Btn onClick={openNew}>+ New Project</Btn>
     </div>
     {jobs.length===0&&<div style={{color:C.muted,textAlign:"center",padding:"40px 0",fontSize:13}}>No projects yet.</div>}
     <div style={{display:"grid",gap:10}}>
@@ -2309,7 +2310,7 @@ Return ONLY valid JSON, no markdown, no explanation:
 
   return <div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
-      <h1 style={{fontFamily:font,color:LC.text,fontSize:26,margin:0}}>Estimator</h1>
+      <h1 style={{fontFamily:fbHero,color:LC.text,fontSize:30,margin:0,fontWeight:800,letterSpacing:"-0.025em"}}>Estimator</h1>
       {estStep>1&&<div style={{display:"flex",gap:6,alignItems:"center"}}>
         {["Type","Details","Quote"].map((s,i)=><div key={s} style={{display:"flex",alignItems:"center",gap:5}}>
           <div style={{width:22,height:22,borderRadius:"50%",background:estStep>=i+1?C.gold:C.border,color:estStep>=i+1?C.navy:C.muted,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700}}>{estStep>i+1?"✓":i+1}</div>
@@ -2489,7 +2490,7 @@ function Leads({leads,setLeads}){
   async function del(){await supabase.from("leads").delete().eq("id",sel.id);setLeads(ls=>ls.filter(l=>l.id!==sel.id));setShowM(false);}
   return <div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
-      <h1 style={{fontFamily:font,color:LC.text,fontSize:26,margin:0}}>Pipeline</h1><Btn onClick={openNew}>+ Add Lead</Btn>
+      <h1 style={{fontFamily:fbHero,color:LC.text,fontSize:30,margin:0,fontWeight:800,letterSpacing:"-0.025em"}}>Pipeline</h1><Btn onClick={openNew}>+ Add Lead</Btn>
     </div>
     {LEAD_STAGES.map(stage=>{
       const group=leads.filter(l=>l.stage===stage);if(group.length===0)return null;
@@ -2625,7 +2626,7 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
   return <div>
     {/* ── Header ── */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
-      <h1 style={{fontFamily:fb,fontWeight:700,color:LC.text,fontSize:24,margin:0,letterSpacing:"-0.01em"}}>Schedule</h1>
+      <h1 style={{fontFamily:fbHero,fontWeight:800,color:LC.text,fontSize:30,margin:0,letterSpacing:"-0.025em"}}>Schedule</h1>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         <div style={{display:"flex",background:LC.surface,borderRadius:8,border:`1px solid ${LC.border}`,overflow:"hidden",boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
           {["list","calendar"].map(v=>(
@@ -2753,7 +2754,7 @@ function Subs({subs,setSubs}){
   const active=subs.filter(s=>s.active);const inactive=subs.filter(s=>!s.active);
   return <div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
-      <h1 style={{fontFamily:font,color:LC.text,fontSize:26,margin:0}}>Subtrades</h1><Btn onClick={openNew}>+ Add Sub</Btn>
+      <h1 style={{fontFamily:fbHero,color:LC.text,fontSize:30,margin:0,fontWeight:800,letterSpacing:"-0.025em"}}>Subtrades</h1><Btn onClick={openNew}>+ Add Sub</Btn>
     </div>
     <div style={{display:"grid",gap:10,marginBottom:20}}>{active.map(s=>(
       <Card key={s.id} onClick={()=>openEdit(s)}>
@@ -2833,7 +2834,7 @@ function DailyLog({logs,setLogs,jobs}){
   const filtered=filterJob==="all"?sorted:sorted.filter(l=>String(l.job_id)===filterJob);
   return <div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
-      <h1 style={{fontFamily:font,color:LC.text,fontSize:26,margin:0}}>Daily Log</h1><Btn onClick={openNew}>+ New Entry</Btn>
+      <h1 style={{fontFamily:fbHero,color:LC.text,fontSize:30,margin:0,fontWeight:800,letterSpacing:"-0.025em"}}>Daily Log</h1><Btn onClick={openNew}>+ New Entry</Btn>
     </div>
     <div style={{marginBottom:14}}>
       <select value={filterJob} onChange={e=>setFilterJob(e.target.value)} style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:7,padding:"6px 12px",color:C.white,fontSize:12,fontFamily:fb,outline:"none"}}>
@@ -2946,7 +2947,7 @@ function Settings(){
   async function handleSignOut(){await supabase.auth.signOut();window.location.href="/";}
 
   return <div>
-    <h1 style={{fontFamily:font,color:LC.text,fontSize:26,marginBottom:20}}>Settings</h1>
+    <h1 style={{fontFamily:fbHero,color:LC.text,fontSize:30,marginBottom:24,fontWeight:800,letterSpacing:"-0.025em"}}>Settings</h1>
     <Card style={{marginBottom:16}}>
       <div style={{fontWeight:700,color:C.white,fontSize:15,marginBottom:6}}>Tall Guy Builds Inc.</div>
       <div style={{fontSize:12,color:C.gold,fontWeight:600,letterSpacing:1}}>BUILT RIGHT. DESIGNED TO LAST.</div>
