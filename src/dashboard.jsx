@@ -313,11 +313,9 @@ function PaymentScheduleEditor({schedule,contractValue,onChange}){
   </div>;
 }
 
-// ── CLIENT CALENDAR V2 ─────────────────────────────────────────────────────────
-// Buildertrend-inspired month grid for the client portal (used by ClientPortalV2 Schedule tab).
-// Features: full event titles in cells, multi-day visual chips, color-coded by type,
-// click-to-expand details modal, type filter chips, Today highlight, prev/next/today nav.
-// All date math uses UTC to avoid DST shift bugs (per the app's known quirks).
+// ── CLIENT CALENDAR V2 (HYBRID THEME) ─────────────────────────────────────────
+// Buildertrend-inspired month grid for client portal. Light cards on light bg.
+// Multi-day chips, type filter, click-to-expand, today highlight, UTC-safe dates.
 function ClientCalendarV2({events,milestones,loading}){
   const [currentMonth,setCurrentMonth]=useState(()=>{
     const d=new Date();
@@ -369,48 +367,39 @@ function ClientCalendarV2({events,milestones,loading}){
   const dateStr=d=>d?d.toISOString().slice(0,10):null;
   const itemsForDate=ds=>visibleItems.filter(i=>i.date<=ds&&ds<=i.date_end);
 
-  function navMonth(delta){
-    setCurrentMonth(new Date(Date.UTC(year,month+delta,1)));
-  }
-  function goToday(){
-    const d=new Date();
-    setCurrentMonth(new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1)));
-  }
-  function toggleType(t){
-    const s=new Set(hiddenTypes);
-    if(s.has(t))s.delete(t);else s.add(t);
-    setHiddenTypes(s);
-  }
+  function navMonth(delta){setCurrentMonth(new Date(Date.UTC(year,month+delta,1)));}
+  function goToday(){const d=new Date();setCurrentMonth(new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1)));}
+  function toggleType(t){const s=new Set(hiddenTypes);if(s.has(t))s.delete(t);else s.add(t);setHiddenTypes(s);}
 
-  const navBtn={background:"transparent",border:`1px solid ${C.border}`,color:C.muted,borderRadius:6,width:32,height:32,fontSize:16,cursor:"pointer",fontFamily:fb,display:"flex",alignItems:"center",justifyContent:"center"};
+  const navBtn={background:LC.surface,border:`1px solid ${LC.border}`,color:LC.textBody,borderRadius:8,width:34,height:34,fontSize:18,cursor:"pointer",fontFamily:fb,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 1px 2px rgba(0,0,0,0.04)"};
 
-  if(loading)return <div style={{padding:40,textAlign:"center",color:C.muted,fontSize:13}}>Loading schedule…</div>;
-  if(allItems.length===0)return <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:40,textAlign:"center"}}>
-    <div style={{fontSize:32,marginBottom:10}}>📅</div>
-    <div style={{color:C.muted,fontSize:13}}>No scheduled events or milestones yet.</div>
+  if(loading)return <div style={{padding:40,textAlign:"center",color:LC.textMuted,fontSize:13}}>Loading schedule…</div>;
+  if(allItems.length===0)return <div style={{background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:12,padding:48,textAlign:"center",boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+    <div style={{fontSize:36,marginBottom:12,opacity:0.5}}>📅</div>
+    <div style={{color:LC.textMuted,fontSize:13}}>No scheduled events or milestones yet.</div>
   </div>;
 
   return <div>
-    {/* HEADER: month nav + filter chips */}
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14,flexWrap:"wrap",gap:12}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18,flexWrap:"wrap",gap:14}}>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
         <button onClick={()=>navMonth(-1)} style={navBtn} aria-label="Previous month">‹</button>
-        <button onClick={goToday} style={{...navBtn,width:"auto",padding:"0 14px",fontSize:11,fontWeight:600}}>Today</button>
+        <button onClick={goToday} style={{...navBtn,width:"auto",padding:"0 16px",fontSize:12,fontWeight:600}}>Today</button>
         <button onClick={()=>navMonth(1)} style={navBtn} aria-label="Next month">›</button>
-        <h2 style={{fontFamily:font,color:C.white,fontSize:20,margin:"0 0 0 8px",fontWeight:400}}>{monthName}</h2>
+        <h2 style={{color:LC.text,fontSize:22,margin:"0 0 0 10px",fontWeight:600,fontFamily:fb,letterSpacing:"-0.01em"}}>{monthName}</h2>
       </div>
-      <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
         {allTypes.map(t=>{
           const c=t==="milestone"?EC.milestone:EC[t]||"#6B7280";
           const isVisible=!hiddenTypes.has(t);
           const label=t==="milestone"?"Milestone":(ET_LABELS[t]||t);
           return <button key={t} onClick={()=>toggleType(t)} style={{
-            display:"flex",alignItems:"center",gap:6,padding:"5px 11px",borderRadius:99,
-            background:isVisible?c+"22":"transparent",
-            border:`1px solid ${isVisible?c:C.border}`,
-            color:isVisible?C.white:C.muted,
-            fontSize:11,fontFamily:fb,cursor:"pointer",fontWeight:isVisible?600:400,
-            opacity:isVisible?1:0.5,transition:"all 0.1s"
+            display:"flex",alignItems:"center",gap:7,padding:"6px 12px",borderRadius:99,
+            background:isVisible?c+"15":LC.surface,
+            border:`1px solid ${isVisible?c+"66":LC.border}`,
+            color:isVisible?LC.text:LC.textMuted,
+            fontSize:11,fontFamily:fb,cursor:"pointer",fontWeight:isVisible?600:500,
+            opacity:isVisible?1:0.55,transition:"all 0.12s",
+            boxShadow:isVisible?"0 1px 2px rgba(0,0,0,0.04)":"none"
           }}>
             <span style={{width:8,height:8,borderRadius:99,background:c}}/>
             {label}
@@ -419,37 +408,37 @@ function ClientCalendarV2({events,milestones,loading}){
       </div>
     </div>
 
-    {/* WEEKDAYS */}
-    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:4}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5,marginBottom:5}}>
       {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=>(
-        <div key={d} style={{textAlign:"center",fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:0.8,padding:"6px 0",fontWeight:600}}>{d}</div>
+        <div key={d} style={{textAlign:"center",fontSize:10,color:LC.textMuted,textTransform:"uppercase",letterSpacing:0.8,padding:"7px 0",fontWeight:700}}>{d}</div>
       ))}
     </div>
 
-    {/* MONTH GRID */}
-    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5}}>
       {cells.map((cell,i)=>{
-        if(!cell)return <div key={"e"+i} style={{minHeight:96,background:"transparent"}}/>;
+        if(!cell)return <div key={"e"+i} style={{minHeight:104,background:"transparent"}}/>;
         const ds=dateStr(cell);
         const dayItems=itemsForDate(ds);
         const isToday=ds===todayUTC;
         return <div key={ds} style={{
-          minHeight:96,
-          background:isToday?C.gold+"11":C.navyLight,
-          border:`${isToday?2:1}px solid ${isToday?C.gold:C.border}`,
-          borderRadius:6,
-          padding:5,
-          display:"flex",flexDirection:"column",gap:2,
+          minHeight:104,
+          background:isToday?LC.goldLight:LC.surface,
+          border:`${isToday?2:1}px solid ${isToday?LC.gold:LC.border}`,
+          borderRadius:8,
+          padding:6,
+          display:"flex",flexDirection:"column",gap:3,
           overflow:"hidden",
-          boxSizing:"border-box"
+          boxSizing:"border-box",
+          boxShadow:"0 1px 2px rgba(0,0,0,0.04)"
         }}>
           <div style={{
-            fontSize:11,fontWeight:isToday?700:500,
-            color:isToday?C.gold:C.white,
-            display:"flex",justifyContent:"space-between",alignItems:"center"
+            fontSize:12,fontWeight:isToday?700:500,
+            color:isToday?LC.text:LC.textBody,
+            display:"flex",justifyContent:"space-between",alignItems:"center",
+            padding:"0 2px"
           }}>
             <span>{cell.getUTCDate()}</span>
-            {dayItems.length>3&&<span style={{fontSize:9,color:C.muted,fontWeight:400}}>+{dayItems.length-3}</span>}
+            {dayItems.length>3&&<span style={{fontSize:9,color:LC.textMuted,fontWeight:500}}>+{dayItems.length-3}</span>}
           </div>
           {dayItems.slice(0,3).map(item=>{
             const isStart=item.date===ds;
@@ -459,64 +448,58 @@ function ClientCalendarV2({events,milestones,loading}){
               background:item.color,
               color:"#ffffff",
               fontSize:10,
-              padding:"2px 6px",
-              borderRadius:isMulti?(isStart&&isEnd?4:isStart?"4px 0 0 4px":isEnd?"0 4px 4px 0":0):4,
-              marginLeft:isMulti&&!isStart?-5:0,
-              marginRight:isMulti&&!isEnd?-5:0,
+              padding:"3px 7px",
+              borderRadius:isMulti?(isStart&&isEnd?5:isStart?"5px 0 0 5px":isEnd?"0 5px 5px 0":0):5,
+              marginLeft:isMulti&&!isStart?-6:0,
+              marginRight:isMulti&&!isEnd?-6:0,
               cursor:"pointer",
               whiteSpace:"nowrap",
               overflow:"hidden",
               textOverflow:"ellipsis",
-              fontWeight:500,
-              lineHeight:1.4
-            }} title={item.title}>{isStart||!isMulti?item.title:" "}</div>;
+              fontWeight:600,
+              lineHeight:1.5,
+              letterSpacing:"0.01em"
+            }} title={item.title}>{isStart||!isMulti?item.title:" "}</div>;
           })}
         </div>;
       })}
     </div>
 
-    {/* EXPANDED EVENT MODAL */}
     {expandedItem&&<div onClick={()=>setExpandedItem(null)} style={{
-      position:"fixed",inset:0,background:"#000000DD",zIndex:3500,
-      display:"flex",alignItems:"center",justifyContent:"center",padding:20,cursor:"pointer"
+      position:"fixed",inset:0,background:"#0F172A99",zIndex:3500,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:20,cursor:"pointer",
+      backdropFilter:"blur(2px)"
     }}>
       <div onClick={e=>e.stopPropagation()} style={{
-        background:C.navyLight,border:`2px solid ${expandedItem.color}`,borderRadius:14,
-        padding:24,maxWidth:440,width:"100%",cursor:"default",boxSizing:"border-box"
+        background:LC.surface,borderRadius:14,padding:24,maxWidth:440,width:"100%",cursor:"default",boxSizing:"border-box",
+        boxShadow:"0 20px 50px rgba(0,0,0,0.25)",
+        borderTop:`4px solid ${expandedItem.color}`
       }}>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
           <span style={{width:10,height:10,borderRadius:99,background:expandedItem.color,flexShrink:0}}/>
-          <span style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:0.8,fontWeight:600}}>
+          <span style={{fontSize:10,color:LC.textMuted,textTransform:"uppercase",letterSpacing:0.8,fontWeight:700}}>
             {expandedItem.type==="milestone"?"Milestone":(ET_LABELS[expandedItem.type]||expandedItem.type)}
           </span>
         </div>
-        <h3 style={{fontFamily:font,color:C.white,fontSize:20,margin:"0 0 14px",fontWeight:400}}>{expandedItem.title}</h3>
-        <div style={{fontSize:13,color:C.muted,marginBottom:6,display:"flex",alignItems:"center",gap:8}}>
-          <span>📅</span>
+        <h3 style={{color:LC.text,fontSize:20,margin:"0 0 16px",fontWeight:600,fontFamily:fb,letterSpacing:"-0.01em"}}>{expandedItem.title}</h3>
+        <div style={{fontSize:13,color:LC.textBody,marginBottom:8,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{color:LC.textMuted}}>📅</span>
           <span>{fmtDate(expandedItem.date)}{expandedItem.date_end&&expandedItem.date_end!==expandedItem.date?` → ${fmtDate(expandedItem.date_end)}`:""}</span>
         </div>
-        {expandedItem.time&&<div style={{fontSize:13,color:C.muted,marginBottom:6,display:"flex",alignItems:"center",gap:8}}>
-          <span>⏱</span>
+        {expandedItem.time&&<div style={{fontSize:13,color:LC.textBody,marginBottom:8,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{color:LC.textMuted}}>⏱</span>
           <span>{expandedItem.time}</span>
         </div>}
-        {expandedItem.status&&<div style={{fontSize:13,color:C.muted,marginBottom:6,display:"flex",alignItems:"center",gap:8}}>
-          <span>◆</span>
-          <span>Status: <strong style={{color:C.white}}>{expandedItem.status}</strong></span>
+        {expandedItem.status&&<div style={{fontSize:13,color:LC.textBody,marginBottom:8,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{color:LC.textMuted}}>◆</span>
+          <span>Status: <strong style={{color:LC.text}}>{expandedItem.status}</strong></span>
         </div>}
         <button onClick={()=>setExpandedItem(null)} style={{
-          marginTop:18,background:C.gold,color:C.navy,border:"none",padding:"9px 16px",
-          borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:fb,width:"100%"
+          marginTop:18,background:LC.gold,color:LC.text,border:"none",padding:"10px 16px",
+          borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:fb,width:"100%"
         }}>Close</button>
       </div>
     </div>}
-
-    {/* MOBILE: tighter cells */}
-    <style>{`
-      @media (max-width: 720px) {
-        .cpv2-cal-cell { min-height: 60px !important; padding: 3px !important; }
-        .cpv2-cal-chip { font-size: 9px !important; padding: 1px 3px !important; }
-      }
-    `}</style>
   </div>;
 }
 
@@ -1022,63 +1005,63 @@ function ClientPortalV2({jobs,logs,clientMode=false,onSignOut}){
 
   // ── PROJECT PICKER ──
   if(!selJob){
-    return <div style={{maxWidth:980,margin:"0 auto",padding:"24px 16px",fontFamily:fb}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
-        <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <img src="/tgb-logo.svg" alt="" style={{width:44,height:44,borderRadius:10,objectFit:"contain"}}/>
+    return <div style={{maxWidth:1080,margin:"0 auto",padding:"32px 20px",fontFamily:fb,background:LC.bg,minHeight:"100vh"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:30}}>
+        <div style={{display:"flex",alignItems:"center",gap:14}}>
+          <img src="/tgb-logo.svg" alt="" style={{width:48,height:48,borderRadius:10,objectFit:"contain",background:C.navy,padding:6}}/>
           <div>
-            <div style={{fontFamily:font,color:C.white,fontSize:20}}>Tall Guy Builds</div>
-            <div style={{color:C.gold,fontSize:10,letterSpacing:1.5,fontWeight:600}}>CLIENT PORTAL</div>
+            <div style={{color:LC.text,fontSize:20,fontWeight:600,letterSpacing:"-0.01em"}}>Tall Guy Builds</div>
+            <div style={{color:LC.gold,fontSize:10,letterSpacing:1.8,fontWeight:700,marginTop:1}}>CLIENT PORTAL</div>
           </div>
         </div>
-        {clientMode&&onSignOut&&<button onClick={onSignOut} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:6,padding:"6px 14px",fontSize:12,cursor:"pointer",fontFamily:fb}}>Sign Out</button>}
+        {clientMode&&onSignOut&&<button onClick={onSignOut} style={{background:LC.surface,border:`1px solid ${LC.border}`,color:LC.textBody,borderRadius:8,padding:"8px 16px",fontSize:12,cursor:"pointer",fontFamily:fb,fontWeight:600,boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>Sign Out</button>}
       </div>
-      <div style={{textAlign:"center",padding:"36px 0 26px",borderTop:`1px solid ${C.border}`,borderBottom:`1px solid ${C.border}`,marginBottom:22}}>
-        <h1 style={{fontFamily:font,color:C.white,fontSize:24,margin:0,fontWeight:400}}>Welcome back</h1>
-        <p style={{color:C.muted,fontSize:13,marginTop:10,maxWidth:420,margin:"10px auto 0"}}>Select a project to see progress, photos, schedule and messages.</p>
+      <div style={{textAlign:"center",padding:"40px 0 32px",borderTop:`1px solid ${LC.border}`,borderBottom:`1px solid ${LC.border}`,marginBottom:28}}>
+        <h1 style={{color:LC.text,fontSize:28,margin:0,fontWeight:600,fontFamily:fb,letterSpacing:"-0.02em"}}>Welcome back</h1>
+        <p style={{color:LC.textMuted,fontSize:14,marginTop:10,maxWidth:440,margin:"10px auto 0",lineHeight:1.6}}>Select a project to see progress, photos, schedule, and messages.</p>
       </div>
-      {sharedJobs.length===0&&<div style={{background:C.navyLight,border:`1px dashed ${C.border}`,borderRadius:14,padding:36,textAlign:"center"}}>
-        <div style={{color:C.muted,fontSize:13}}>No projects shared with the portal yet. Contact Tall Guy Builds at (306) 737-5407.</div>
+      {sharedJobs.length===0&&<div style={{background:LC.surface,border:`1px dashed ${LC.borderStrong}`,borderRadius:14,padding:48,textAlign:"center"}}>
+        <div style={{color:LC.textMuted,fontSize:13}}>No projects shared with the portal yet. Contact Tall Guy Builds at (306) 737-5407.</div>
       </div>}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:16}}>
         {sharedJobs.map(job=>{
           const jobLogs=logs.filter(l=>l.job_id===job.id&&l.visible_to_client);
           const allPhotos=jobLogs.flatMap(l=>l.photos||[]);
           const heroPhoto=allPhotos[0];
-          const heroUrl=heroPhoto?(heroPhoto.url||heroPhoto):null;
-          return <div key={job.id} onClick={()=>{setSelJob(job);setTab("overview");}} style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",cursor:"pointer",transition:"transform 0.15s, border-color 0.15s"}}
-            onMouseEnter={e=>{e.currentTarget.style.borderColor=C.gold;e.currentTarget.style.transform="translateY(-2px)";}}
-            onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.transform="translateY(0)";}}>
-            <div style={{height:130,background:heroUrl?`url(${heroUrl}) center/cover`:`linear-gradient(135deg, ${C.navy}, ${C.navyLight})`,position:"relative"}}>
-              <div style={{position:"absolute",top:10,right:10,background:C.navy+"dd",color:C.gold,fontSize:10,padding:"4px 10px",borderRadius:99,fontWeight:600,letterSpacing:0.5}}>{job.status}</div>
+          const heroUrl=job.hero_photo_url||(heroPhoto?(heroPhoto.url||heroPhoto):null);
+          return <div key={job.id} onClick={()=>{setSelJob(job);setTab("overview");}} style={{background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:14,overflow:"hidden",cursor:"pointer",transition:"all 0.18s",boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor=LC.gold;e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 6px 16px rgba(0,0,0,0.10)";}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor=LC.border;e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,0.06)";}}>
+            <div style={{height:140,background:heroUrl?`url(${heroUrl}) center/cover`:`linear-gradient(135deg, ${C.navy}, ${C.navyLight})`,position:"relative"}}>
+              <div style={{position:"absolute",top:12,right:12,background:"#FFFFFFEE",color:LC.text,fontSize:10,padding:"5px 11px",borderRadius:99,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase"}}>{job.status}</div>
             </div>
-            <div style={{padding:"14px 18px"}}>
-              <div style={{fontFamily:font,fontSize:17,color:C.white,marginBottom:2}}>{job.name}</div>
-              <div style={{color:C.muted,fontSize:12,marginBottom:12}}>{job.address}</div>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted,marginBottom:5}}>
-                <span>Progress</span>
-                <span style={{color:C.gold,fontWeight:700}}>{job.progress||0}%</span>
+            <div style={{padding:"16px 18px"}}>
+              <div style={{fontSize:17,color:LC.text,fontWeight:600,marginBottom:3,letterSpacing:"-0.01em"}}>{job.name}</div>
+              <div style={{color:LC.textMuted,fontSize:12,marginBottom:14}}>{job.address}</div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:LC.textMuted,marginBottom:6}}>
+                <span style={{fontWeight:500}}>Progress</span>
+                <span style={{color:LC.text,fontWeight:700,fontSize:12}}>{job.progress||0}%</span>
               </div>
-              <div style={{background:C.border,borderRadius:99,height:6,overflow:"hidden"}}>
-                <div style={{background:C.gold,borderRadius:99,height:"100%",width:`${job.progress||0}%`,transition:"width 0.8s"}}/>
+              <div style={{background:LC.border,borderRadius:99,height:6,overflow:"hidden"}}>
+                <div style={{background:LC.gold,borderRadius:99,height:"100%",width:`${job.progress||0}%`,transition:"width 0.8s"}}/>
               </div>
-              <div style={{display:"flex",gap:14,marginTop:12,fontSize:11,color:C.muted}}>
-                <span><span style={{color:C.white,fontWeight:600}}>{jobLogs.length}</span> updates</span>
-                <span><span style={{color:C.white,fontWeight:600}}>{allPhotos.length}</span> photos</span>
-                <span style={{marginLeft:"auto",color:C.gold,fontWeight:600}}>Open →</span>
+              <div style={{display:"flex",gap:14,marginTop:13,fontSize:11,color:LC.textMuted}}>
+                <span><span style={{color:LC.text,fontWeight:700}}>{jobLogs.length}</span> updates</span>
+                <span><span style={{color:LC.text,fontWeight:700}}>{allPhotos.length}</span> photos</span>
+                <span style={{marginLeft:"auto",color:LC.gold,fontWeight:700}}>Open →</span>
               </div>
             </div>
           </div>;
         })}
       </div>
-      <div style={{textAlign:"center",marginTop:30,fontSize:10,color:C.muted}}>
-        <span style={{color:C.gold,letterSpacing:1.5,fontWeight:600}}>BUILT RIGHT. DESIGNED TO LAST.</span>
-        <div style={{marginTop:4}}>Tall Guy Builds Inc. · Regina, SK · Portal v2 (preview)</div>
+      <div style={{textAlign:"center",marginTop:36,fontSize:10,color:LC.textMuted}}>
+        <span style={{color:LC.gold,letterSpacing:1.8,fontWeight:700}}>BUILT RIGHT. DESIGNED TO LAST.</span>
+        <div style={{marginTop:6}}>Tall Guy Builds Inc. · Regina, SK</div>
       </div>
     </div>;
   }
 
-  // ── PROJECT VIEW (sidebar + main content) ──
+  // ── PROJECT VIEW ──
   const jobLogs=logs.filter(l=>l.job_id===selJob.id&&l.visible_to_client).sort((a,b)=>b.date?.localeCompare(a.date));
   const allPhotos=jobLogs.flatMap(l=>(l.photos||[]).map(ph=>({url:ph.url||ph,date:l.date,notes:l.notes})));
   const stages=stagesFor(selJob.type);
@@ -1094,76 +1077,78 @@ function ClientPortalV2({jobs,logs,clientMode=false,onSignOut}){
     ...milestones.filter(m=>m.status!=="Completed"&&m.date).map(m=>({...m,title:m.name,_kind:"milestone"}))
   ].sort((a,b)=>a.date?.localeCompare(b.date)).slice(0,5);
 
-  return <div style={{display:"flex",height:"100vh",background:C.bg,fontFamily:fb,overflow:"hidden"}} className="cpv2-root">
-    {/* SIDEBAR */}
-    <aside className="cpv2-sidebar" style={{width:220,minWidth:220,maxWidth:220,background:"#1F2A37",backgroundColor:"#1F2A37",borderRight:`1px solid ${C.border}`,padding:"20px 14px",display:"flex",flexDirection:"column",height:"100%",overflowY:"auto",flexShrink:0,boxSizing:"border-box"}}>
-      <div style={{display:"flex",alignItems:"center",gap:10,paddingBottom:18,marginBottom:16,borderBottom:`1px solid ${C.border}`}}>
-        <img src="/tgb-logo.svg" alt="" style={{width:32,height:32,borderRadius:6,objectFit:"contain"}}/>
+  const heroUrl=selJob.hero_photo_url||(allPhotos[0]&&allPhotos[0].url);
+
+  return <div style={{display:"flex",height:"100vh",background:LC.bg,fontFamily:fb,overflow:"hidden"}} className="cpv2-root">
+    {/* SIDEBAR (kept dark navy for TGB brand presence) */}
+    <aside className="cpv2-sidebar" style={{width:230,minWidth:230,maxWidth:230,background:"#1F2A37",backgroundColor:"#1F2A37",borderRight:`1px solid #16212E`,padding:"22px 14px",display:"flex",flexDirection:"column",height:"100%",overflowY:"auto",flexShrink:0,boxSizing:"border-box"}}>
+      <div style={{display:"flex",alignItems:"center",gap:11,paddingBottom:18,marginBottom:18,borderBottom:"1px solid #2E3D4F"}}>
+        <img src="/tgb-logo.svg" alt="" style={{width:34,height:34,borderRadius:7,objectFit:"contain"}}/>
         <div>
-          <div style={{fontSize:13,color:C.white,fontWeight:600,lineHeight:1.1}}>Tall Guy Builds</div>
-          <div style={{fontSize:9,color:C.gold,letterSpacing:1,marginTop:2}}>CLIENT PORTAL</div>
+          <div style={{fontSize:13,color:"#FFFFFF",fontWeight:600,lineHeight:1.1,letterSpacing:"-0.01em"}}>Tall Guy Builds</div>
+          <div style={{fontSize:9,color:LC.gold,letterSpacing:1.4,marginTop:3,fontWeight:700}}>CLIENT PORTAL</div>
         </div>
       </div>
-      <button onClick={()=>{setSelJob(null);setTab("overview");}} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:6,padding:"7px 10px",fontSize:11,cursor:"pointer",marginBottom:14,textAlign:"left",fontFamily:fb}}>← All projects</button>
-      <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:0.8,padding:"0 8px 6px"}}>Project</div>
+      <button onClick={()=>{setSelJob(null);setTab("overview");}} style={{background:"transparent",border:"1px solid #2E3D4F",color:"#9CA3AF",borderRadius:7,padding:"7px 12px",fontSize:11,cursor:"pointer",marginBottom:16,textAlign:"left",fontFamily:fb,fontWeight:500}}>← All projects</button>
+      <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase",letterSpacing:1,padding:"0 8px 8px",fontWeight:700}}>Project</div>
       {V2_NAV.map(n=>{
         const isActive=tab===n.id;
         const isDisabled=!n.enabled;
         return <button key={n.id} onClick={()=>!isDisabled&&setTab(n.id)} disabled={isDisabled} style={{
-          display:"flex",alignItems:"center",gap:10,padding:"9px 10px",borderRadius:7,
-          background:isActive?C.gold+"22":"transparent",
-          color:isActive?C.gold:isDisabled?C.muted+"99":C.white+"cc",
+          display:"flex",alignItems:"center",gap:11,padding:"10px 11px",borderRadius:8,
+          background:isActive?LC.gold+"22":"transparent",
+          color:isActive?LC.gold:isDisabled?"#6B728099":"#E5E7EBcc",
           border:"none",fontFamily:fb,fontSize:13,cursor:isDisabled?"not-allowed":"pointer",
-          marginBottom:2,textAlign:"left",opacity:isDisabled?0.55:1,fontWeight:isActive?600:400
+          marginBottom:3,textAlign:"left",opacity:isDisabled?0.55:1,fontWeight:isActive?600:500,transition:"all 0.1s"
         }}>
           <span style={{width:18,textAlign:"center",fontSize:14}}>{n.icon}</span>
           <span style={{flex:1}}>{n.label}</span>
-          {isDisabled&&<span style={{fontSize:8,color:C.muted,letterSpacing:0.5}}>SOON</span>}
+          {isDisabled&&<span style={{fontSize:8,color:"#6B7280",letterSpacing:0.5,fontWeight:600}}>SOON</span>}
         </button>;
       })}
-      <div style={{marginTop:"auto",paddingTop:18,borderTop:`1px solid ${C.border}`}}>
-        <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:0.8,marginBottom:6}}>Your builder</div>
-        <div style={{fontSize:12,color:C.white,fontWeight:600}}>Tall Guy Builds Inc.</div>
-        <div style={{fontSize:11,color:C.muted,marginTop:2}}>(306) 737-5407</div>
-        {clientMode&&onSignOut&&<button onClick={onSignOut} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:6,padding:"5px 10px",fontSize:10,cursor:"pointer",marginTop:12,width:"100%",fontFamily:fb}}>Sign Out</button>}
+      <div style={{marginTop:"auto",paddingTop:18,borderTop:"1px solid #2E3D4F"}}>
+        <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase",letterSpacing:1,marginBottom:7,fontWeight:700}}>Your builder</div>
+        <div style={{fontSize:12,color:"#FFFFFF",fontWeight:600}}>Tall Guy Builds Inc.</div>
+        <div style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>(306) 737-5407</div>
+        {clientMode&&onSignOut&&<button onClick={onSignOut} style={{background:"transparent",border:"1px solid #2E3D4F",color:"#9CA3AF",borderRadius:7,padding:"6px 10px",fontSize:11,cursor:"pointer",marginTop:14,width:"100%",fontFamily:fb,fontWeight:500}}>Sign Out</button>}
       </div>
     </aside>
 
     {/* MAIN */}
-    <main style={{flex:1,padding:"24px 28px 60px",minWidth:0,minHeight:0,height:"100%",overflowY:"auto"}} className="cpv2-main">
+    <main style={{flex:1,padding:"28px 32px 60px",minWidth:0,minHeight:0,height:"100%",overflowY:"auto",background:LC.bg}} className="cpv2-main">
       {/* PROJECT HEADER */}
-      <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",marginBottom:18}}>
-        {(()=>{const heroUrl=selJob.hero_photo_url||(allPhotos[0]&&allPhotos[0].url);return heroUrl?<div style={{height:160,position:"relative",background:`url(${heroUrl}) center/cover`}}>
-          <div style={{position:"absolute",inset:0,background:`linear-gradient(to bottom, transparent 30%, ${C.navy}f0 95%)`}}/>
-          <div style={{position:"absolute",bottom:14,left:22,right:22}}>
-            <div style={{fontSize:9,color:C.gold,fontWeight:700,letterSpacing:1.5}}>{(selJob.type||"PROJECT").toUpperCase()}</div>
-            <h1 style={{fontFamily:font,color:C.white,fontSize:24,margin:"4px 0 2px",fontWeight:400}}>{selJob.name}</h1>
-            <div style={{color:"#ffffffaa",fontSize:12}}>{selJob.address}</div>
+      <div style={{background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:14,overflow:"hidden",marginBottom:20,boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+        {heroUrl&&<div style={{height:180,position:"relative",background:`url(${heroUrl}) center/cover`}}>
+          <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom, transparent 35%, #1F2A37dd 100%)"}}/>
+          <div style={{position:"absolute",bottom:18,left:24,right:24}}>
+            <div style={{fontSize:10,color:LC.gold,fontWeight:700,letterSpacing:1.6,textTransform:"uppercase"}}>{(selJob.type||"PROJECT")}</div>
+            <h1 style={{color:"#FFFFFF",fontSize:26,margin:"5px 0 3px",fontWeight:600,fontFamily:fb,letterSpacing:"-0.02em"}}>{selJob.name}</h1>
+            <div style={{color:"#FFFFFFcc",fontSize:13}}>{selJob.address}</div>
           </div>
-        </div>:null;})()}
-        {!selJob.hero_photo_url&&!allPhotos[0]&&<div style={{padding:"22px 24px 4px"}}>
-          <div style={{fontSize:9,color:C.gold,fontWeight:700,letterSpacing:1.5}}>{(selJob.type||"PROJECT").toUpperCase()}</div>
-          <h1 style={{fontFamily:font,color:C.white,fontSize:24,margin:"4px 0 2px",fontWeight:400}}>{selJob.name}</h1>
-          <div style={{color:C.muted,fontSize:12}}>{selJob.address}</div>
         </div>}
-        <div style={{padding:"18px 22px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
-            <div style={{fontSize:12,color:C.muted}}>{fmtDate(selJob.start_date)} → {fmtDate(selJob.end_date)}</div>
-            <div style={{display:"flex",alignItems:"baseline",gap:6}}>
-              <span style={{color:C.muted,fontSize:11}}>Progress</span>
-              <span style={{color:C.gold,fontFamily:font,fontSize:22,fontWeight:600}}>{selJob.progress||0}%</span>
+        {!heroUrl&&<div style={{padding:"24px 26px 4px"}}>
+          <div style={{fontSize:10,color:LC.gold,fontWeight:700,letterSpacing:1.6,textTransform:"uppercase"}}>{(selJob.type||"PROJECT")}</div>
+          <h1 style={{color:LC.text,fontSize:26,margin:"5px 0 3px",fontWeight:600,fontFamily:fb,letterSpacing:"-0.02em"}}>{selJob.name}</h1>
+          <div style={{color:LC.textMuted,fontSize:13}}>{selJob.address}</div>
+        </div>}
+        <div style={{padding:"20px 24px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12,marginBottom:14}}>
+            <div style={{fontSize:12,color:LC.textMuted,fontWeight:500}}>{fmtDate(selJob.start_date)} → {fmtDate(selJob.end_date)}</div>
+            <div style={{display:"flex",alignItems:"baseline",gap:7}}>
+              <span style={{color:LC.textMuted,fontSize:11,fontWeight:500}}>Progress</span>
+              <span style={{color:LC.text,fontSize:24,fontWeight:700,letterSpacing:"-0.02em"}}>{selJob.progress||0}%</span>
             </div>
           </div>
-          <div style={{background:C.border,borderRadius:99,height:8,overflow:"hidden",marginBottom:8}}>
-            <div style={{background:`linear-gradient(90deg, ${C.gold}, #e8c87a)`,height:"100%",width:`${selJob.progress||0}%`,transition:"width 1s",boxShadow:`0 0 10px ${C.gold}66`}}/>
+          <div style={{background:LC.border,borderRadius:99,height:8,overflow:"hidden",marginBottom:10}}>
+            <div style={{background:`linear-gradient(90deg, ${LC.gold}, #E2BE82)`,height:"100%",width:`${selJob.progress||0}%`,transition:"width 1s",boxShadow:`0 0 8px ${LC.gold}55`}}/>
           </div>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:10,marginTop:2,gap:6,flexWrap:"wrap"}}>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginTop:4,gap:8,flexWrap:"wrap"}}>
             {stages.map((s,i)=>{
               const done=i<activeStageIdx;
               const active=i===activeStageIdx;
               return <span key={s} style={{
-                color:done?C.success:active?C.gold:C.muted,
-                fontWeight:active||done?600:400,
+                color:done?LC.success:active?LC.gold:LC.textMuted,
+                fontWeight:active||done?700:500,
                 whiteSpace:"nowrap"
               }}>{done?"✓ ":active?"● ":""}{s}</span>;
             })}
@@ -1172,107 +1157,109 @@ function ClientPortalV2({jobs,logs,clientMode=false,onSignOut}){
       </div>
 
       {/* OVERVIEW */}
-      {tab==="overview"&&<div className="cpv2-overview-grid" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) 240px",gap:16}}>
+      {tab==="overview"&&<div className="cpv2-overview-grid" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) 260px",gap:18}}>
         <div>
-          {totalContract>0&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:16,marginBottom:14}}>
-            <div style={{fontSize:13,color:C.white,fontWeight:600,marginBottom:14}}>Payment summary</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}>
+          {totalContract>0&&<div style={{background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:12,padding:18,marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+            <div style={{fontSize:14,color:LC.text,fontWeight:600,marginBottom:14,letterSpacing:"-0.01em"}}>Payment summary</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
               {[
-                {label:"Contract",value:fmt$(totalContract),color:C.white},
-                {label:"Paid",value:fmt$(displayPaid),color:C.success},
-                {label:"Remaining",value:fmt$(remaining),color:remaining===0?C.success:C.warn}
-              ].map(s=><div key={s.label} style={{background:C.navy,borderRadius:8,padding:"10px 12px",border:`1px solid ${C.border}`}}>
-                <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{s.label}</div>
-                <div style={{fontSize:15,color:s.color,fontWeight:700}}>{s.value}</div>
+                {label:"Contract",value:fmt$(totalContract),color:LC.text},
+                {label:"Paid",value:fmt$(displayPaid),color:LC.success},
+                {label:"Remaining",value:fmt$(remaining),color:remaining===0?LC.success:LC.warn}
+              ].map(s=><div key={s.label} style={{background:LC.bg,borderRadius:8,padding:"11px 13px"}}>
+                <div style={{fontSize:9,color:LC.textMuted,textTransform:"uppercase",letterSpacing:0.8,marginBottom:4,fontWeight:700}}>{s.label}</div>
+                <div style={{fontSize:16,color:s.color,fontWeight:700,letterSpacing:"-0.02em"}}>{s.value}</div>
               </div>)}
             </div>
-            <div style={{background:C.border,borderRadius:99,height:6,overflow:"hidden"}}>
-              <div style={{background:C.success,height:"100%",width:`${totalContract>0?Math.round((displayPaid/totalContract)*100):0}%`,transition:"width 1s"}}/>
+            <div style={{background:LC.border,borderRadius:99,height:6,overflow:"hidden"}}>
+              <div style={{background:LC.success,height:"100%",width:`${totalContract>0?Math.round((displayPaid/totalContract)*100):0}%`,transition:"width 1s"}}/>
             </div>
-            {nextDue&&<div style={{fontSize:11,color:C.warn,marginTop:10}}>Next: <strong>{nextDue.label}</strong> — {fmt$(nextDue.amount)} on {fmtDate(nextDue.due_date)}</div>}
+            {nextDue&&<div style={{fontSize:11,color:LC.warn,marginTop:11,fontWeight:600}}>Next: <strong>{nextDue.label}</strong> — {fmt$(nextDue.amount)} on {fmtDate(nextDue.due_date)}</div>}
           </div>}
-          {allPhotos.length>0&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:16,marginBottom:14}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-              <div style={{fontSize:13,color:C.white,fontWeight:600}}>Recent photos</div>
-              <span style={{fontSize:11,color:C.muted}}>{allPhotos.length} total</span>
+
+          {allPhotos.length>0&&<div style={{background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:12,padding:18,marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:11}}>
+              <div style={{fontSize:14,color:LC.text,fontWeight:600,letterSpacing:"-0.01em"}}>Recent photos</div>
+              <span style={{fontSize:11,color:LC.textMuted,fontWeight:500}}>{allPhotos.length} total</span>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(78px,1fr))",gap:6}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(82px,1fr))",gap:7}}>
               {allPhotos.slice(0,8).map((ph,i)=>(
-                <div key={i} onClick={()=>setLightbox(ph.url)} style={{aspectRatio:"1",borderRadius:6,overflow:"hidden",cursor:"zoom-in"}}>
+                <div key={i} onClick={()=>setLightbox(ph.url)} style={{aspectRatio:"1",borderRadius:7,overflow:"hidden",cursor:"zoom-in",border:`1px solid ${LC.border}`}}>
                   <img src={ph.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                 </div>
               ))}
             </div>
           </div>}
-          {jobLogs[0]&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:16}}>
-            <div style={{fontSize:13,color:C.white,fontWeight:600,marginBottom:10}}>Latest update</div>
-            <div style={{display:"flex",gap:14,fontSize:11,color:C.muted,marginBottom:8,flexWrap:"wrap"}}>
-              <span style={{color:C.gold,fontWeight:600}}>{fmtDate(jobLogs[0].date)}</span>
+
+          {jobLogs[0]&&<div style={{background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:12,padding:18,boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+            <div style={{fontSize:14,color:LC.text,fontWeight:600,marginBottom:11,letterSpacing:"-0.01em"}}>Latest update</div>
+            <div style={{display:"flex",gap:14,fontSize:11,color:LC.textMuted,marginBottom:9,flexWrap:"wrap",fontWeight:500}}>
+              <span style={{color:LC.gold,fontWeight:700}}>{fmtDate(jobLogs[0].date)}</span>
               <span>{jobLogs[0].weather}</span>
               <span>👷 {jobLogs[0].crew}</span>
               <span>⏱ {jobLogs[0].hours}h</span>
             </div>
-            <p style={{color:C.muted,fontSize:13,lineHeight:1.7,margin:0,whiteSpace:"pre-wrap"}}>{(jobLogs[0].notes||"").slice(0,260)}{(jobLogs[0].notes||"").length>260?"…":""}</p>
+            <p style={{color:LC.textBody,fontSize:13,lineHeight:1.7,margin:0,whiteSpace:"pre-wrap"}}>{(jobLogs[0].notes||"").slice(0,260)}{(jobLogs[0].notes||"").length>260?"…":""}</p>
           </div>}
         </div>
+
         <div className="cpv2-rail">
-          <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:14,marginBottom:12}}>
-            <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:0.8,marginBottom:8}}>Up next</div>
-            {upcoming.length===0&&<div style={{fontSize:12,color:C.muted}}>Nothing scheduled.</div>}
+          <div style={{background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:12,padding:15,marginBottom:13,boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+            <div style={{fontSize:9,color:LC.textMuted,textTransform:"uppercase",letterSpacing:1,marginBottom:9,fontWeight:700}}>Up next</div>
+            {upcoming.length===0&&<div style={{fontSize:12,color:LC.textMuted}}>Nothing scheduled.</div>}
             {upcoming.map(item=>{
               const isMs=item._kind==="milestone";
-              const color=isMs?"#EC4899":(item.color||C.gold);
-              return <div key={(isMs?"m":"e")+item.id} style={{padding:"7px 0",borderBottom:`1px solid ${C.border}33`}}>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{width:6,height:6,borderRadius:99,background:color,flexShrink:0,display:"inline-block"}}/>
-                  <span style={{color:C.white,fontSize:12,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.title}</span>
+              const color=isMs?"#EC4899":(item.color||LC.gold);
+              return <div key={(isMs?"m":"e")+item.id} style={{padding:"8px 0",borderBottom:`1px solid ${LC.border}`}}>
+                <div style={{display:"flex",alignItems:"center",gap:9}}>
+                  <span style={{width:7,height:7,borderRadius:99,background:color,flexShrink:0,display:"inline-block"}}/>
+                  <span style={{color:LC.text,fontSize:12,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:500}}>{item.title}</span>
                 </div>
-                <div style={{fontSize:10,color:C.muted,marginLeft:14,marginTop:1}}>{fmtDate(item.date)}</div>
+                <div style={{fontSize:10,color:LC.textMuted,marginLeft:16,marginTop:2}}>{fmtDate(item.date)}</div>
               </div>;
             })}
           </div>
-          {nextDue&&<div style={{background:C.warn+"15",border:`1px solid ${C.warn}55`,borderRadius:12,padding:14,marginBottom:12}}>
-            <div style={{fontSize:9,color:C.warn,textTransform:"uppercase",letterSpacing:0.8,marginBottom:6}}>Next payment</div>
-            <div style={{fontSize:18,color:C.white,fontWeight:700}}>{fmt$(nextDue.amount)}</div>
-            <div style={{fontSize:11,color:C.muted,marginTop:2}}>{nextDue.label}</div>
-            <div style={{fontSize:11,color:C.muted}}>Due {fmtDate(nextDue.due_date)}</div>
+          {nextDue&&<div style={{background:"#FEF3C7",border:`1px solid ${LC.warn}66`,borderRadius:12,padding:15,marginBottom:13}}>
+            <div style={{fontSize:9,color:"#92400E",textTransform:"uppercase",letterSpacing:1,marginBottom:7,fontWeight:700}}>Next payment</div>
+            <div style={{fontSize:20,color:LC.text,fontWeight:700,letterSpacing:"-0.02em"}}>{fmt$(nextDue.amount)}</div>
+            <div style={{fontSize:11,color:"#92400E",marginTop:3,fontWeight:600}}>{nextDue.label}</div>
+            <div style={{fontSize:11,color:"#92400E",fontWeight:500}}>Due {fmtDate(nextDue.due_date)}</div>
           </div>}
-          <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:14}}>
-            <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:0.8,marginBottom:6}}>Need anything?</div>
-            <div style={{fontSize:12,color:C.white,marginBottom:10}}>Message Tall Guy Builds directly.</div>
-            <button disabled style={{width:"100%",background:C.gold+"33",color:C.gold,border:"none",padding:"8px 12px",borderRadius:6,fontSize:11,fontWeight:600,cursor:"not-allowed",fontFamily:fb}}>Open messages (Phase B)</button>
+          <div style={{background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:12,padding:15,boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+            <div style={{fontSize:9,color:LC.textMuted,textTransform:"uppercase",letterSpacing:1,marginBottom:7,fontWeight:700}}>Need anything?</div>
+            <div style={{fontSize:12,color:LC.textBody,marginBottom:11}}>Message Tall Guy Builds directly.</div>
+            <button onClick={()=>setTab("messages")} style={{width:"100%",background:LC.gold,color:LC.text,border:"none",padding:"9px 12px",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:fb}}>Open messages</button>
           </div>
         </div>
       </div>}
 
-      {/* PHASE A PLACEHOLDER */}
       {tab==="schedule"&&<ClientCalendarV2 events={events} milestones={milestones} loading={false}/>}
 
       {tab==="updates"&&<div>
-        {jobLogs.length===0&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:32,textAlign:"center"}}>
-          <div style={{fontSize:28,marginBottom:8}}>🏗️</div>
-          <div style={{color:C.muted,fontSize:13}}>No site updates yet. Check back soon!</div>
+        {jobLogs.length===0&&<div style={{background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:12,padding:36,textAlign:"center",boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+          <div style={{fontSize:32,marginBottom:10,opacity:0.5}}>🏗️</div>
+          <div style={{color:LC.textMuted,fontSize:13}}>No site updates yet. Check back soon!</div>
         </div>}
         <div style={{display:"grid",gap:14}}>
           {jobLogs.map(log=>(
-            <div key={log.id} style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
-              <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,background:C.navy+"66",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-                <div style={{fontFamily:font,color:C.white,fontSize:14,fontWeight:600}}>{fmtDate(log.date)}</div>
-                <div style={{display:"flex",gap:14,fontSize:11,color:C.muted}}>
+            <div key={log.id} style={{background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:12,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+              <div style={{padding:"13px 18px",borderBottom:`1px solid ${LC.border}`,background:LC.bg,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                <div style={{color:LC.text,fontSize:14,fontWeight:600,letterSpacing:"-0.01em"}}>{fmtDate(log.date)}</div>
+                <div style={{display:"flex",gap:14,fontSize:11,color:LC.textMuted,fontWeight:500}}>
                   <span>{log.weather}</span>
                   <span>👷 {log.crew}</span>
                   <span>⏱ {log.hours}h</span>
                 </div>
               </div>
-              <div style={{padding:"12px 16px"}}>
-                <p style={{color:C.muted,fontSize:13,lineHeight:1.7,margin:0,whiteSpace:"pre-wrap"}}>{log.notes}</p>
+              <div style={{padding:"14px 18px"}}>
+                <p style={{color:LC.textBody,fontSize:13,lineHeight:1.7,margin:0,whiteSpace:"pre-wrap"}}>{log.notes}</p>
               </div>
               {log.photos&&log.photos.length>0&&(
-                <div style={{padding:"0 16px 16px"}}>
-                  <div style={{fontSize:10,color:C.muted,marginBottom:7,textTransform:"uppercase",letterSpacing:0.7}}>Photos ({log.photos.length})</div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(96px,1fr))",gap:6}}>
+                <div style={{padding:"0 18px 18px"}}>
+                  <div style={{fontSize:10,color:LC.textMuted,marginBottom:8,textTransform:"uppercase",letterSpacing:0.7,fontWeight:700}}>Photos ({log.photos.length})</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(100px,1fr))",gap:7}}>
                     {log.photos.map((photo,pi)=>(
-                      <div key={pi} onClick={()=>setLightbox(photo.url||photo)} style={{cursor:"zoom-in",borderRadius:6,overflow:"hidden",aspectRatio:"1",background:C.border}}>
+                      <div key={pi} onClick={()=>setLightbox(photo.url||photo)} style={{cursor:"zoom-in",borderRadius:7,overflow:"hidden",aspectRatio:"1",background:LC.border,border:`1px solid ${LC.border}`}}>
                         <img src={photo.url||photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                       </div>
                     ))}
@@ -1285,9 +1272,9 @@ function ClientPortalV2({jobs,logs,clientMode=false,onSignOut}){
       </div>}
 
       {tab==="photos"&&<div>
-        {allPhotos.length===0&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:32,textAlign:"center"}}>
-          <div style={{fontSize:28,marginBottom:8}}>📷</div>
-          <div style={{color:C.muted,fontSize:13}}>No photos yet. Check back as work progresses.</div>
+        {allPhotos.length===0&&<div style={{background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:12,padding:36,textAlign:"center",boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+          <div style={{fontSize:32,marginBottom:10,opacity:0.5}}>📷</div>
+          <div style={{color:LC.textMuted,fontSize:13}}>No photos yet. Check back as work progresses.</div>
         </div>}
         {Object.entries(jobLogs.reduce((acc,log)=>{
           const ps=(log.photos||[]);
@@ -1295,16 +1282,16 @@ function ClientPortalV2({jobs,logs,clientMode=false,onSignOut}){
           acc[log.date]={notes:log.notes,photos:ps.map(ph=>ph.url||ph)};
           return acc;
         },{})).sort((a,b)=>b[0].localeCompare(a[0])).map(([date,{notes,photos}])=>(
-          <div key={date} style={{marginBottom:22}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-              <div style={{width:8,height:8,borderRadius:99,background:C.gold,flexShrink:0}}/>
-              <div style={{fontSize:13,color:C.gold,fontWeight:600}}>{fmtDate(date)}</div>
-              <div style={{flex:1,height:1,background:C.border}}/>
+          <div key={date} style={{marginBottom:24}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+              <div style={{width:8,height:8,borderRadius:99,background:LC.gold,flexShrink:0}}/>
+              <div style={{fontSize:13,color:LC.gold,fontWeight:700}}>{fmtDate(date)}</div>
+              <div style={{flex:1,height:1,background:LC.border}}/>
             </div>
-            {notes&&<p style={{color:C.muted,fontSize:12,lineHeight:1.6,margin:"0 0 10px 18px"}}>{notes.slice(0,200)}{notes.length>200?"…":""}</p>}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:7,marginLeft:18}}>
+            {notes&&<p style={{color:LC.textMuted,fontSize:12,lineHeight:1.6,margin:"0 0 11px 18px"}}>{notes.slice(0,200)}{notes.length>200?"…":""}</p>}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:8,marginLeft:18}}>
               {photos.map((url,i)=>(
-                <div key={i} onClick={()=>setLightbox(url)} style={{aspectRatio:"1",borderRadius:8,overflow:"hidden",cursor:"zoom-in"}}>
+                <div key={i} onClick={()=>setLightbox(url)} style={{aspectRatio:"1",borderRadius:8,overflow:"hidden",cursor:"zoom-in",border:`1px solid ${LC.border}`,boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
                   <img src={url} alt="" style={{width:"100%",height:"100%",objectFit:"cover",transition:"transform 0.2s"}}
                     onMouseEnter={e=>e.target.style.transform="scale(1.05)"}
                     onMouseLeave={e=>e.target.style.transform="scale(1)"}/>
@@ -1315,75 +1302,70 @@ function ClientPortalV2({jobs,logs,clientMode=false,onSignOut}){
         ))}
       </div>}
 
-      {tab==="messages"&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:18}}>
-        <div style={{fontSize:13,color:C.white,fontWeight:600,marginBottom:4}}>Project messages</div>
-        <div style={{fontSize:11,color:C.muted,marginBottom:14}}>Send a message to Tall Guy Builds — we&apos;ll reply right here.</div>
+      {tab==="messages"&&<div style={{background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:12,padding:20,boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+        <div style={{fontSize:14,color:LC.text,fontWeight:600,marginBottom:5,letterSpacing:"-0.01em"}}>Project messages</div>
+        <div style={{fontSize:11,color:LC.textMuted,marginBottom:16}}>Send a message to Tall Guy Builds — we&apos;ll reply right here.</div>
         <MessageThread jobId={selJob?.id} senderType="client" senderName={selJob?.client||"Client"}/>
       </div>}
 
       {tab==="payments"&&<div>
-        {(!ps||ps.length===0)&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:32,textAlign:"center"}}>
-          <div style={{fontSize:28,marginBottom:8}}>💳</div>
-          <div style={{color:C.muted,fontSize:13}}>No payment schedule has been set up for this project yet.</div>
+        {(!ps||ps.length===0)&&<div style={{background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:12,padding:36,textAlign:"center",boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+          <div style={{fontSize:32,marginBottom:10,opacity:0.5}}>💳</div>
+          <div style={{color:LC.textMuted,fontSize:13}}>No payment schedule has been set up for this project yet.</div>
         </div>}
         {ps.length>0&&<>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10,marginBottom:18}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:11,marginBottom:18}}>
             {[
-              {label:"Contract Total",value:fmt$(totalContract),color:C.white},
-              {label:"Paid",value:fmt$(displayPaid),color:C.success},
-              {label:"Outstanding",value:fmt$(remaining),color:remaining===0?C.success:C.warn}
-            ].map(s=><div key={s.label} style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 14px"}}>
-              <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{s.label}</div>
-              <div style={{fontSize:18,color:s.color,fontWeight:700}}>{s.value}</div>
+              {label:"Contract Total",value:fmt$(totalContract),color:LC.text},
+              {label:"Paid",value:fmt$(displayPaid),color:LC.success},
+              {label:"Outstanding",value:fmt$(remaining),color:remaining===0?LC.success:LC.warn}
+            ].map(s=><div key={s.label} style={{background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:10,padding:"14px 16px",boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+              <div style={{fontSize:9,color:LC.textMuted,textTransform:"uppercase",letterSpacing:0.8,marginBottom:5,fontWeight:700}}>{s.label}</div>
+              <div style={{fontSize:20,color:s.color,fontWeight:700,letterSpacing:"-0.02em"}}>{s.value}</div>
             </div>)}
           </div>
-          <div style={{background:C.border,borderRadius:99,height:8,marginBottom:18,overflow:"hidden"}}>
-            <div style={{background:C.success,borderRadius:99,height:"100%",width:`${totalContract>0?Math.round((displayPaid/totalContract)*100):0}%`,transition:"width 1s"}}/>
+          <div style={{background:LC.border,borderRadius:99,height:8,marginBottom:18,overflow:"hidden"}}>
+            <div style={{background:LC.success,borderRadius:99,height:"100%",width:`${totalContract>0?Math.round((displayPaid/totalContract)*100):0}%`,transition:"width 1s"}}/>
           </div>
-          <div style={{display:"grid",gap:7}}>
+          <div style={{display:"grid",gap:8}}>
             {ps.map(p=>(
-              <div key={p.id} style={{display:"flex",alignItems:"center",gap:11,background:p.paid?"#14532d22":C.navyLight,border:`1px solid ${p.paid?"#4ade8033":C.border}`,borderRadius:10,padding:"11px 14px"}}>
-                <span style={{fontSize:16}}>{p.paid?"✓":"○"}</span>
+              <div key={p.id} style={{display:"flex",alignItems:"center",gap:12,background:p.paid?"#DCFCE7":LC.surface,border:`1px solid ${p.paid?"#86EFAC":LC.border}`,borderRadius:10,padding:"12px 16px",boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
+                <span style={{fontSize:16,color:p.paid?LC.success:LC.textMuted}}>{p.paid?"✓":"○"}</span>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{color:p.paid?C.muted:C.white,fontWeight:600,fontSize:13,textDecoration:p.paid?"line-through":"none"}}>{p.label}</div>
-                  {p.due_date&&<div style={{fontSize:10,color:C.muted,marginTop:2}}>Due {fmtDate(p.due_date)}</div>}
+                  <div style={{color:p.paid?LC.textMuted:LC.text,fontWeight:600,fontSize:13,textDecoration:p.paid?"line-through":"none"}}>{p.label}</div>
+                  {p.due_date&&<div style={{fontSize:10,color:LC.textMuted,marginTop:2}}>Due {fmtDate(p.due_date)}</div>}
                 </div>
-                <div style={{fontSize:14,color:p.paid?C.success:C.gold,fontWeight:700,whiteSpace:"nowrap"}}>{fmt$(p.amount)}</div>
-                <Badge label={p.paid?"Paid":"Pending"}/>
-                {p.qb_synced&&<span style={{fontSize:9,color:C.success,fontWeight:600,whiteSpace:"nowrap"}}>QB ✓</span>}
+                <div style={{fontSize:14,color:p.paid?LC.success:LC.gold,fontWeight:700,whiteSpace:"nowrap"}}>{fmt$(p.amount)}</div>
+                {p.qb_synced&&<span style={{fontSize:9,color:LC.success,fontWeight:700,whiteSpace:"nowrap"}}>QB ✓</span>}
               </div>
             ))}
           </div>
         </>}
       </div>}
 
-      {/* Phase C/D placeholder for Documents and Selections */}
-      {(tab==="documents"||tab==="selections")&&<div style={{background:C.navyLight,border:`1px dashed ${C.border}`,borderRadius:14,padding:50,textAlign:"center"}}>
-        <div style={{fontSize:36,marginBottom:14}}>🚧</div>
-        <div style={{fontFamily:font,color:C.white,fontSize:18,marginBottom:6}}>{V2_NAV.find(n=>n.id===tab)?.label} — coming soon</div>
-        <div style={{color:C.muted,fontSize:13,maxWidth:400,margin:"0 auto"}}>{tab==="documents"?"Contract, permit, change order, and warranty document sharing.":"Pick finishes, colors, and materials for your project."}</div>
+      {(tab==="documents"||tab==="selections")&&<div style={{background:LC.surface,border:`1px dashed ${LC.borderStrong}`,borderRadius:14,padding:50,textAlign:"center"}}>
+        <div style={{fontSize:36,marginBottom:14,opacity:0.5}}>🚧</div>
+        <div style={{color:LC.text,fontSize:18,marginBottom:6,fontWeight:600,letterSpacing:"-0.01em"}}>{V2_NAV.find(n=>n.id===tab)?.label} — coming soon</div>
+        <div style={{color:LC.textMuted,fontSize:13,maxWidth:400,margin:"0 auto"}}>{tab==="documents"?"Contract, permit, change order, and warranty document sharing.":"Pick finishes, colors, and materials for your project."}</div>
       </div>}
     </main>
 
-    {/* LIGHTBOX */}
-    {lightbox&&<div onClick={()=>setLightbox(null)} style={{position:"fixed",inset:0,background:"#000000DD",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:20,cursor:"zoom-out"}}>
+    {lightbox&&<div onClick={()=>setLightbox(null)} style={{position:"fixed",inset:0,background:"#0F172AEE",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:20,cursor:"zoom-out"}}>
       <img src={lightbox} alt="" style={{maxWidth:"100%",maxHeight:"90vh",borderRadius:10,boxShadow:"0 0 80px #000"}}/>
-      <div style={{position:"absolute",bottom:24,left:"50%",transform:"translateX(-50%)",color:C.muted,fontSize:11}}>click to close</div>
+      <div style={{position:"absolute",bottom:24,left:"50%",transform:"translateX(-50%)",color:"#9CA3AF",fontSize:11}}>click to close</div>
     </div>}
 
-    {/* RESPONSIVE */}
     <style>{`
       @media (max-width: 720px) {
         .cpv2-root { flex-direction: column !important; height: auto !important; overflow: visible !important; }
         .cpv2-sidebar { width: 100% !important; min-width: 0 !important; max-width: none !important; height: auto !important; padding: 12px !important; }
-        .cpv2-main { padding: 16px 14px 40px !important; height: auto !important; overflow: visible !important; }
+        .cpv2-main { padding: 18px 16px 40px !important; height: auto !important; overflow: visible !important; }
         .cpv2-overview-grid { grid-template-columns: 1fr !important; }
         .cpv2-rail { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
       }
     `}</style>
   </div>;
 }
-
 
 function DashboardView({jobs,leads,logs,setPage}){
   const active=jobs.filter(j=>j.status==="Active");
