@@ -1009,6 +1009,142 @@ function ClientPortal({jobs,logs,clientMode=false,onSignOut}){
   </div>;
 }
 
+// ── DOCUMENTS COMPONENT (admin-side, used in Jobs project edit modal) ────────
+const DOC_CATEGORIES=[
+  {id:"contracts",label:"Contracts",color:"#3B82F6"},
+  {id:"permits",label:"Permits",color:"#8B5CF6"},
+  {id:"change_orders",label:"Change Orders",color:"#F59E0B"},
+  {id:"selections",label:"Selections",color:"#EC4899"},
+  {id:"warranty",label:"Warranty",color:"#16A34A"},
+  {id:"other",label:"Other",color:"#6B7280"}
+];
+const formatBytes=b=>{if(!b)return "";const u=["B","KB","MB","GB"];let i=0,n=b;while(n>=1024&&i<u.length-1){n/=1024;i++;}return n.toFixed(n<10&&i>0?1:0)+" "+u[i];};
+const fileIcon=t=>{
+  if(!t)return "📄";
+  const tl=t.toLowerCase();
+  if(tl.includes("pdf"))return "📄";
+  if(tl.includes("image")||tl.includes("png")||tl.includes("jpg")||tl.includes("jpeg"))return "🖼️";
+  if(tl.includes("word")||tl.includes("doc"))return "📝";
+  if(tl.includes("excel")||tl.includes("sheet")||tl.includes("xls")||tl.includes("csv"))return "📊";
+  return "📄";
+};
+
+function DocumentsAdmin({jobId,jobName}){
+  const [docs,setDocs]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [uploading,setUploading]=useState(false);
+  const [err,setErr]=useState("");
+  const [category,setCategory]=useState("other");
+  const fileInputRef=useRef(null);
+
+  useEffect(()=>{
+    if(!jobId){setLoading(false);return;}
+    supabase.from("documents").select("*").eq("job_id",jobId).order("created_at",{ascending:false}).then(({data})=>{
+      setDocs(data||[]);
+      setLoading(false);
+    });
+  },[jobId]);
+
+  async function handleFiles(fileList){
+    if(!fileList||fileList.length===0||!jobId)return;
+    setUploading(true);setErr("");
+    const newDocs=[];
+    for(const file of fileList){
+      try{
+        const safeName=file.name.replace(/[^A-Za-z0-9._-]/g,"_");
+        const path=`${jobId}/${Date.now()}-${safeName}`;
+        const {error:upErr}=await supabase.storage.from("client-documents").upload(path,file,{cacheControl:"3600",upsert:false});
+        if(upErr)throw upErr;
+        const {data:pub}=supabase.storage.from("client-documents").getPublicUrl(path);
+        const {data:row,error:insErr}=await supabase.from("documents").insert({
+          job_id:jobId,
+          file_name:file.name,
+          file_url:pub.publicUrl,
+          storage_path:path,
+          category,
+          file_type:file.type||"application/octet-stream",
+          size_bytes:file.size,
+          visible_to_client:true,
+          uploaded_by:"admin"
+        }).select().single();
+        if(insErr)throw insErr;
+        newDocs.push(row);
+      }catch(e){
+        setErr("Upload failed: "+e.message);
+      }
+    }
+    if(newDocs.length>0)setDocs(prev=>[...newDocs,...prev]);
+    setUploading(false);
+    if(fileInputRef.current)fileInputRef.current.value="";
+  }
+
+  async function toggleVisibility(doc){
+    const newVal=!doc.visible_to_client;
+    setDocs(ds=>ds.map(d=>d.id===doc.id?{...d,visible_to_client:newVal}:d));
+    await supabase.from("documents").update({visible_to_client:newVal}).eq("id",doc.id);
+  }
+
+  async function deleteDoc(doc){
+    if(!confirm(`Delete "${doc.file_name}"? This can't be undone.`))return;
+    setDocs(ds=>ds.filter(d=>d.id!==doc.id));
+    if(doc.storage_path)await supabase.storage.from("client-documents").remove([doc.storage_path]);
+    await supabase.from("documents").delete().eq("id",doc.id);
+  }
+
+  if(!jobId)return <div style={{color:LC.textMuted,fontSize:12,padding:"20px 0",textAlign:"center"}}>Save the project first, then upload documents.</div>;
+  if(loading)return <div style={{color:LC.textMuted,fontSize:12,padding:"20px 0",textAlign:"center"}}>Loading documents…</div>;
+
+  // Group by category for display
+  const grouped={};
+  docs.forEach(d=>{const c=d.category||"other";if(!grouped[c])grouped[c]=[];grouped[c].push(d);});
+
+  return <div>
+    {/* Upload zone */}
+    <div style={{background:LC.bg,border:`1px dashed ${LC.borderStrong}`,borderRadius:10,padding:18,marginBottom:18}}>
+      <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+        <div style={{flex:1,minWidth:200}}>
+          <div style={{fontSize:13,color:LC.text,fontWeight:600,marginBottom:3}}>Upload documents</div>
+          <div style={{fontSize:11,color:LC.textMuted}}>Pick a category, then choose files. PDFs, images, Word, Excel, anything.</div>
+        </div>
+        <Sel label="" value={category} onChange={setCategory} options={DOC_CATEGORIES.map(c=>c.id)} display={DOC_CATEGORIES.map(c=>c.label)}/>
+      </div>
+      <div style={{marginTop:12}}>
+        <input ref={fileInputRef} type="file" multiple onChange={e=>handleFiles(e.target.files)} disabled={uploading} style={{display:"none"}} id="doc-upload-input"/>
+        <label htmlFor="doc-upload-input" style={{display:"inline-block",background:LC.gold,color:LC.text,border:"none",padding:"10px 20px",borderRadius:7,fontSize:13,fontWeight:700,cursor:uploading?"wait":"pointer",fontFamily:fb,opacity:uploading?0.6:1}}>
+          {uploading?"Uploading…":"Choose files"}
+        </label>
+        {err&&<span style={{fontSize:11,color:LC.danger,marginLeft:12}}>{err}</span>}
+      </div>
+    </div>
+
+    {/* Documents list grouped by category */}
+    {docs.length===0&&<div style={{textAlign:"center",padding:"24px 0",color:LC.textMuted,fontSize:13}}>No documents yet. Upload contracts, permits, selections PDFs, etc.</div>}
+    {DOC_CATEGORIES.map(cat=>{
+      const items=grouped[cat.id]||[];
+      if(items.length===0)return null;
+      return <div key={cat.id} style={{marginBottom:18}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+          <span style={{display:"inline-block",width:4,height:14,background:cat.color,borderRadius:2}}/>
+          <span style={{fontSize:13,color:LC.text,fontWeight:700}}>{cat.label}</span>
+          <span style={{fontSize:11,color:LC.textMuted}}>{items.length}</span>
+        </div>
+        <div style={{display:"grid",gap:6}}>
+          {items.map(d=>(
+            <div key={d.id} style={{display:"flex",alignItems:"center",gap:11,background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:8,padding:"10px 13px"}}>
+              <span style={{fontSize:18}}>{fileIcon(d.file_type)}</span>
+              <a href={d.file_url} target="_blank" rel="noopener noreferrer" style={{flex:1,minWidth:0,color:LC.text,fontWeight:600,fontSize:13,textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.file_name}</a>
+              <span style={{fontSize:10,color:LC.textMuted,whiteSpace:"nowrap"}}>{formatBytes(d.size_bytes)}</span>
+              <button onClick={()=>toggleVisibility(d)} title={d.visible_to_client?"Visible to client (click to hide)":"Hidden from client (click to show)"} style={{background:"transparent",border:`1px solid ${d.visible_to_client?LC.success:LC.border}`,color:d.visible_to_client?LC.success:LC.textMuted,borderRadius:6,padding:"3px 9px",fontSize:10,cursor:"pointer",fontFamily:fb,fontWeight:600}}>{d.visible_to_client?"✓ Visible":"Hidden"}</button>
+              <button onClick={()=>deleteDoc(d)} title="Delete" style={{background:"transparent",border:"none",color:LC.danger,fontSize:16,cursor:"pointer",padding:"2px 6px"}}>×</button>
+            </div>
+          ))}
+        </div>
+      </div>;
+    })}
+  </div>;
+}
+
+
 // ── INTERNAL DASHBOARD ────────────────────────────────────────────────────────
 // ── CLIENT PORTAL V2 (Phase A — Buildertrend-style redesign) ─────────────────
 // Toggle via ?v=2 URL param. The original ClientPortal above remains the default.
@@ -1033,11 +1169,61 @@ const V2_NAV=[
   {id:"schedule",label:"Schedule",icon:"📅",enabled:true},
   {id:"updates",label:"Updates",icon:"📋",enabled:true},
   {id:"photos",label:"Photos",icon:"📷",enabled:true},
-  {id:"documents",label:"Documents",icon:"📄",enabled:false},
+  {id:"documents",label:"Documents",icon:"📄",enabled:true},
   {id:"selections",label:"Selections",icon:"◉",enabled:false},
   {id:"messages",label:"Messages",icon:"💬",enabled:true},
   {id:"payments",label:"Payments",icon:"💳",enabled:true}
 ];
+
+function DocumentsClient({jobId}){
+  const [docs,setDocs]=useState([]);
+  const [loading,setLoading]=useState(true);
+
+  useEffect(()=>{
+    if(!jobId){setLoading(false);return;}
+    supabase.from("documents").select("*").eq("job_id",jobId).eq("visible_to_client",true).order("created_at",{ascending:false}).then(({data})=>{
+      setDocs(data||[]);
+      setLoading(false);
+    });
+  },[jobId]);
+
+  if(loading)return <div style={{padding:40,textAlign:"center",color:LC.textMuted,fontSize:13}}>Loading documents…</div>;
+  if(docs.length===0)return <div style={{background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:12,padding:48,textAlign:"center",boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+    <div style={{fontSize:36,marginBottom:12,opacity:0.5}}>📄</div>
+    <div style={{color:LC.textMuted,fontSize:13}}>No documents shared yet. Tall Guy Builds will post contracts, permits, and selections here.</div>
+  </div>;
+
+  const grouped={};
+  docs.forEach(d=>{const c=d.category||"other";if(!grouped[c])grouped[c]=[];grouped[c].push(d);});
+
+  return <div>
+    {DOC_CATEGORIES.map(cat=>{
+      const items=grouped[cat.id]||[];
+      if(items.length===0)return null;
+      return <div key={cat.id} style={{marginBottom:22}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+          <span style={{display:"inline-block",width:4,height:18,background:cat.color,borderRadius:2}}/>
+          <span style={{fontFamily:fbHero,fontSize:18,color:LC.text,fontWeight:700,letterSpacing:"-0.01em"}}>{cat.label}</span>
+          <span style={{fontSize:11,color:LC.textMuted,fontWeight:600,marginLeft:4}}>{items.length}</span>
+        </div>
+        <div style={{display:"grid",gap:7}}>
+          {items.map(d=>(
+            <a key={d.id} href={d.file_url} target="_blank" rel="noopener noreferrer" style={{display:"flex",alignItems:"center",gap:13,background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:10,padding:"13px 16px",textDecoration:"none",transition:"all 0.15s",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor=LC.gold;e.currentTarget.style.boxShadow="0 4px 14px rgba(0,0,0,0.08)";}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor=LC.border;e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,0.04)";}}>
+              <span style={{fontSize:22}}>{fileIcon(d.file_type)}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{color:LC.text,fontWeight:600,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.file_name}</div>
+                <div style={{fontSize:11,color:LC.textMuted,marginTop:2}}>{fmtDate((d.created_at||"").slice(0,10))}{d.size_bytes?" · "+formatBytes(d.size_bytes):""}</div>
+              </div>
+              <span style={{fontSize:11,color:LC.gold,fontWeight:700,whiteSpace:"nowrap"}}>Open →</span>
+            </a>
+          ))}
+        </div>
+      </div>;
+    })}
+  </div>;
+}
 
 function ClientPortalV2({jobs,logs,clientMode=false,onSignOut}){
   const [selJob,setSelJob]=useState(null);
@@ -1399,10 +1585,12 @@ function ClientPortalV2({jobs,logs,clientMode=false,onSignOut}){
         </>}
       </div>}
 
-      {(tab==="documents"||tab==="selections")&&<div style={{background:LC.surface,border:`1px dashed ${LC.borderStrong}`,borderRadius:14,padding:50,textAlign:"center"}}>
-        <div style={{fontSize:36,marginBottom:14,opacity:0.5}}>🚧</div>
-        <div style={{color:LC.text,fontSize:18,marginBottom:6,fontWeight:600,letterSpacing:"-0.01em"}}>{V2_NAV.find(n=>n.id===tab)?.label} — coming soon</div>
-        <div style={{color:LC.textMuted,fontSize:13,maxWidth:400,margin:"0 auto"}}>{tab==="documents"?"Contract, permit, change order, and warranty document sharing.":"Pick finishes, colors, and materials for your project."}</div>
+      {tab==="documents"&&<DocumentsClient jobId={selJob.id}/>}
+
+      {tab==="selections"&&<div style={{background:LC.surface,border:`1px dashed ${LC.borderStrong}`,borderRadius:14,padding:50,textAlign:"center"}}>
+        <div style={{fontSize:36,marginBottom:14,opacity:0.5}}>📋</div>
+        <div style={{color:LC.text,fontSize:18,marginBottom:6,fontWeight:600,letterSpacing:"-0.01em"}}>Selections</div>
+        <div style={{color:LC.textMuted,fontSize:13,maxWidth:400,margin:"0 auto"}}>Selection PDFs are shared in the Documents tab under the Selections category.</div>
       </div>}
     </main>
 
@@ -1719,9 +1907,9 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[],logs=[]}){
 
     {showM&&<Modal title={sel?"Edit Project":"New Project"} onClose={()=>setShowM(false)} wide>
       <div style={{display:"flex",gap:6,marginBottom:16,borderBottom:`1px solid ${LC.border}`,paddingBottom:8,flexWrap:"wrap"}}>
-        {["details","milestones","payments","messages"].map(t=>(
+        {["details","milestones","payments","documents","messages"].map(t=>(
           <button key={t} onClick={()=>{
-            if((t==="milestones"||t==="payments"||t==="messages")&&!sel){save(true);}
+            if((t==="milestones"||t==="payments"||t==="messages"||t==="documents")&&!sel){save(true);}
             else if(t==="milestones"){save(true);}
             else{setTab(t);}
           }} style={{padding:"6px 14px",borderRadius:7,border:"none",fontFamily:fb,fontSize:12,cursor:"pointer",textTransform:"capitalize",background:tab===t?LC.gold:"transparent",color:tab===t?LC.text:LC.textMuted,fontWeight:tab===t?700:500,position:"relative"}}>
@@ -1824,6 +2012,7 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[],logs=[]}){
       {tab==="milestones"&&sel&&<Milestones jobId={sel.id} job={{...sel,...form}} onAdd={m=>setMilestonesGlobal&&setMilestonesGlobal(prev=>[...prev,m])} onDelete={id=>setMilestonesGlobal&&setMilestonesGlobal(prev=>prev.filter(m=>m.id!==id))}/>}
       {tab==="milestones"&&!sel&&<div style={{color:C.muted,fontSize:12,padding:"20px 0",textAlign:"center"}}>Save the project first, then add milestones.</div>}
       {tab==="payments"&&<PaymentScheduleEditor schedule={form.payment_schedule||[]} contractValue={+form.value||0} onChange={v=>f("payment_schedule",v)}/>}
+      {tab==="documents"&&<DocumentsAdmin jobId={sel?.id} jobName={sel?.name}/>}
       {tab==="messages"&&sel&&<>
         <div style={{fontSize:11,color:C.muted,marginBottom:12}}>Direct messages with <strong style={{color:C.white}}>{sel.client||"client"}</strong>. Client sees these in their portal under the Messages tab.</div>
         <MessageThread jobId={sel.id} senderType="admin" senderName="Tall Guy Builds"/>
