@@ -335,7 +335,7 @@ function PaymentScheduleEditor({schedule,contractValue,onChange}){
 // ── CLIENT CALENDAR V2 (HYBRID THEME) ─────────────────────────────────────────
 // Buildertrend-inspired month grid for client portal. Light cards on light bg.
 // Multi-day chips, type filter, click-to-expand, today highlight, UTC-safe dates.
-function ClientCalendarV2({events,milestones,loading}){
+function ClientCalendarV2({events,milestones,loading,editable=false,onCreate,onEdit}){
   const [currentMonth,setCurrentMonth]=useState(()=>{
     const d=new Date();
     return new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1));
@@ -439,7 +439,7 @@ function ClientCalendarV2({events,milestones,loading}){
         const ds=dateStr(cell);
         const dayItems=itemsForDate(ds);
         const isToday=ds===todayUTC;
-        return <div key={ds} style={{
+        return <div key={ds} onClick={editable&&onCreate?(e)=>{if(e.target===e.currentTarget||e.target.tagName==="SPAN")onCreate(ds);}:undefined} style={{
           minHeight:104,
           background:isToday?LC.goldLight:LC.surface,
           border:`${isToday?2:1}px solid ${isToday?LC.gold:LC.border}`,
@@ -448,7 +448,8 @@ function ClientCalendarV2({events,milestones,loading}){
           display:"flex",flexDirection:"column",gap:3,
           overflow:"hidden",
           boxSizing:"border-box",
-          boxShadow:"0 1px 2px rgba(0,0,0,0.04)"
+          boxShadow:"0 1px 2px rgba(0,0,0,0.04)",
+          cursor:editable&&onCreate?"pointer":"default"
         }}>
           <div style={{
             fontSize:12,fontWeight:isToday?700:500,
@@ -463,7 +464,7 @@ function ClientCalendarV2({events,milestones,loading}){
             const isStart=item.date===ds;
             const isEnd=item.date_end===ds;
             const isMulti=item.date!==item.date_end;
-            return <div key={item._kind+"-"+item.id+"-"+ds} onClick={()=>setExpandedItem(item)} style={{
+            return <div key={item._kind+"-"+item.id+"-"+ds} onClick={(e)=>{e.stopPropagation();if(editable&&onEdit&&item._kind==="event"){onEdit(item);}else{setExpandedItem(item);}}} style={{
               background:item.color,
               color:"#ffffff",
               fontSize:10,
@@ -2664,106 +2665,9 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
     </>}
 
     {/* ── CALENDAR VIEW ── */}
-    {view==="calendar"&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",width:"100%",boxSizing:"border-box"}}>
-      {/* Month nav */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 22px",borderBottom:`1px solid ${C.border}`,background:C.navy}}>
-        <button onClick={prevMonth} style={{background:"none",border:"none",color:C.gold,fontSize:22,cursor:"pointer",lineHeight:1,padding:"0 10px"}}>‹</button>
-        <div style={{fontFamily:fb,fontWeight:800,color:C.white,fontSize:18,letterSpacing:"0.02em"}}>{MONTHS[calMonth]} {calYear}</div>
-        <button onClick={nextMonth} style={{background:"none",border:"none",color:C.gold,fontSize:22,cursor:"pointer",lineHeight:1,padding:"0 10px"}}>›</button>
-      </div>
-      {/* Day-of-week headers */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,minmax(0,1fr))",borderBottom:`1px solid ${C.border}`,background:C.navy,width:"100%"}}>
-        {DAYS.map((d,i)=><div key={d} style={{textAlign:"center",padding:"10px 0",fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:i===0||i===6?"#4B5563":C.muted,overflow:"hidden"}}>{d}</div>)}
-      </div>
-      {/* Cells — full-height rows */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,minmax(0,1fr))",width:"100%"}}>
-        {calDays().map((d,i)=>{
-          const ds=calStr(d);
-          const dayEvents=events.filter(e=>{
-            if(!d||!ds)return false;
-            if(filterJob&&e.job_id!==filterJob)return false;
-            if(e.date_end&&e.date_end>e.date)return ds>=e.date&&ds<=e.date_end;
-            return e.date===ds;
-          });
-          const dayMilestones=milestones.filter(m=>m.date===ds&&(!filterJob||m.job_id===filterJob));
-          const isToday=ds===today;
-          const isDragOver=dragOver===ds&&ds!=="";
-          const isWeekend=i%7===0||i%7===6;
-          return <div
-            key={i}
-            onDragOver={d?e=>onDragOver(e,ds):undefined}
-            onDragLeave={onDragLeave}
-            onDrop={d?e=>onDrop(e,ds):undefined}
-            onClick={()=>d&&!dragJustHappened.current&&openNew(ds)}
-            style={{
-              minHeight:120,
-              padding:"8px 8px 6px",
-              borderRight:i%7!==6?`1px solid ${C.border}`:"none",
-              borderBottom:`1px solid ${C.border}`,
-              background:isDragOver?C.gold+"18":isToday?C.gold+"0D":isWeekend?"#1a2535":"transparent",
-              cursor:d?"pointer":"default",
-              opacity:d?1:0.3,
-              transition:"background 0.1s",
-              verticalAlign:"top",
-              boxSizing:"border-box",
-              overflow:"hidden",
-            }}>
-            {d&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
-              <div style={{
-                width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",
-                borderRadius:"50%",fontSize:13,fontWeight:isToday?800:400,
-                background:isToday?C.gold:"transparent",
-                color:isToday?C.navy:C.muted,
-              }}>{d}</div>
-              {(dayEvents.length+dayMilestones.length)>3&&<span style={{fontSize:9,color:C.muted}}>+{dayEvents.length+dayMilestones.length-3}</span>}
-            </div>}
-            {/* Event chips */}
-            {dayEvents.slice(0,3).map(ev=>{
-              const tc=evColor(ev);
-              const isDragging=dragId===ev.id;
-              const isMultiDay=ev.date_end&&ev.date_end>ev.date;
-              const isStart=ev.date===ds;
-              const isEnd=ev.date_end===ds;
-              const chipStyle=isMultiDay?{
-                background:tc,borderRadius:isStart?"4px 0 0 4px":isEnd?"0 4px 4px 0":"0",
-                marginLeft:isStart?0:-1,marginRight:isEnd?0:-1,
-                borderLeft:isStart?`3px solid ${tc+"BB"}`:"none",
-              }:{background:tc,borderRadius:4};
-              return <div
-                key={"e"+ev.id}
-                draggable={!isMultiDay}
-                onDragStart={!isMultiDay?e=>onDragStart(e,ev.id):undefined}
-                onDragEnd={onDragEnd}
-                onClick={e=>{e.stopPropagation();openEdit(ev);}}
-                style={{
-                  ...chipStyle,
-                  padding:"3px 7px",
-                  marginBottom:3,
-                  fontSize:11,
-                  fontWeight:600,
-                  color:"#fff",
-                  overflow:"hidden",
-                  whiteSpace:"nowrap",
-                  textOverflow:"ellipsis",
-                  cursor:isMultiDay?"pointer":"grab",
-                  opacity:isDragging?0.4:1,
-                  transition:"opacity 0.15s",
-                  userSelect:"none",
-                }}
-                title={ev.title+(isMultiDay?` (${fmtDate(ev.date)} – ${fmtDate(ev.date_end)})`:"")}>
-                {(ev.time&&isStart?ev.time.slice(0,5)+" ":"")+ev.title}
-              </div>;
-            })}
-            {/* Milestone chips */}
-            {dayMilestones.slice(0,3-Math.min(dayEvents.length,3)).map(m=>(
-              <div key={"m"+m.id} onClick={e=>e.stopPropagation()} style={{background:EC.milestone,borderRadius:4,padding:"3px 7px",marginBottom:3,fontSize:11,fontWeight:600,color:"#fff",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",cursor:"default",userSelect:"none"}} title={m.name}>🏁 {m.name}</div>
-            ))}
-          </div>;
-        })}
-      </div>
+    {view==="calendar"&&<div style={{background:LC.bg,border:`1px solid ${LC.border}`,borderRadius:14,padding:18,boxSizing:"border-box"}}>
+      <ClientCalendarV2 events={filtered} milestones={mFiltered} loading={false} editable onCreate={openNew} onEdit={openEdit}/>
     </div>}
-
-    {/* ── ADD / EDIT MODAL ── */}
     {showM&&<Modal title={sel?"Edit Event":"Add Event"} onClose={()=>setShowM(false)}>
       <Inp label="Event Title" value={form.title||""} onChange={v=>f("title",v)}/>
       <Sel label="Project (optional)" value={form.job_id||""} onChange={v=>f("job_id",v)} options={["",...jobs.map(j=>j.id)]} display={["(No project)",...jobs.map(j=>j.name)]}/>
