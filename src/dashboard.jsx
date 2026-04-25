@@ -313,6 +313,213 @@ function PaymentScheduleEditor({schedule,contractValue,onChange}){
   </div>;
 }
 
+// ── CLIENT CALENDAR V2 ─────────────────────────────────────────────────────────
+// Buildertrend-inspired month grid for the client portal (used by ClientPortalV2 Schedule tab).
+// Features: full event titles in cells, multi-day visual chips, color-coded by type,
+// click-to-expand details modal, type filter chips, Today highlight, prev/next/today nav.
+// All date math uses UTC to avoid DST shift bugs (per the app's known quirks).
+function ClientCalendarV2({events,milestones,loading}){
+  const [currentMonth,setCurrentMonth]=useState(()=>{
+    const d=new Date();
+    return new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1));
+  });
+  const [hiddenTypes,setHiddenTypes]=useState(new Set());
+  const [expandedItem,setExpandedItem]=useState(null);
+
+  const allItems=[
+    ...(events||[]).map(e=>({
+      id:e.id,
+      title:e.title,
+      type:e.type||"other",
+      date:e.date,
+      date_end:e.date_end||e.date,
+      time:e.time,
+      color:e.color||EC[e.type]||EC.other,
+      _kind:"event"
+    })),
+    ...(milestones||[]).filter(m=>m.date).map(m=>({
+      id:m.id,
+      title:m.name,
+      type:"milestone",
+      date:m.date,
+      date_end:m.date,
+      status:m.status,
+      color:EC.milestone,
+      _kind:"milestone"
+    }))
+  ];
+
+  const visibleItems=allItems.filter(i=>!hiddenTypes.has(i.type));
+  const allTypes=[...new Set(allItems.map(i=>i.type))];
+
+  const year=currentMonth.getUTCFullYear();
+  const month=currentMonth.getUTCMonth();
+  const firstDay=new Date(Date.UTC(year,month,1));
+  const lastDay=new Date(Date.UTC(year,month+1,0));
+  const startWeekday=firstDay.getUTCDay();
+  const daysInMonth=lastDay.getUTCDate();
+
+  const cells=[];
+  for(let i=0;i<startWeekday;i++)cells.push(null);
+  for(let d=1;d<=daysInMonth;d++)cells.push(new Date(Date.UTC(year,month,d)));
+  while(cells.length<42)cells.push(null);
+
+  const monthName=firstDay.toLocaleDateString("en-CA",{month:"long",year:"numeric",timeZone:"UTC"});
+  const todayUTC=new Date().toISOString().slice(0,10);
+  const dateStr=d=>d?d.toISOString().slice(0,10):null;
+  const itemsForDate=ds=>visibleItems.filter(i=>i.date<=ds&&ds<=i.date_end);
+
+  function navMonth(delta){
+    setCurrentMonth(new Date(Date.UTC(year,month+delta,1)));
+  }
+  function goToday(){
+    const d=new Date();
+    setCurrentMonth(new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1)));
+  }
+  function toggleType(t){
+    const s=new Set(hiddenTypes);
+    if(s.has(t))s.delete(t);else s.add(t);
+    setHiddenTypes(s);
+  }
+
+  const navBtn={background:"transparent",border:`1px solid ${C.border}`,color:C.muted,borderRadius:6,width:32,height:32,fontSize:16,cursor:"pointer",fontFamily:fb,display:"flex",alignItems:"center",justifyContent:"center"};
+
+  if(loading)return <div style={{padding:40,textAlign:"center",color:C.muted,fontSize:13}}>Loading schedule…</div>;
+  if(allItems.length===0)return <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:40,textAlign:"center"}}>
+    <div style={{fontSize:32,marginBottom:10}}>📅</div>
+    <div style={{color:C.muted,fontSize:13}}>No scheduled events or milestones yet.</div>
+  </div>;
+
+  return <div>
+    {/* HEADER: month nav + filter chips */}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14,flexWrap:"wrap",gap:12}}>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <button onClick={()=>navMonth(-1)} style={navBtn} aria-label="Previous month">‹</button>
+        <button onClick={goToday} style={{...navBtn,width:"auto",padding:"0 14px",fontSize:11,fontWeight:600}}>Today</button>
+        <button onClick={()=>navMonth(1)} style={navBtn} aria-label="Next month">›</button>
+        <h2 style={{fontFamily:font,color:C.white,fontSize:20,margin:"0 0 0 8px",fontWeight:400}}>{monthName}</h2>
+      </div>
+      <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+        {allTypes.map(t=>{
+          const c=t==="milestone"?EC.milestone:EC[t]||"#6B7280";
+          const isVisible=!hiddenTypes.has(t);
+          const label=t==="milestone"?"Milestone":(ET_LABELS[t]||t);
+          return <button key={t} onClick={()=>toggleType(t)} style={{
+            display:"flex",alignItems:"center",gap:6,padding:"5px 11px",borderRadius:99,
+            background:isVisible?c+"22":"transparent",
+            border:`1px solid ${isVisible?c:C.border}`,
+            color:isVisible?C.white:C.muted,
+            fontSize:11,fontFamily:fb,cursor:"pointer",fontWeight:isVisible?600:400,
+            opacity:isVisible?1:0.5,transition:"all 0.1s"
+          }}>
+            <span style={{width:8,height:8,borderRadius:99,background:c}}/>
+            {label}
+          </button>;
+        })}
+      </div>
+    </div>
+
+    {/* WEEKDAYS */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:4}}>
+      {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=>(
+        <div key={d} style={{textAlign:"center",fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:0.8,padding:"6px 0",fontWeight:600}}>{d}</div>
+      ))}
+    </div>
+
+    {/* MONTH GRID */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
+      {cells.map((cell,i)=>{
+        if(!cell)return <div key={"e"+i} style={{minHeight:96,background:"transparent"}}/>;
+        const ds=dateStr(cell);
+        const dayItems=itemsForDate(ds);
+        const isToday=ds===todayUTC;
+        return <div key={ds} style={{
+          minHeight:96,
+          background:isToday?C.gold+"11":C.navyLight,
+          border:`${isToday?2:1}px solid ${isToday?C.gold:C.border}`,
+          borderRadius:6,
+          padding:5,
+          display:"flex",flexDirection:"column",gap:2,
+          overflow:"hidden",
+          boxSizing:"border-box"
+        }}>
+          <div style={{
+            fontSize:11,fontWeight:isToday?700:500,
+            color:isToday?C.gold:C.white,
+            display:"flex",justifyContent:"space-between",alignItems:"center"
+          }}>
+            <span>{cell.getUTCDate()}</span>
+            {dayItems.length>3&&<span style={{fontSize:9,color:C.muted,fontWeight:400}}>+{dayItems.length-3}</span>}
+          </div>
+          {dayItems.slice(0,3).map(item=>{
+            const isStart=item.date===ds;
+            const isEnd=item.date_end===ds;
+            const isMulti=item.date!==item.date_end;
+            return <div key={item._kind+"-"+item.id+"-"+ds} onClick={()=>setExpandedItem(item)} style={{
+              background:item.color,
+              color:"#ffffff",
+              fontSize:10,
+              padding:"2px 6px",
+              borderRadius:isMulti?(isStart&&isEnd?4:isStart?"4px 0 0 4px":isEnd?"0 4px 4px 0":0):4,
+              marginLeft:isMulti&&!isStart?-5:0,
+              marginRight:isMulti&&!isEnd?-5:0,
+              cursor:"pointer",
+              whiteSpace:"nowrap",
+              overflow:"hidden",
+              textOverflow:"ellipsis",
+              fontWeight:500,
+              lineHeight:1.4
+            }} title={item.title}>{isStart||!isMulti?item.title:" "}</div>;
+          })}
+        </div>;
+      })}
+    </div>
+
+    {/* EXPANDED EVENT MODAL */}
+    {expandedItem&&<div onClick={()=>setExpandedItem(null)} style={{
+      position:"fixed",inset:0,background:"#000000DD",zIndex:3500,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:20,cursor:"pointer"
+    }}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        background:C.navyLight,border:`2px solid ${expandedItem.color}`,borderRadius:14,
+        padding:24,maxWidth:440,width:"100%",cursor:"default",boxSizing:"border-box"
+      }}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+          <span style={{width:10,height:10,borderRadius:99,background:expandedItem.color,flexShrink:0}}/>
+          <span style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:0.8,fontWeight:600}}>
+            {expandedItem.type==="milestone"?"Milestone":(ET_LABELS[expandedItem.type]||expandedItem.type)}
+          </span>
+        </div>
+        <h3 style={{fontFamily:font,color:C.white,fontSize:20,margin:"0 0 14px",fontWeight:400}}>{expandedItem.title}</h3>
+        <div style={{fontSize:13,color:C.muted,marginBottom:6,display:"flex",alignItems:"center",gap:8}}>
+          <span>📅</span>
+          <span>{fmtDate(expandedItem.date)}{expandedItem.date_end&&expandedItem.date_end!==expandedItem.date?` → ${fmtDate(expandedItem.date_end)}`:""}</span>
+        </div>
+        {expandedItem.time&&<div style={{fontSize:13,color:C.muted,marginBottom:6,display:"flex",alignItems:"center",gap:8}}>
+          <span>⏱</span>
+          <span>{expandedItem.time}</span>
+        </div>}
+        {expandedItem.status&&<div style={{fontSize:13,color:C.muted,marginBottom:6,display:"flex",alignItems:"center",gap:8}}>
+          <span>◆</span>
+          <span>Status: <strong style={{color:C.white}}>{expandedItem.status}</strong></span>
+        </div>}
+        <button onClick={()=>setExpandedItem(null)} style={{
+          marginTop:18,background:C.gold,color:C.navy,border:"none",padding:"9px 16px",
+          borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:fb,width:"100%"
+        }}>Close</button>
+      </div>
+    </div>}
+
+    {/* MOBILE: tighter cells */}
+    <style>{`
+      @media (max-width: 720px) {
+        .cpv2-cal-cell { min-height: 60px !important; padding: 3px !important; }
+        .cpv2-cal-chip { font-size: 9px !important; padding: 1px 3px !important; }
+      }
+    `}</style>
+  </div>;
+}
+
 // ── CLIENT CALENDAR (read-only calendar view for portal) ─────────────────────
 function ClientCalendar({events,milestones,loading}){
   const [calDate,setCalDate]=useState(()=>new Date(Date.UTC(new Date().getFullYear(),new Date().getMonth(),1)));
@@ -784,13 +991,13 @@ const stagesFor=t=>STAGES_BY_TYPE[t]||DEFAULT_STAGES;
 
 const V2_NAV=[
   {id:"overview",label:"Overview",icon:"⌂",enabled:true},
-  {id:"schedule",label:"Schedule",icon:"📅",enabled:false},
-  {id:"updates",label:"Updates",icon:"📋",enabled:false},
-  {id:"photos",label:"Photos",icon:"📷",enabled:false},
+  {id:"schedule",label:"Schedule",icon:"📅",enabled:true},
+  {id:"updates",label:"Updates",icon:"📋",enabled:true},
+  {id:"photos",label:"Photos",icon:"📷",enabled:true},
   {id:"documents",label:"Documents",icon:"📄",enabled:false},
   {id:"selections",label:"Selections",icon:"◉",enabled:false},
-  {id:"messages",label:"Messages",icon:"💬",enabled:false},
-  {id:"payments",label:"Payments",icon:"💳",enabled:false}
+  {id:"messages",label:"Messages",icon:"💬",enabled:true},
+  {id:"payments",label:"Payments",icon:"💳",enabled:true}
 ];
 
 function ClientPortalV2({jobs,logs,clientMode=false,onSignOut}){
@@ -1039,11 +1246,122 @@ function ClientPortalV2({jobs,logs,clientMode=false,onSignOut}){
       </div>}
 
       {/* PHASE A PLACEHOLDER */}
-      {tab==="schedule"&&<ClientCalendar events={events} milestones={milestones} loading={false}/>}
-      {tab!=="overview"&&tab!=="schedule"&&<div style={{background:C.navyLight,border:`1px dashed ${C.border}`,borderRadius:14,padding:50,textAlign:"center"}}>
-        <div style={{fontSize:36,marginBottom:14}}>🔧</div>
-        <div style={{fontFamily:font,color:C.white,fontSize:18,marginBottom:6}}>{V2_NAV.find(n=>n.id===tab)?.label} — coming in Phase B</div>
-        <div style={{color:C.muted,fontSize:13,maxWidth:400,margin:"0 auto"}}>This tab is being rebuilt. Until Phase B ships, drop the <code style={{color:C.gold,background:C.navy,padding:"1px 6px",borderRadius:4,fontSize:11}}>?v=2</code> from the URL to use the original portal.</div>
+      {tab==="schedule"&&<ClientCalendarV2 events={events} milestones={milestones} loading={false}/>}
+
+      {tab==="updates"&&<div>
+        {jobLogs.length===0&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:32,textAlign:"center"}}>
+          <div style={{fontSize:28,marginBottom:8}}>🏗️</div>
+          <div style={{color:C.muted,fontSize:13}}>No site updates yet. Check back soon!</div>
+        </div>}
+        <div style={{display:"grid",gap:14}}>
+          {jobLogs.map(log=>(
+            <div key={log.id} style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
+              <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,background:C.navy+"66",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                <div style={{fontFamily:font,color:C.white,fontSize:14,fontWeight:600}}>{fmtDate(log.date)}</div>
+                <div style={{display:"flex",gap:14,fontSize:11,color:C.muted}}>
+                  <span>{log.weather}</span>
+                  <span>👷 {log.crew}</span>
+                  <span>⏱ {log.hours}h</span>
+                </div>
+              </div>
+              <div style={{padding:"12px 16px"}}>
+                <p style={{color:C.muted,fontSize:13,lineHeight:1.7,margin:0,whiteSpace:"pre-wrap"}}>{log.notes}</p>
+              </div>
+              {log.photos&&log.photos.length>0&&(
+                <div style={{padding:"0 16px 16px"}}>
+                  <div style={{fontSize:10,color:C.muted,marginBottom:7,textTransform:"uppercase",letterSpacing:0.7}}>Photos ({log.photos.length})</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(96px,1fr))",gap:6}}>
+                    {log.photos.map((photo,pi)=>(
+                      <div key={pi} onClick={()=>setLightbox(photo.url||photo)} style={{cursor:"zoom-in",borderRadius:6,overflow:"hidden",aspectRatio:"1",background:C.border}}>
+                        <img src={photo.url||photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>}
+
+      {tab==="photos"&&<div>
+        {allPhotos.length===0&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:32,textAlign:"center"}}>
+          <div style={{fontSize:28,marginBottom:8}}>📷</div>
+          <div style={{color:C.muted,fontSize:13}}>No photos yet. Check back as work progresses.</div>
+        </div>}
+        {Object.entries(jobLogs.reduce((acc,log)=>{
+          const ps=(log.photos||[]);
+          if(ps.length===0)return acc;
+          acc[log.date]={notes:log.notes,photos:ps.map(ph=>ph.url||ph)};
+          return acc;
+        },{})).sort((a,b)=>b[0].localeCompare(a[0])).map(([date,{notes,photos}])=>(
+          <div key={date} style={{marginBottom:22}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+              <div style={{width:8,height:8,borderRadius:99,background:C.gold,flexShrink:0}}/>
+              <div style={{fontSize:13,color:C.gold,fontWeight:600}}>{fmtDate(date)}</div>
+              <div style={{flex:1,height:1,background:C.border}}/>
+            </div>
+            {notes&&<p style={{color:C.muted,fontSize:12,lineHeight:1.6,margin:"0 0 10px 18px"}}>{notes.slice(0,200)}{notes.length>200?"…":""}</p>}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:7,marginLeft:18}}>
+              {photos.map((url,i)=>(
+                <div key={i} onClick={()=>setLightbox(url)} style={{aspectRatio:"1",borderRadius:8,overflow:"hidden",cursor:"zoom-in"}}>
+                  <img src={url} alt="" style={{width:"100%",height:"100%",objectFit:"cover",transition:"transform 0.2s"}}
+                    onMouseEnter={e=>e.target.style.transform="scale(1.05)"}
+                    onMouseLeave={e=>e.target.style.transform="scale(1)"}/>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>}
+
+      {tab==="messages"&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:18}}>
+        <div style={{fontSize:13,color:C.white,fontWeight:600,marginBottom:4}}>Project messages</div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:14}}>Send a message to Tall Guy Builds — we&apos;ll reply right here.</div>
+        <MessageThread jobId={selJob?.id} senderType="client" senderName={selJob?.client||"Client"}/>
+      </div>}
+
+      {tab==="payments"&&<div>
+        {(!ps||ps.length===0)&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:32,textAlign:"center"}}>
+          <div style={{fontSize:28,marginBottom:8}}>💳</div>
+          <div style={{color:C.muted,fontSize:13}}>No payment schedule has been set up for this project yet.</div>
+        </div>}
+        {ps.length>0&&<>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10,marginBottom:18}}>
+            {[
+              {label:"Contract Total",value:fmt$(totalContract),color:C.white},
+              {label:"Paid",value:fmt$(displayPaid),color:C.success},
+              {label:"Outstanding",value:fmt$(remaining),color:remaining===0?C.success:C.warn}
+            ].map(s=><div key={s.label} style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 14px"}}>
+              <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{s.label}</div>
+              <div style={{fontSize:18,color:s.color,fontWeight:700}}>{s.value}</div>
+            </div>)}
+          </div>
+          <div style={{background:C.border,borderRadius:99,height:8,marginBottom:18,overflow:"hidden"}}>
+            <div style={{background:C.success,borderRadius:99,height:"100%",width:`${totalContract>0?Math.round((displayPaid/totalContract)*100):0}%`,transition:"width 1s"}}/>
+          </div>
+          <div style={{display:"grid",gap:7}}>
+            {ps.map(p=>(
+              <div key={p.id} style={{display:"flex",alignItems:"center",gap:11,background:p.paid?"#14532d22":C.navyLight,border:`1px solid ${p.paid?"#4ade8033":C.border}`,borderRadius:10,padding:"11px 14px"}}>
+                <span style={{fontSize:16}}>{p.paid?"✓":"○"}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{color:p.paid?C.muted:C.white,fontWeight:600,fontSize:13,textDecoration:p.paid?"line-through":"none"}}>{p.label}</div>
+                  {p.due_date&&<div style={{fontSize:10,color:C.muted,marginTop:2}}>Due {fmtDate(p.due_date)}</div>}
+                </div>
+                <div style={{fontSize:14,color:p.paid?C.success:C.gold,fontWeight:700,whiteSpace:"nowrap"}}>{fmt$(p.amount)}</div>
+                <Badge label={p.paid?"Paid":"Pending"}/>
+                {p.qb_synced&&<span style={{fontSize:9,color:C.success,fontWeight:600,whiteSpace:"nowrap"}}>QB ✓</span>}
+              </div>
+            ))}
+          </div>
+        </>}
+      </div>}
+
+      {/* Phase C/D placeholder for Documents and Selections */}
+      {(tab==="documents"||tab==="selections")&&<div style={{background:C.navyLight,border:`1px dashed ${C.border}`,borderRadius:14,padding:50,textAlign:"center"}}>
+        <div style={{fontSize:36,marginBottom:14}}>🚧</div>
+        <div style={{fontFamily:font,color:C.white,fontSize:18,marginBottom:6}}>{V2_NAV.find(n=>n.id===tab)?.label} — coming soon</div>
+        <div style={{color:C.muted,fontSize:13,maxWidth:400,margin:"0 auto"}}>{tab==="documents"?"Contract, permit, change order, and warranty document sharing.":"Pick finishes, colors, and materials for your project."}</div>
       </div>}
     </main>
 
