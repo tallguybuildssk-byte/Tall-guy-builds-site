@@ -79,9 +79,23 @@ async function sendMilestoneEmail(job, milestoneName){
 
 // ── UI PRIMITIVES ─────────────────────────────────────────────────────────────
 function Badge({label}){
-  const m={Active:{bg:"#14532d22",t:"#4ade80"},Upcoming:{bg:"#1e3a5f22",t:"#60A5FA"},Completed:{bg:"#1c1c1c",t:C.muted},"On Hold":{bg:"#7c2d1222",t:"#FB923C"},Won:{bg:"#14532d22",t:"#4ade80"},Lost:{bg:"#7f1d1d22",t:"#F87171"},New:{bg:"#1e3a5f22",t:"#60A5FA"},Quoted:{bg:"#78350f22",t:C.gold},"Follow-up":{bg:"#581c8722",t:"#C084FC"},"In Progress":{bg:"#78350f22",t:C.gold},"Not Started":{bg:"#1c1c1c",t:C.muted}};
-  const c=m[label]||{bg:"#1c1c1c",t:C.muted};
-  return <span style={{background:c.bg,color:c.t,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:600,whiteSpace:"nowrap"}}>{label}</span>;
+  const m={
+    Active:{bg:"#DCFCE7",t:"#15803D"},
+    Upcoming:{bg:"#DBEAFE",t:"#1D4ED8"},
+    Completed:{bg:"#F1F5F9",t:"#475569"},
+    "On Hold":{bg:"#FED7AA",t:"#C2410C"},
+    Won:{bg:"#DCFCE7",t:"#15803D"},
+    Lost:{bg:"#FEE2E2",t:"#B91C1C"},
+    New:{bg:"#DBEAFE",t:"#1D4ED8"},
+    Quoted:{bg:"#FEF3C7",t:"#A16207"},
+    "Follow-up":{bg:"#EDE9FE",t:"#6D28D9"},
+    "In Progress":{bg:"#FEF3C7",t:"#A16207"},
+    "Not Started":{bg:"#F1F5F9",t:"#475569"},
+    Paid:{bg:"#DCFCE7",t:"#15803D"},
+    Pending:{bg:"#FEF3C7",t:"#A16207"}
+  };
+  const c=m[label]||{bg:"#F1F5F9",t:"#475569"};
+  return <span style={{background:c.bg,color:c.t,padding:"3px 11px",borderRadius:20,fontSize:11,fontWeight:700,whiteSpace:"nowrap",letterSpacing:"0.01em"}}>{label}</span>;
 }
 function Card({children,style={},onClick}){
   const [h,setH]=useState(false);
@@ -2684,18 +2698,18 @@ function Leads({leads,setLeads}){
     {LEAD_STAGES.map(stage=>{
       const group=leads.filter(l=>l.stage===stage);if(group.length===0)return null;
       return <div key={stage} style={{marginBottom:20}}>
-        <div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>{stage} ({group.length})</div>
+        <div style={{fontSize:11,color:LC.textMuted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8,fontWeight:700}}>{stage} ({group.length})</div>
         <div style={{display:"grid",gap:8}}>{group.map(l=>(
           <Card key={l.id} onClick={()=>openEdit(l)} style={{padding:13}}>
             <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:7}}>
-              <div><div style={{fontWeight:700,color:C.white,fontSize:13}}>{l.name}</div><div style={{color:C.muted,fontSize:11,marginTop:2}}>{l.type} · {fmtDate(l.date)}</div>{l.notes&&<div style={{fontSize:11,color:C.muted,marginTop:3}}>📝 {l.notes}</div>}</div>
-              <div style={{textAlign:"right"}}><div style={{color:C.gold,fontWeight:700,fontSize:14}}>{fmt$(l.value)}</div><Badge label={l.stage}/></div>
+              <div><div style={{fontWeight:700,color:LC.text,fontSize:14}}>{l.name}</div><div style={{color:LC.textMuted,fontSize:11,marginTop:2}}>{l.type} · {fmtDate(l.date)}</div>{l.notes&&<div style={{fontSize:11,color:LC.textBody,marginTop:5,lineHeight:1.5}}>📝 {l.notes}</div>}</div>
+              <div style={{textAlign:"right"}}><div style={{color:LC.text,fontWeight:800,fontSize:15,fontFamily:fbHero,letterSpacing:"-0.01em",marginBottom:4}}>{fmt$(l.value)}</div><Badge label={l.stage}/></div>
             </div>
           </Card>
         ))}</div>
       </div>;
     })}
-    {leads.length===0&&<div style={{color:C.muted,textAlign:"center",padding:"40px 0",fontSize:13}}>No leads yet.</div>}
+    {leads.length===0&&<div style={{color:LC.textMuted,textAlign:"center",padding:"40px 0",fontSize:13}}>No leads yet.</div>}
     {showM&&<Modal title={sel?"Edit Lead":"Add Lead"} onClose={()=>setShowM(false)}>
       <Inp label="Name" value={form.name||""} onChange={v=>f("name",v)}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
@@ -2948,14 +2962,14 @@ function Subs({subs,setSubs}){
     <div style={{display:"grid",gap:10,marginBottom:20}}>{active.map(s=>(
       <Card key={s.id} onClick={()=>openEdit(s)}>
         <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
-          <div><div style={{fontWeight:700,color:C.white,fontSize:14}}>{s.name}</div><div style={{fontSize:12,color:C.gold,marginTop:2}}>{s.trade}</div><div style={{fontSize:11,color:C.muted,marginTop:2}}>{s.phone} · {s.email}</div>{s.notes&&<div style={{fontSize:11,color:C.muted,marginTop:4}}>📝 {s.notes}</div>}</div>
+          <div><div style={{fontWeight:700,color:LC.text,fontSize:14,fontWeight:600}}>{s.name}</div><div style={{fontSize:12,color:C.gold,marginTop:2}}>{s.trade}</div><div style={{fontSize:11,color:C.muted,marginTop:2}}>{s.phone} · {s.email}</div>{s.notes&&<div style={{fontSize:11,color:C.muted,marginTop:4}}>📝 {s.notes}</div>}</div>
           <div style={{color:C.gold}}>{"★".repeat(s.rating||0)}{"☆".repeat(5-(s.rating||0))}</div>
         </div>
       </Card>
     ))}</div>
     {inactive.length>0&&<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",marginBottom:8}}>Inactive</div>
     <div style={{display:"grid",gap:8,opacity:0.5}}>{inactive.map(s=>(
-      <Card key={s.id} onClick={()=>openEdit(s)} style={{padding:12}}><div style={{fontWeight:600,color:C.muted,fontSize:13}}>{s.name} <span style={{fontWeight:400,fontSize:11}}>· {s.trade}</span></div></Card>
+      <Card key={s.id} onClick={()=>openEdit(s)} style={{padding:12}}><div style={{fontWeight:600,color:LC.textMuted,fontSize:13}}>{s.name} <span style={{fontWeight:400,fontSize:11}}>· {s.trade}</span></div></Card>
     ))}</div></>}
     {showM&&<Modal title={sel?"Edit Sub":"Add Sub"} onClose={()=>setShowM(false)}>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
@@ -2968,7 +2982,7 @@ function Subs({subs,setSubs}){
       </div>
       <Sel label="Rating" value={String(form.rating||5)} onChange={v=>f("rating",+v)} options={["5","4","3","2","1"]} display={["★★★★★","★★★★☆","★★★☆☆","★★☆☆☆","★☆☆☆☆"]}/>
       <Txtarea label="Notes" value={form.notes||""} onChange={v=>f("notes",v)} rows={2}/>
-      <div style={{marginBottom:14,padding:"10px 14px",background:C.navy,borderRadius:8,border:`1px solid ${C.border}`}}>
+      <div style={{marginBottom:14,padding:"10px 14px",background:LC.surface,borderRadius:8,border:`1px solid ${LC.border}`}}>
         <Toggle checked={form.active!==false} onChange={v=>f("active",v)} label="Active subtrade"/>
       </div>
       <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:10}}>
@@ -3026,7 +3040,7 @@ function DailyLog({logs,setLogs,jobs}){
       <h1 style={{fontFamily:fbHero,color:LC.text,fontSize:30,margin:0,fontWeight:800,letterSpacing:"-0.025em"}}>Daily Log</h1><Btn onClick={openNew}>+ New Entry</Btn>
     </div>
     <div style={{marginBottom:14}}>
-      <select value={filterJob} onChange={e=>setFilterJob(e.target.value)} style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:7,padding:"6px 12px",color:C.white,fontSize:12,fontFamily:fb,outline:"none"}}>
+      <select value={filterJob} onChange={e=>setFilterJob(e.target.value)} style={{background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:7,padding:"6px 12px",color:C.white,fontSize:12,fontFamily:fb,outline:"none"}}>
         <option value="all">All Projects</option>
         {jobs.map(j=><option key={j.id} value={j.id}>{j.name}</option>)}
       </select>
@@ -3037,16 +3051,16 @@ function DailyLog({logs,setLogs,jobs}){
         const job=jobs.find(j=>j.id===log.job_id);
         return <Card key={log.id} style={{padding:0,overflow:"hidden"}}>
           <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-            <div><div style={{fontWeight:700,color:C.white,fontSize:14}}>{job?.name||"General"}</div><div style={{fontSize:11,color:C.muted,marginTop:2}}>{fmtDate(log.date)}</div></div>
+            <div><div style={{fontWeight:700,color:LC.text,fontSize:14,fontWeight:600}}>{job?.name||"General"}</div><div style={{fontSize:11,color:C.muted,marginTop:2}}>{fmtDate(log.date)}</div></div>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               {log.visible_to_client&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:10,background:"#14532d22",color:"#4ade80"}}>✓ Client visible</span>}
               <Btn size="sm" variant="ghost" onClick={()=>openEdit(log)}>Edit</Btn>
             </div>
           </div>
           <div style={{padding:"10px 16px",display:"flex",gap:22,flexWrap:"wrap",borderBottom:`1px solid ${C.border}`}}>
-            <div><div style={{fontSize:10,color:C.muted}}>Weather</div><div style={{fontSize:12,color:C.white,fontWeight:600}}>{log.weather}</div></div>
-            <div><div style={{fontSize:10,color:C.muted}}>Crew</div><div style={{fontSize:12,color:C.white,fontWeight:600}}>{log.crew} workers</div></div>
-            <div><div style={{fontSize:10,color:C.muted}}>Hours</div><div style={{fontSize:12,color:C.white,fontWeight:600}}>{log.hours}h</div></div>
+            <div><div style={{fontSize:10,color:C.muted}}>Weather</div><div style={{fontSize:12,color:LC.text,fontWeight:600}}>{log.weather}</div></div>
+            <div><div style={{fontSize:10,color:C.muted}}>Crew</div><div style={{fontSize:12,color:LC.text,fontWeight:600}}>{log.crew} workers</div></div>
+            <div><div style={{fontSize:10,color:C.muted}}>Hours</div><div style={{fontSize:12,color:LC.text,fontWeight:600}}>{log.hours}h</div></div>
           </div>
           <div style={{padding:"10px 16px"}}><div style={{fontSize:12,color:C.muted,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{log.notes}</div></div>
           {log.photos&&log.photos.length>0&&(
@@ -3087,9 +3101,9 @@ function DailyLog({logs,setLogs,jobs}){
           </div>
         )}
       </div>
-      <div style={{marginBottom:14,padding:"12px 14px",background:C.navy,borderRadius:8,border:`1px solid ${C.border}`}}>
+      <div style={{marginBottom:14,padding:"12px 14px",background:LC.surface,borderRadius:8,border:`1px solid ${LC.border}`}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div><div style={{fontSize:12,color:C.white,fontWeight:600}}>Visible to Client</div><div style={{fontSize:11,color:C.muted,marginTop:2}}>Client sees this update in their portal</div></div>
+          <div><div style={{fontSize:12,color:LC.text,fontWeight:600}}>Visible to Client</div><div style={{fontSize:11,color:C.muted,marginTop:2}}>Client sees this update in their portal</div></div>
           <Toggle checked={form.visible_to_client||false} onChange={v=>f("visible_to_client",v)}/>
         </div>
       </div>
@@ -3149,9 +3163,9 @@ function Settings(){
       <div style={{fontSize:11,color:C.muted,marginBottom:14,lineHeight:1.6}}>
         Automatically emails your client when you mark a milestone complete. Uses <a href="https://www.emailjs.com" target="_blank" rel="noreferrer" style={{color:C.gold}}>EmailJS</a> (free — 200 emails/month).
         <br/>Setup: emailjs.com → Add Service (Gmail) → Create Template → copy your IDs here.
-        <br/>Template variables: <span style={{color:C.gold,fontFamily:"monospace"}}>{"{{to_email}} {{client_name}} {{project_name}} {{milestone_name}} {{portal_url}}"}</span>
+        <br/>Template variables: <span style={{color:LC.gold,fontFamily:"monospace"}}>{"{{to_email}} {{client_name}} {{project_name}} {{milestone_name}} {{portal_url}}"}</span>
       </div>
-      {loading?<div style={{color:C.muted,fontSize:12}}>Loading…</div>:<>
+      {loading?<div style={{color:LC.textMuted,fontSize:12}}>Loading…</div>:<>
         <div style={{display:"grid",gap:9}}>
           <Inp label="Service ID" value={ej.service_id||""} onChange={v=>setEj(p=>({...p,service_id:v}))} placeholder="service_xxxxxxx"/>
           <Inp label="Template ID" value={ej.template_id||""} onChange={v=>setEj(p=>({...p,template_id:v}))} placeholder="template_xxxxxxx"/>
@@ -3162,7 +3176,7 @@ function Settings(){
           {saved&&<span style={{color:"#4ade80",fontSize:12}}>✓ Saved to cloud</span>}
         </div>
       </>}
-      <div style={{marginTop:12,padding:"10px 14px",background:C.navy,borderRadius:8,fontSize:11,color:C.muted}}>
+      <div style={{marginTop:12,padding:"10px 14px",background:LC.bg,borderRadius:8,fontSize:11,color:C.muted}}>
         💡 <strong style={{color:C.white}}>To enable emails:</strong> Go to each project → add the client's email address in the Client Email field. Emails fire automatically when you tick a milestone as Complete.
       </div>
     </Card>
@@ -3176,10 +3190,10 @@ function Settings(){
         <br/><strong style={{color:C.gold}}>Step 2:</strong> In your QB app settings, add a webhook subscription. Set the endpoint URL to the one below.
         <br/><strong style={{color:C.gold}}>Step 3:</strong> Paste your Verifier Token below and save. QB will start sending payment events automatically.
       </div>
-      {loading?<div style={{color:C.muted,fontSize:12}}>Loading…</div>:<>
-        <div style={{background:C.navy,borderRadius:8,padding:"10px 14px",marginBottom:14,border:`1px solid ${C.border}`}}>
+      {loading?<div style={{color:LC.textMuted,fontSize:12}}>Loading…</div>:<>
+        <div style={{background:LC.bg,borderRadius:8,padding:"10px 14px",marginBottom:14,border:`1px solid ${LC.border}`}}>
           <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Webhook Endpoint (paste this in QuickBooks)</div>
-          <div style={{fontSize:12,color:C.gold,fontFamily:"monospace",wordBreak:"break-all",userSelect:"all"}}>https://ptczgktyxifzbaxcsqan.supabase.co/functions/v1/qb-webhook</div>
+          <div style={{fontSize:12,color:LC.gold,fontFamily:"monospace",wordBreak:"break-all",userSelect:"all"}}>https://ptczgktyxifzbaxcsqan.supabase.co/functions/v1/qb-webhook</div>
         </div>
         <Inp label="Verifier Token (from QuickBooks developer dashboard)" value={qb.verifier_token||""} onChange={v=>setQb(p=>({...p,verifier_token:v}))} placeholder="Paste your QB verifier token"/>
         <Inp label="Client ID" value={qb.client_id||""} onChange={v=>setQb(p=>({...p,client_id:v}))} placeholder="QB App Client ID"/>
@@ -3191,13 +3205,13 @@ function Settings(){
           {!qb.verifier_token&&<span style={{fontSize:11,color:C.muted}}>○ Not configured</span>}
         </div>
       </>}
-      <div style={{marginTop:12,padding:"10px 14px",background:C.navy,borderRadius:8,fontSize:11,color:C.muted,lineHeight:1.6}}>
+      <div style={{marginTop:12,padding:"10px 14px",background:LC.bg,borderRadius:8,fontSize:11,color:C.muted,lineHeight:1.6}}>
         💡 Payment items matched by <strong style={{color:C.white}}>amount + project</strong>. When QB marks an invoice line paid, the matching payment in that project's schedule gets auto-checked. The client sees ✅ Paid in their portal immediately.
       </div>
     </Card>
 
     <Card>
-      <div style={{fontWeight:600,color:C.white,fontSize:14,marginBottom:10}}>Account</div>
+      <div style={{fontWeight:600,color:LC.text,fontSize:14,fontWeight:600,marginBottom:10}}>Account</div>
       <Btn variant="danger" onClick={handleSignOut}>Sign Out</Btn>
     </Card>
   </div>;
