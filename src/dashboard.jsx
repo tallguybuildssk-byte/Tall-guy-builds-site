@@ -87,30 +87,40 @@ function Card({children,style={},onClick}){
   return <div onClick={onClick} onMouseEnter={()=>onClick&&setH(true)} onMouseLeave={()=>setH(false)} style={{background:C.navyLight,border:`1px solid ${h?C.gold:C.border}`,borderRadius:10,padding:18,cursor:onClick?"pointer":"default",transition:"border-color 0.15s",...style}}>{children}</div>;
 }
 function Inp({label,value,onChange,type="text",placeholder=""}){
-  return <div style={{marginBottom:11}}>
-    {label&&<label style={{display:"block",fontSize:11,color:C.muted,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.06em"}}>{label}</label>}
-    <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={{width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:C.white,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box"}}/>
+  return <div style={{marginBottom:12}}>
+    {label&&<label style={{display:"block",fontSize:11,color:LC.textMuted,marginBottom:5,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600}}>{label}</label>}
+    <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={{width:"100%",background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:7,padding:"9px 12px",color:LC.text,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",transition:"border-color 0.15s, box-shadow 0.15s"}}
+      onFocus={e=>{e.target.style.borderColor=LC.gold;e.target.style.boxShadow=`0 0 0 3px ${LC.gold}33`;}}
+      onBlur={e=>{e.target.style.borderColor=LC.border;e.target.style.boxShadow="none";}}/>
   </div>;
 }
 function Txtarea({label,value,onChange,placeholder="",rows=4}){
-  return <div style={{marginBottom:11}}>
-    {label&&<label style={{display:"block",fontSize:11,color:C.muted,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.06em"}}>{label}</label>}
-    <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows} style={{width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:C.white,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",resize:"vertical",lineHeight:1.5}}/>
+  return <div style={{marginBottom:12}}>
+    {label&&<label style={{display:"block",fontSize:11,color:LC.textMuted,marginBottom:5,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600}}>{label}</label>}
+    <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows} style={{width:"100%",background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:7,padding:"9px 12px",color:LC.text,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",resize:"vertical",lineHeight:1.5,transition:"border-color 0.15s, box-shadow 0.15s"}}
+      onFocus={e=>{e.target.style.borderColor=LC.gold;e.target.style.boxShadow=`0 0 0 3px ${LC.gold}33`;}}
+      onBlur={e=>{e.target.style.borderColor=LC.border;e.target.style.boxShadow="none";}}/>
   </div>;
 }
 function Sel({label,value,onChange,options,display}){
   const opts=display||options;
-  return <div style={{marginBottom:11}}>
-    {label&&<label style={{display:"block",fontSize:11,color:C.muted,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.06em"}}>{label}</label>}
-    <select value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:C.white,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box"}}>
+  return <div style={{marginBottom:12}}>
+    {label&&<label style={{display:"block",fontSize:11,color:LC.textMuted,marginBottom:5,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600}}>{label}</label>}
+    <select value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:7,padding:"9px 12px",color:LC.text,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",cursor:"pointer",transition:"border-color 0.15s, box-shadow 0.15s"}}
+      onFocus={e=>{e.target.style.borderColor=LC.gold;e.target.style.boxShadow=`0 0 0 3px ${LC.gold}33`;}}
+      onBlur={e=>{e.target.style.borderColor=LC.border;e.target.style.boxShadow="none";}}>
       {options.map((o,i)=><option key={String(o)} value={o}>{opts?opts[i]:o}</option>)}
     </select>
   </div>;
 }
 function Btn({children,onClick,variant="primary",size="md",style={}}){
-  const v={primary:{background:C.gold,color:C.navy},ghost:{background:"transparent",color:C.gold,border:`1px solid ${C.border}`},danger:{background:"transparent",color:C.danger,border:`1px solid ${C.border}`}};
-  const s={sm:{padding:"4px 11px",fontSize:11},md:{padding:"8px 17px",fontSize:13}};
-  return <button onClick={onClick} style={{cursor:"pointer",borderRadius:6,fontFamily:fb,fontWeight:600,border:"none",...v[variant],...s[size],...style}}>{children}</button>;
+  const v={
+    primary:{background:LC.gold,color:LC.text,border:"none"},
+    ghost:{background:LC.surface,color:LC.text,border:`1px solid ${LC.border}`},
+    danger:{background:LC.surface,color:LC.danger,border:`1px solid ${LC.danger}55`}
+  };
+  const s={sm:{padding:"5px 12px",fontSize:11},md:{padding:"9px 18px",fontSize:13}};
+  return <button onClick={onClick} style={{cursor:"pointer",borderRadius:7,fontFamily:fb,fontWeight:700,...v[variant],...s[size],transition:"all 0.12s",...style}}>{children}</button>;
 }
 function Modal({title,onClose,children,wide=false}){
   return <div style={{position:"fixed",inset:0,background:"#0F172A88",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2000,padding:16,backdropFilter:"blur(3px)"}}>
@@ -125,10 +135,10 @@ function Modal({title,onClose,children,wide=false}){
 }
 function Toggle({checked,onChange,label}){
   return <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",userSelect:"none"}}>
-    <div onClick={()=>onChange(!checked)} style={{width:38,height:20,borderRadius:10,background:checked?C.gold:C.border,position:"relative",transition:"background 0.2s",flexShrink:0,cursor:"pointer"}}>
-      <div style={{position:"absolute",top:3,left:checked?19:3,width:14,height:14,borderRadius:"50%",background:checked?C.navy:C.muted,transition:"left 0.2s"}}/>
+    <div onClick={()=>onChange(!checked)} style={{width:40,height:22,borderRadius:11,background:checked?LC.gold:LC.borderStrong,position:"relative",transition:"background 0.2s",flexShrink:0,cursor:"pointer"}}>
+      <div style={{position:"absolute",top:3,left:checked?21:3,width:16,height:16,borderRadius:"50%",background:"#FFFFFF",transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}/>
     </div>
-    {label&&<span style={{fontSize:12,color:checked?C.gold:C.muted}}>{label}</span>}
+    {label&&<span style={{fontSize:12,color:checked?LC.text:LC.textMuted,fontWeight:checked?600:500}}>{label}</span>}
   </label>;
 }
 
