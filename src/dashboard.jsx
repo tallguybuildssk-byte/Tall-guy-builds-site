@@ -1752,10 +1752,10 @@ function ClientAssignment({jobId,allClients,onClientsChange,onEmailSuggested}){
     <div style={{display:"flex",flexWrap:"wrap",gap:7,marginBottom:10}}>
       {assigned.length===0&&<div style={{color:C.muted,fontSize:12}}>No clients assigned yet.</div>}
       {assigned.map(c=>(
-        <div key={c.id} style={{display:"flex",alignItems:"center",gap:6,background:C.gold+"22",border:`1px solid ${C.gold}44`,borderRadius:20,padding:"4px 10px 4px 12px"}}>
+        <div key={c.id} style={{display:"flex",alignItems:"center",gap:6,background:LC.gold+"22",border:`1px solid ${LC.gold}44`,borderRadius:20,padding:"4px 10px 4px 12px"}}>
           <div>
-            <div style={{fontSize:12,color:C.gold,fontWeight:600}}>{c.name}</div>
-            <div style={{fontSize:10,color:C.muted}}>{c.email}</div>
+            <div style={{fontSize:12,color:LC.text,fontWeight:700}}>{c.name}</div>
+            <div style={{fontSize:10,color:LC.textMuted}}>{c.email}</div>
           </div>
           <button onClick={()=>remove(c.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:14,lineHeight:1,padding:"0 2px"}}>×</button>
         </div>
@@ -1899,7 +1899,7 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[],logs=[]}){
         <Card key={job.id} onClick={()=>openEdit(job)}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}>
             <div>
-              <div style={{fontWeight:700,color:C.white,fontSize:15}}>{job.name}</div>
+              <div style={{fontWeight:700,color:LC.text,fontSize:15,letterSpacing:"-0.01em"}}>{job.name}</div>
               <div style={{fontSize:12,color:C.muted,marginTop:2}}>{job.client} · {job.address}</div>
               <div style={{fontSize:11,color:C.muted,marginTop:2}}>{job.type}</div>
             </div>
@@ -1964,11 +1964,11 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[],logs=[]}){
           <input type="range" min="0" max="100" value={form.progress||0} onChange={e=>f("progress",+e.target.value)} style={{width:"100%",accentColor:C.gold}}/>
         </div>
         <Txtarea label="Notes" value={form.notes||""} onChange={v=>f("notes",v)} rows={3}/>
-        <div style={{padding:"14px 16px",background:C.navy,borderRadius:10,border:`1px solid ${form.shared_with_client?C.gold:C.border}`,marginBottom:4}}>
+        <div style={{padding:"14px 16px",background:LC.bg,borderRadius:10,border:`1px solid ${form.shared_with_client?LC.gold:LC.border}`,marginBottom:4}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
-              <div style={{fontSize:13,color:C.white,fontWeight:600}}>Share with Client Portal</div>
-              <div style={{fontSize:11,color:C.muted,marginTop:3}}>Client can see progress, milestones, and flagged site updates</div>
+              <div style={{fontSize:13,color:LC.text,fontWeight:600}}>Share with Client Portal</div>
+              <div style={{fontSize:11,color:LC.textMuted,marginTop:3}}>Client can see progress, milestones, and flagged site updates</div>
             </div>
             <Toggle checked={form.shared_with_client||false} onChange={v=>f("shared_with_client",v)}/>
           </div>
@@ -1991,35 +1991,35 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[],logs=[]}){
         {/* ── PORTAL HERO PHOTO PICKER ── */}
         {form.shared_with_client&&sel&&(()=>{
           const projPhotos=logs.filter(l=>l.job_id===sel.id&&l.visible_to_client).flatMap(l=>(l.photos||[]).map(ph=>({url:ph.url||ph,name:ph.name||"photo",date:l.date})));
-          if(projPhotos.length===0)return <div style={{background:C.navy,borderRadius:10,border:`1px dashed ${C.border}`,padding:"14px 16px",marginTop:10}}>
-            <div style={{fontSize:13,color:C.white,fontWeight:600,marginBottom:4}}>Portal Hero Photo</div>
-            <div style={{fontSize:11,color:C.muted}}>Add a daily log photo to this project first, then come back to pick a hero.</div>
+          if(projPhotos.length===0)return <div style={{background:LC.bg,borderRadius:10,border:`1px dashed ${LC.borderStrong}`,padding:"14px 16px",marginTop:10}}>
+            <div style={{fontSize:13,color:LC.text,fontWeight:600,marginBottom:4}}>Portal Hero Photo</div>
+            <div style={{fontSize:11,color:LC.textMuted}}>Add a daily log photo to this project first, then come back to pick a hero.</div>
           </div>;
-          return <div style={{background:C.navy,borderRadius:10,border:`1px solid ${C.border}`,padding:"14px 16px",marginTop:10}}>
+          return <div style={{background:LC.bg,borderRadius:10,border:`1px solid ${LC.border}`,padding:"14px 16px",marginTop:10}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-              <div style={{fontSize:13,color:C.white,fontWeight:600}}>Portal Hero Photo</div>
-              {form.hero_photo_url&&<button onClick={()=>f("hero_photo_url","")} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:6,padding:"3px 10px",fontSize:11,cursor:"pointer",fontFamily:fb}}>Clear</button>}
+              <div style={{fontSize:13,color:LC.text,fontWeight:600}}>Portal Hero Photo</div>
+              {form.hero_photo_url&&<button onClick={()=>f("hero_photo_url","")} style={{background:"none",border:`1px solid ${LC.border}`,color:LC.textMuted,borderRadius:6,padding:"3px 10px",fontSize:11,cursor:"pointer",fontFamily:fb}}>Clear</button>}
             </div>
-            <div style={{fontSize:11,color:C.muted,marginBottom:10}}>Click a photo to feature it at the top of the client portal. Defaults to the most recent log photo if none picked.</div>
+            <div style={{fontSize:11,color:LC.textMuted,marginBottom:10}}>Click a photo to feature it at the top of the client portal. Defaults to the most recent log photo if none picked.</div>
             <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:6}}>
               {projPhotos.map((ph,i)=>{
                 const isSelected=form.hero_photo_url===ph.url;
                 return <div key={i} onClick={()=>f("hero_photo_url",ph.url)} style={{
                   width:96,height:64,flexShrink:0,borderRadius:6,overflow:"hidden",cursor:"pointer",
-                  border:isSelected?`2px solid ${C.gold}`:`1px solid ${C.border}`,
+                  border:isSelected?`2px solid ${LC.gold}`:`1px solid ${LC.border}`,
                   position:"relative",boxSizing:"border-box"
                 }}>
                   <img src={ph.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                  {isSelected&&<div style={{position:"absolute",top:3,right:3,background:C.gold,color:C.navy,width:18,height:18,borderRadius:99,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700}}>✓</div>}
+                  {isSelected&&<div style={{position:"absolute",top:3,right:3,background:LC.gold,color:LC.text,width:18,height:18,borderRadius:99,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700}}>✓</div>}
                 </div>;
               })}
             </div>
           </div>;
         })()}
         {/* Client assignment */}
-        <div style={{background:C.navy,borderRadius:10,border:`1px solid ${C.border}`,padding:"14px 16px",marginTop:10}}>
-          <div style={{fontSize:13,color:C.white,fontWeight:600,marginBottom:10}}>Assigned Clients</div>
-          <div style={{fontSize:11,color:C.muted,marginBottom:10}}>Clients below can log in and see this project in their portal.</div>
+        <div style={{background:LC.bg,borderRadius:10,border:`1px solid ${LC.border}`,padding:"14px 16px",marginTop:10}}>
+          <div style={{fontSize:13,color:LC.text,fontWeight:600,marginBottom:10}}>Assigned Clients</div>
+          <div style={{fontSize:11,color:LC.textMuted,marginBottom:10}}>Clients below can log in and see this project in their portal.</div>
           <ClientAssignment jobId={sel?.id} allClients={clients} onEmailSuggested={email=>{if(!form.client_email)f("client_email",email);}}/>
         </div>
       </>}
@@ -2028,7 +2028,7 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[],logs=[]}){
       {tab==="payments"&&<PaymentScheduleEditor schedule={form.payment_schedule||[]} contractValue={+form.value||0} onChange={v=>f("payment_schedule",v)}/>}
       {tab==="documents"&&<DocumentsAdmin jobId={sel?.id} jobName={sel?.name}/>}
       {tab==="messages"&&sel&&<>
-        <div style={{fontSize:11,color:C.muted,marginBottom:12}}>Direct messages with <strong style={{color:C.white}}>{sel.client||"client"}</strong>. Client sees these in their portal under the Messages tab.</div>
+        <div style={{fontSize:11,color:LC.textMuted,marginBottom:12}}>Direct messages with <strong style={{color:LC.text}}>{sel.client||"client"}</strong>. Client sees these in their portal under the Messages tab.</div>
         <MessageThread jobId={sel.id} senderType="admin" senderName="Tall Guy Builds"/>
       </>}
       {tab==="messages"&&!sel&&<div style={{color:C.muted,fontSize:12,padding:"20px 0",textAlign:"center"}}>Save the project first to enable messaging.</div>}
@@ -2362,7 +2362,7 @@ const EST_FIELDS={
 };
 
 function EstFieldInput({field,value,onChange}){
-  const s={width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:C.white,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box"};
+  const s={width:"100%",background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:7,padding:"9px 12px",color:LC.text,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box"};
   if(field.type==="select")return<select value={value||""} onChange={e=>onChange(field.key,e.target.value)} style={s}><option value="">Select...</option>{field.options.map(o=><option key={o} value={o}>{o}</option>)}</select>;
   if(field.type==="textarea")return<textarea value={value||""} onChange={e=>onChange(field.key,e.target.value)} placeholder={field.placeholder} rows={3} style={{...s,resize:"vertical"}}/>;
   return<input type="number" value={value||""} onChange={e=>onChange(field.key,e.target.value)} placeholder={field.placeholder} style={s}/>;
@@ -2507,7 +2507,7 @@ Return ONLY valid JSON, no markdown, no explanation:
     w.document.close();
   }
 
-  const IS=s=>({width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:C.white,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",...s});
+  const IS=s=>({width:"100%",background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:7,padding:"9px 12px",color:LC.text,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",...s});
   const TYPES=["Deck","Basement Development","Garage"];
   const ICONS={"Deck":"🪵","Basement Development":"🏗️","Garage":"🚗"};
 
