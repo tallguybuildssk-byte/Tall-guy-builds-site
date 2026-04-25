@@ -84,7 +84,7 @@ function Badge({label}){
 }
 function Card({children,style={},onClick}){
   const [h,setH]=useState(false);
-  return <div onClick={onClick} onMouseEnter={()=>onClick&&setH(true)} onMouseLeave={()=>setH(false)} style={{background:C.navyLight,border:`1px solid ${h?C.gold:C.border}`,borderRadius:10,padding:18,cursor:onClick?"pointer":"default",transition:"border-color 0.15s",...style}}>{children}</div>;
+  return <div onClick={onClick} onMouseEnter={()=>onClick&&setH(true)} onMouseLeave={()=>setH(false)} style={{background:LC.surface,border:`1px solid ${h?LC.gold:LC.border}`,borderRadius:12,padding:18,cursor:onClick?"pointer":"default",transition:"all 0.15s",boxShadow:h?"0 4px 14px rgba(0,0,0,0.08)":"0 1px 3px rgba(0,0,0,0.05)",...style}}>{children}</div>;
 }
 function Inp({label,value,onChange,type="text",placeholder=""}){
   return <div style={{marginBottom:12}}>
@@ -1429,44 +1429,44 @@ function DashboardView({jobs,leads,logs,setPage}){
   const won=leads.filter(l=>l.stage==="Won").reduce((s,l)=>s+(l.value||0),0);
   const recentLogs=[...logs].sort((a,b)=>b.date?.localeCompare(a.date)).slice(0,3);
   return <div>
-    <h1 style={{fontFamily:font,color:C.white,fontSize:26,marginBottom:3}}>Good morning, Evan.</h1>
-    <p style={{color:C.muted,marginBottom:22,fontSize:13}}>Here's where things stand today.</p>
+    <h1 style={{fontFamily:font,color:LC.text,fontSize:26,marginBottom:3}}>Good morning, Evan.</h1>
+    <p style={{color:LC.textMuted,marginBottom:22,fontSize:13}}>Here's where things stand today.</p>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10,marginBottom:22}}>
       {[{label:"Active Jobs",value:active.length,sub:"in progress",color:C.gold},{label:"Pipeline",value:fmt$(pipe),sub:"open leads",color:"#60A5FA"},{label:"Remaining",value:fmt$(out),sub:"to invoice",color:C.warn},{label:"Won",value:fmt$(won),sub:"closed",color:"#4ade80"}].map(k=>(
-        <Card key={k.label}><div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{k.label}</div><div style={{fontSize:22,fontFamily:font,color:k.color,marginBottom:1}}>{k.value}</div><div style={{fontSize:10,color:C.muted}}>{k.sub}</div></Card>
+        <Card key={k.label}><div style={{fontSize:10,color:LC.textMuted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4,fontWeight:600}}>{k.label}</div><div style={{fontSize:22,fontFamily:font,color:k.color,marginBottom:1}}>{k.value}</div><div style={{fontSize:10,color:LC.textMuted}}>{k.sub}</div></Card>
       ))}
     </div>
-    <h2 style={{fontFamily:font,color:C.white,fontSize:17,marginBottom:10}}>Active Projects</h2>
+    <h2 style={{fontFamily:fb,color:LC.text,fontSize:17,fontWeight:600,letterSpacing:"-0.01em",marginBottom:10}}>Active Projects</h2>
     <div style={{display:"grid",gap:9,marginBottom:22}}>
       {active.length===0&&<div style={{color:C.muted,fontSize:12}}>No active projects.</div>}
       {active.map(job=>(
         <Card key={job.id} onClick={()=>setPage("jobs")}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:7}}>
-            <div><div style={{fontWeight:700,color:C.white,fontSize:14}}>{job.name}</div><div style={{color:C.muted,fontSize:11,marginTop:1}}>{job.client} · {job.address}</div></div>
+            <div><div style={{fontWeight:700,color:LC.text,fontSize:14}}>{job.name}</div><div style={{color:LC.textMuted,fontSize:11,marginTop:1}}>{job.client} · {job.address}</div></div>
             <Badge label={job.status}/>
           </div>
           <div style={{marginTop:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted,marginBottom:3}}><span>{job.progress||0}% complete</span></div>
-            <div style={{background:C.border,borderRadius:4,height:5}}><div style={{background:C.gold,borderRadius:4,height:5,width:`${job.progress||0}%`,transition:"width 0.5s"}}/></div>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:LC.textMuted,marginBottom:3}}><span>{job.progress||0}% complete</span></div>
+            <div style={{background:LC.border,borderRadius:4,height:5}}><div style={{background:LC.gold,borderRadius:4,height:5,width:`${job.progress||0}%`,transition:"width 0.5s"}}/></div>
           </div>
         </Card>
       ))}
     </div>
-    {recentLogs.length>0&&<><h2 style={{fontFamily:font,color:C.white,fontSize:17,marginBottom:10}}>Recent Site Logs</h2>
+    {recentLogs.length>0&&<><h2 style={{fontFamily:fb,color:LC.text,fontSize:17,fontWeight:600,letterSpacing:"-0.01em",marginBottom:10}}>Recent Site Logs</h2>
     <div style={{display:"grid",gap:9,marginBottom:22}}>
       {recentLogs.map(log=>(
         <Card key={log.id} onClick={()=>setPage("logs")} style={{padding:13}}>
-          <div style={{fontWeight:700,color:C.white,fontSize:13}}>{log.job_name||"General"}</div>
-          <div style={{color:C.muted,fontSize:11,marginTop:2}}>{fmtDate(log.date)} · {log.weather} · {log.crew} crew · {log.hours}h</div>
-          <div style={{color:C.muted,fontSize:11,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:280}}>{log.notes}</div>
+          <div style={{fontWeight:700,color:LC.text,fontSize:13}}>{log.job_name||"General"}</div>
+          <div style={{color:LC.textMuted,fontSize:11,marginTop:2}}>{fmtDate(log.date)} · {log.weather} · {log.crew} crew · {log.hours}h</div>
+          <div style={{color:LC.textBody,fontSize:11,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:280}}>{log.notes}</div>
         </Card>
       ))}
     </div></>}
-    <h2 style={{fontFamily:font,color:C.white,fontSize:17,marginBottom:10}}>Recent Leads</h2>
+    <h2 style={{fontFamily:fb,color:LC.text,fontSize:17,fontWeight:600,letterSpacing:"-0.01em",marginBottom:10}}>Recent Leads</h2>
     <Card>{leads.slice(0,4).map((l,i)=>(
-      <div key={l.id} onClick={()=>setPage("leads")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:i<3?`1px solid ${C.border}`:"none",flexWrap:"wrap",gap:7,cursor:"pointer"}}>
-        <div><span style={{color:C.white,fontWeight:600,fontSize:12}}>{l.name}</span><span style={{color:C.muted,fontSize:11,marginLeft:7}}>{l.type}</span></div>
-        <div style={{display:"flex",gap:9,alignItems:"center"}}><span style={{color:C.gold,fontWeight:700,fontSize:12}}>{fmt$(l.value)}</span><Badge label={l.stage}/></div>
+      <div key={l.id} onClick={()=>setPage("leads")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:i<3?`1px solid ${LC.border}`:"none",flexWrap:"wrap",gap:7,cursor:"pointer"}}>
+        <div><span style={{color:LC.text,fontWeight:600,fontSize:12}}>{l.name}</span><span style={{color:LC.textMuted,fontSize:11,marginLeft:7}}>{l.type}</span></div>
+        <div style={{display:"flex",gap:9,alignItems:"center"}}><span style={{color:LC.gold,fontWeight:700,fontSize:12}}>{fmt$(l.value)}</span><Badge label={l.stage}/></div>
       </div>
     ))}</Card>
   </div>;
@@ -1687,7 +1687,7 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[],logs=[]}){
 
   return <div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
-      <h1 style={{fontFamily:font,color:C.white,fontSize:26,margin:0}}>Projects</h1><Btn onClick={openNew}>+ New Project</Btn>
+      <h1 style={{fontFamily:font,color:LC.text,fontSize:26,margin:0}}>Projects</h1><Btn onClick={openNew}>+ New Project</Btn>
     </div>
     {jobs.length===0&&<div style={{color:C.muted,textAlign:"center",padding:"40px 0",fontSize:13}}>No projects yet.</div>}
     <div style={{display:"grid",gap:10}}>
@@ -1716,13 +1716,13 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[],logs=[]}){
     </div>
 
     {showM&&<Modal title={sel?"Edit Project":"New Project"} onClose={()=>setShowM(false)} wide>
-      <div style={{display:"flex",gap:6,marginBottom:16,borderBottom:`1px solid ${C.border}`,paddingBottom:8,flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:6,marginBottom:16,borderBottom:`1px solid ${LC.border}`,paddingBottom:8,flexWrap:"wrap"}}>
         {["details","milestones","payments","messages"].map(t=>(
           <button key={t} onClick={()=>{
             if((t==="milestones"||t==="payments"||t==="messages")&&!sel){save(true);}
             else if(t==="milestones"){save(true);}
             else{setTab(t);}
-          }} style={{padding:"5px 13px",borderRadius:6,border:"none",fontFamily:fb,fontSize:12,cursor:"pointer",textTransform:"capitalize",background:tab===t?C.gold:"transparent",color:tab===t?C.navy:C.muted,fontWeight:tab===t?700:400,position:"relative"}}>
+          }} style={{padding:"6px 14px",borderRadius:7,border:"none",fontFamily:fb,fontSize:12,cursor:"pointer",textTransform:"capitalize",background:tab===t?LC.gold:"transparent",color:tab===t?LC.text:LC.textMuted,fontWeight:tab===t?700:500,position:"relative"}}>
             {t}
             {t==="messages"&&sel&&unreadCounts[sel.id]>0&&<span style={{position:"absolute",top:-4,right:-4,background:"#EF4444",color:"#fff",borderRadius:"50%",width:14,height:14,fontSize:9,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>{unreadCounts[sel.id]}</span>}
           </button>
@@ -1732,13 +1732,13 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[],logs=[]}){
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
           <Inp label="Project Name" value={form.name||""} onChange={v=>f("name",v)}/>
           <div style={{marginBottom:11}}>
-            <label style={{display:"block",fontSize:11,color:C.muted,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.06em"}}>Client</label>
-            <select value={form.client||""} onChange={e=>selectClient(e.target.value)} style={{width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:form.client?C.white:C.muted,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box"}}>
+            <label style={{display:"block",fontSize:11,color:LC.textMuted,marginBottom:5,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600}}>Client</label>
+            <select value={form.client||""} onChange={e=>selectClient(e.target.value)} style={{width:"100%",background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:7,padding:"9px 12px",color:form.client?LC.text:LC.textMuted,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",cursor:"pointer"}}>
               <option value="">Select client…</option>
               {clientNames.map(n=><option key={n} value={n}>{n}</option>)}
               <option value="__new__">+ Type a new name…</option>
             </select>
-            {form.client==="__new__"&&<input autoFocus placeholder="Enter client name" style={{width:"100%",marginTop:6,background:C.navy,border:`1px solid ${C.gold}`,borderRadius:6,padding:"8px 11px",color:C.white,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box"}} onChange={e=>f("client",e.target.value||"__new__")}/>}
+            {form.client==="__new__"&&<input autoFocus placeholder="Enter client name" style={{width:"100%",marginTop:6,background:LC.surface,border:`1px solid ${LC.gold}`,borderRadius:7,padding:"9px 12px",color:LC.text,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",boxShadow:`0 0 0 3px ${LC.gold}33`}} onChange={e=>f("client",e.target.value||"__new__")}/>}
           </div>
         </div>
         <Inp label="Client Email (for milestone notifications)" type="email" value={form.client_email||""} onChange={v=>f("client_email",v)} placeholder="client@email.com"/>
@@ -2308,7 +2308,7 @@ Return ONLY valid JSON, no markdown, no explanation:
 
   return <div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
-      <h1 style={{fontFamily:font,color:C.white,fontSize:26,margin:0}}>Estimator</h1>
+      <h1 style={{fontFamily:font,color:LC.text,fontSize:26,margin:0}}>Estimator</h1>
       {estStep>1&&<div style={{display:"flex",gap:6,alignItems:"center"}}>
         {["Type","Details","Quote"].map((s,i)=><div key={s} style={{display:"flex",alignItems:"center",gap:5}}>
           <div style={{width:22,height:22,borderRadius:"50%",background:estStep>=i+1?C.gold:C.border,color:estStep>=i+1?C.navy:C.muted,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700}}>{estStep>i+1?"✓":i+1}</div>
@@ -2488,7 +2488,7 @@ function Leads({leads,setLeads}){
   async function del(){await supabase.from("leads").delete().eq("id",sel.id);setLeads(ls=>ls.filter(l=>l.id!==sel.id));setShowM(false);}
   return <div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
-      <h1 style={{fontFamily:font,color:C.white,fontSize:26,margin:0}}>Pipeline</h1><Btn onClick={openNew}>+ Add Lead</Btn>
+      <h1 style={{fontFamily:font,color:LC.text,fontSize:26,margin:0}}>Pipeline</h1><Btn onClick={openNew}>+ Add Lead</Btn>
     </div>
     {LEAD_STAGES.map(stage=>{
       const group=leads.filter(l=>l.stage===stage);if(group.length===0)return null;
@@ -2624,11 +2624,11 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
   return <div>
     {/* ── Header ── */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
-      <h1 style={{fontFamily:fb,fontWeight:800,color:C.white,fontSize:24,margin:0}}>Schedule</h1>
+      <h1 style={{fontFamily:fb,fontWeight:700,color:LC.text,fontSize:24,margin:0,letterSpacing:"-0.01em"}}>Schedule</h1>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-        <div style={{display:"flex",background:C.navy,borderRadius:8,border:`1px solid ${C.border}`,overflow:"hidden"}}>
+        <div style={{display:"flex",background:LC.surface,borderRadius:8,border:`1px solid ${LC.border}`,overflow:"hidden",boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
           {["list","calendar"].map(v=>(
-            <button key={v} onClick={()=>setView(v)} style={{padding:"7px 16px",border:"none",background:view===v?C.gold:"transparent",color:view===v?C.navy:C.muted,fontFamily:fb,fontSize:12,fontWeight:700,cursor:"pointer",letterSpacing:"0.03em"}}>{v==="list"?"☰  List":"▦  Calendar"}</button>
+            <button key={v} onClick={()=>setView(v)} style={{padding:"7px 16px",border:"none",background:view===v?LC.gold:"transparent",color:view===v?LC.text:LC.textMuted,fontFamily:fb,fontSize:12,fontWeight:700,cursor:"pointer",letterSpacing:"0.03em"}}>{v==="list"?"☰  List":"▦  Calendar"}</button>
           ))}
         </div>
         <Btn onClick={()=>openNew()}>+ Add Event</Btn>
@@ -2637,21 +2637,21 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
 
     {/* ── Toolbar: project filter + legend ── */}
     <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:12,marginBottom:16}}>
-      <select value={filterJob} onChange={e=>setFilterJob(e.target.value)} style={{background:C.navy,border:`1px solid ${filterJob?C.gold:C.border}`,borderRadius:6,padding:"7px 12px",color:filterJob?C.white:C.muted,fontSize:12,fontFamily:fb,outline:"none",minWidth:180}}>
+      <select value={filterJob} onChange={e=>setFilterJob(e.target.value)} style={{background:LC.surface,border:`1px solid ${filterJob?LC.gold:LC.border}`,borderRadius:7,padding:"8px 12px",color:filterJob?LC.text:LC.textMuted,fontSize:12,fontFamily:fb,outline:"none",minWidth:180,boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
         <option value="">All Projects</option>
         {jobs.map(j=><option key={j.id} value={j.id}>{j.name}</option>)}
       </select>
-      {filterJob&&<button onClick={()=>setFilterJob("")} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:12,fontFamily:fb}}>✕ Clear</button>}
+      {filterJob&&<button onClick={()=>setFilterJob("")} style={{background:"none",border:"none",color:LC.textMuted,cursor:"pointer",fontSize:12,fontFamily:fb}}>✕ Clear</button>}
       <div style={{display:"flex",gap:10,flexWrap:"wrap",marginLeft:4}}>
         {Object.entries(ET_LABELS).map(([k,lbl])=>(
           <div key={k} style={{display:"flex",alignItems:"center",gap:4}}>
             <div style={{width:10,height:10,borderRadius:2,background:EC[k]}}/>
-            <span style={{fontSize:11,color:C.muted,fontFamily:fb}}>{lbl}</span>
+            <span style={{fontSize:11,color:LC.textMuted,fontFamily:fb}}>{lbl}</span>
           </div>
         ))}
         <div style={{display:"flex",alignItems:"center",gap:4}}>
           <div style={{width:10,height:10,borderRadius:2,background:EC.milestone}}/>
-          <span style={{fontSize:11,color:C.muted,fontFamily:fb}}>Milestone</span>
+          <span style={{fontSize:11,color:LC.textMuted,fontFamily:fb}}>Milestone</span>
         </div>
       </div>
     </div>
@@ -2752,7 +2752,7 @@ function Subs({subs,setSubs}){
   const active=subs.filter(s=>s.active);const inactive=subs.filter(s=>!s.active);
   return <div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
-      <h1 style={{fontFamily:font,color:C.white,fontSize:26,margin:0}}>Subtrades</h1><Btn onClick={openNew}>+ Add Sub</Btn>
+      <h1 style={{fontFamily:font,color:LC.text,fontSize:26,margin:0}}>Subtrades</h1><Btn onClick={openNew}>+ Add Sub</Btn>
     </div>
     <div style={{display:"grid",gap:10,marginBottom:20}}>{active.map(s=>(
       <Card key={s.id} onClick={()=>openEdit(s)}>
@@ -2832,7 +2832,7 @@ function DailyLog({logs,setLogs,jobs}){
   const filtered=filterJob==="all"?sorted:sorted.filter(l=>String(l.job_id)===filterJob);
   return <div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
-      <h1 style={{fontFamily:font,color:C.white,fontSize:26,margin:0}}>Daily Log</h1><Btn onClick={openNew}>+ New Entry</Btn>
+      <h1 style={{fontFamily:font,color:LC.text,fontSize:26,margin:0}}>Daily Log</h1><Btn onClick={openNew}>+ New Entry</Btn>
     </div>
     <div style={{marginBottom:14}}>
       <select value={filterJob} onChange={e=>setFilterJob(e.target.value)} style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:7,padding:"6px 12px",color:C.white,fontSize:12,fontFamily:fb,outline:"none"}}>
@@ -2945,7 +2945,7 @@ function Settings(){
   async function handleSignOut(){await supabase.auth.signOut();window.location.href="/";}
 
   return <div>
-    <h1 style={{fontFamily:font,color:C.white,fontSize:26,marginBottom:20}}>Settings</h1>
+    <h1 style={{fontFamily:font,color:LC.text,fontSize:26,marginBottom:20}}>Settings</h1>
     <Card style={{marginBottom:16}}>
       <div style={{fontWeight:700,color:C.white,fontSize:15,marginBottom:6}}>Tall Guy Builds Inc.</div>
       <div style={{fontSize:12,color:C.gold,fontWeight:600,letterSpacing:1}}>BUILT RIGHT. DESIGNED TO LAST.</div>
@@ -3235,7 +3235,7 @@ export default function App(){
   if(error)return <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:C.danger,fontFamily:fb,fontSize:14,padding:24,textAlign:"center"}}>{error}</div>;
   if(isClient)return <ClientPortalWrapper session={session} onSignOut={handleSignOut}/>;
 
-  return <div style={{background:C.bg,minHeight:"100vh",display:"flex",fontFamily:fb}}>
+  return <div style={{background:LC.bg,minHeight:"100vh",display:"flex",fontFamily:fb}}>
     <div style={{width:220,background:C.navy,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",position:"fixed",top:0,left:0,height:"100vh",zIndex:100}}>
       <div style={{padding:"20px 16px",borderBottom:`1px solid ${C.border}`}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
