@@ -750,6 +750,309 @@ function ClientPortal({jobs,logs,clientMode=false,onSignOut}){
 }
 
 // ── INTERNAL DASHBOARD ────────────────────────────────────────────────────────
+// ── CLIENT PORTAL V2 (Phase A — Buildertrend-style redesign) ─────────────────
+// Toggle via ?v=2 URL param. The original ClientPortal above remains the default.
+// Phase A scope: shell + project picker + project header + Overview tab.
+// Phases B/C/D will fill in Schedule, Updates, Photos, Documents, Selections,
+// Messages, Payments. Until then those tabs render a "coming in Phase B" panel.
+
+const STAGES_BY_TYPE={
+  Deck:["Demo","Footings","Framing","Decking","Railings","Final"],
+  Basement:["Demo","Framing","Electrical","Drywall","Trim","Final"],
+  Bathroom:["Demo","Plumbing","Tile","Fixtures","Glass","Final"],
+  Garage:["Footings","Framing","Roofing","Doors","Electrical","Final"],
+  Kitchen:["Demo","Rough-in","Cabinets","Counters","Backsplash","Final"],
+  Renovation:["Demo","Rough-in","Drywall","Trim","Paint","Final"],
+  Fence:["Layout","Posts","Rails","Boards","Caps","Final"]
+};
+const DEFAULT_STAGES=["Planning","Demo","Build","Finish","Final"];
+const stagesFor=t=>STAGES_BY_TYPE[t]||DEFAULT_STAGES;
+
+const V2_NAV=[
+  {id:"overview",label:"Overview",icon:"⌂",enabled:true},
+  {id:"schedule",label:"Schedule",icon:"📅",enabled:false},
+  {id:"updates",label:"Updates",icon:"📋",enabled:false},
+  {id:"photos",label:"Photos",icon:"📷",enabled:false},
+  {id:"documents",label:"Documents",icon:"📄",enabled:false},
+  {id:"selections",label:"Selections",icon:"◉",enabled:false},
+  {id:"messages",label:"Messages",icon:"💬",enabled:false},
+  {id:"payments",label:"Payments",icon:"💳",enabled:false}
+];
+
+function ClientPortalV2({jobs,logs,clientMode=false,onSignOut}){
+  const [selJob,setSelJob]=useState(null);
+  const [milestones,setMilestones]=useState([]);
+  const [events,setEvents]=useState([]);
+  const [tab,setTab]=useState("overview");
+  const [lightbox,setLightbox]=useState(null);
+
+  const sharedJobs=clientMode?jobs:jobs.filter(j=>j.shared_with_client);
+
+  useEffect(()=>{
+    if(!selJob){setMilestones([]);setEvents([]);return;}
+    Promise.all([
+      supabase.from("milestones").select("*").eq("job_id",selJob.id).order("order_index"),
+      supabase.from("events").select("*").eq("job_id",selJob.id).order("date")
+    ]).then(([ms,ev])=>{
+      setMilestones(ms.data||[]);
+      setEvents(ev.data||[]);
+    });
+  },[selJob]);
+
+  // ── PROJECT PICKER ──
+  if(!selJob){
+    return <div style={{maxWidth:980,margin:"0 auto",padding:"24px 16px",fontFamily:fb}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <img src="/tgb-logo.svg" alt="" style={{width:44,height:44,borderRadius:10,objectFit:"contain"}}/>
+          <div>
+            <div style={{fontFamily:font,color:C.white,fontSize:20}}>Tall Guy Builds</div>
+            <div style={{color:C.gold,fontSize:10,letterSpacing:1.5,fontWeight:600}}>CLIENT PORTAL</div>
+          </div>
+        </div>
+        {clientMode&&onSignOut&&<button onClick={onSignOut} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:6,padding:"6px 14px",fontSize:12,cursor:"pointer",fontFamily:fb}}>Sign Out</button>}
+      </div>
+      <div style={{textAlign:"center",padding:"36px 0 26px",borderTop:`1px solid ${C.border}`,borderBottom:`1px solid ${C.border}`,marginBottom:22}}>
+        <h1 style={{fontFamily:font,color:C.white,fontSize:24,margin:0,fontWeight:400}}>Welcome back</h1>
+        <p style={{color:C.muted,fontSize:13,marginTop:10,maxWidth:420,margin:"10px auto 0"}}>Select a project to see progress, photos, schedule and messages.</p>
+      </div>
+      {sharedJobs.length===0&&<div style={{background:C.navyLight,border:`1px dashed ${C.border}`,borderRadius:14,padding:36,textAlign:"center"}}>
+        <div style={{color:C.muted,fontSize:13}}>No projects shared with the portal yet. Contact Tall Guy Builds at (306) 737-5407.</div>
+      </div>}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:14}}>
+        {sharedJobs.map(job=>{
+          const jobLogs=logs.filter(l=>l.job_id===job.id&&l.visible_to_client);
+          const allPhotos=jobLogs.flatMap(l=>l.photos||[]);
+          const heroPhoto=allPhotos[0];
+          const heroUrl=heroPhoto?(heroPhoto.url||heroPhoto):null;
+          return <div key={job.id} onClick={()=>{setSelJob(job);setTab("overview");}} style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",cursor:"pointer",transition:"transform 0.15s, border-color 0.15s"}}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor=C.gold;e.currentTarget.style.transform="translateY(-2px)";}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.transform="translateY(0)";}}>
+            <div style={{height:130,background:heroUrl?`url(${heroUrl}) center/cover`:`linear-gradient(135deg, ${C.navy}, ${C.navyLight})`,position:"relative"}}>
+              <div style={{position:"absolute",top:10,right:10,background:C.navy+"dd",color:C.gold,fontSize:10,padding:"4px 10px",borderRadius:99,fontWeight:600,letterSpacing:0.5}}>{job.status}</div>
+            </div>
+            <div style={{padding:"14px 18px"}}>
+              <div style={{fontFamily:font,fontSize:17,color:C.white,marginBottom:2}}>{job.name}</div>
+              <div style={{color:C.muted,fontSize:12,marginBottom:12}}>{job.address}</div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted,marginBottom:5}}>
+                <span>Progress</span>
+                <span style={{color:C.gold,fontWeight:700}}>{job.progress||0}%</span>
+              </div>
+              <div style={{background:C.border,borderRadius:99,height:6,overflow:"hidden"}}>
+                <div style={{background:C.gold,borderRadius:99,height:"100%",width:`${job.progress||0}%`,transition:"width 0.8s"}}/>
+              </div>
+              <div style={{display:"flex",gap:14,marginTop:12,fontSize:11,color:C.muted}}>
+                <span><span style={{color:C.white,fontWeight:600}}>{jobLogs.length}</span> updates</span>
+                <span><span style={{color:C.white,fontWeight:600}}>{allPhotos.length}</span> photos</span>
+                <span style={{marginLeft:"auto",color:C.gold,fontWeight:600}}>Open →</span>
+              </div>
+            </div>
+          </div>;
+        })}
+      </div>
+      <div style={{textAlign:"center",marginTop:30,fontSize:10,color:C.muted}}>
+        <span style={{color:C.gold,letterSpacing:1.5,fontWeight:600}}>BUILT RIGHT. DESIGNED TO LAST.</span>
+        <div style={{marginTop:4}}>Tall Guy Builds Inc. · Regina, SK · Portal v2 (preview)</div>
+      </div>
+    </div>;
+  }
+
+  // ── PROJECT VIEW (sidebar + main content) ──
+  const jobLogs=logs.filter(l=>l.job_id===selJob.id&&l.visible_to_client).sort((a,b)=>b.date?.localeCompare(a.date));
+  const allPhotos=jobLogs.flatMap(l=>(l.photos||[]).map(ph=>({url:ph.url||ph,date:l.date,notes:l.notes})));
+  const stages=stagesFor(selJob.type);
+  const activeStageIdx=Math.min(Math.floor(((selJob.progress||0)/100)*stages.length),stages.length-1);
+  const ps=selJob.payment_schedule||[];
+  const totalContract=+selJob.value||0;
+  const totalPaid=ps.filter(p=>p.paid).reduce((s,p)=>s+(+p.amount||0),0);
+  const displayPaid=(+selJob.paid>0)?+selJob.paid:totalPaid;
+  const remaining=totalContract-displayPaid;
+  const nextDue=ps.filter(p=>!p.paid&&p.due_date).sort((a,b)=>a.due_date.localeCompare(b.due_date))[0];
+  const upcoming=[
+    ...events.filter(e=>e.date>=todayStr()).map(e=>({...e,_kind:"event"})),
+    ...milestones.filter(m=>m.status!=="Completed"&&m.date).map(m=>({...m,title:m.name,_kind:"milestone"}))
+  ].sort((a,b)=>a.date?.localeCompare(b.date)).slice(0,5);
+
+  return <div style={{display:"flex",height:"100vh",background:C.bg,fontFamily:fb,overflow:"hidden"}} className="cpv2-root">
+    {/* SIDEBAR */}
+    <aside className="cpv2-sidebar" style={{width:220,minWidth:220,maxWidth:220,background:"#1F2A37",backgroundColor:"#1F2A37",borderRight:`1px solid ${C.border}`,padding:"20px 14px",display:"flex",flexDirection:"column",height:"100%",overflowY:"auto",flexShrink:0,boxSizing:"border-box"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,paddingBottom:18,marginBottom:16,borderBottom:`1px solid ${C.border}`}}>
+        <img src="/tgb-logo.svg" alt="" style={{width:32,height:32,borderRadius:6,objectFit:"contain"}}/>
+        <div>
+          <div style={{fontSize:13,color:C.white,fontWeight:600,lineHeight:1.1}}>Tall Guy Builds</div>
+          <div style={{fontSize:9,color:C.gold,letterSpacing:1,marginTop:2}}>CLIENT PORTAL</div>
+        </div>
+      </div>
+      <button onClick={()=>{setSelJob(null);setTab("overview");}} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:6,padding:"7px 10px",fontSize:11,cursor:"pointer",marginBottom:14,textAlign:"left",fontFamily:fb}}>← All projects</button>
+      <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:0.8,padding:"0 8px 6px"}}>Project</div>
+      {V2_NAV.map(n=>{
+        const isActive=tab===n.id;
+        const isDisabled=!n.enabled;
+        return <button key={n.id} onClick={()=>!isDisabled&&setTab(n.id)} disabled={isDisabled} style={{
+          display:"flex",alignItems:"center",gap:10,padding:"9px 10px",borderRadius:7,
+          background:isActive?C.gold+"22":"transparent",
+          color:isActive?C.gold:isDisabled?C.muted+"99":C.white+"cc",
+          border:"none",fontFamily:fb,fontSize:13,cursor:isDisabled?"not-allowed":"pointer",
+          marginBottom:2,textAlign:"left",opacity:isDisabled?0.55:1,fontWeight:isActive?600:400
+        }}>
+          <span style={{width:18,textAlign:"center",fontSize:14}}>{n.icon}</span>
+          <span style={{flex:1}}>{n.label}</span>
+          {isDisabled&&<span style={{fontSize:8,color:C.muted,letterSpacing:0.5}}>SOON</span>}
+        </button>;
+      })}
+      <div style={{marginTop:"auto",paddingTop:18,borderTop:`1px solid ${C.border}`}}>
+        <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:0.8,marginBottom:6}}>Your builder</div>
+        <div style={{fontSize:12,color:C.white,fontWeight:600}}>Tall Guy Builds Inc.</div>
+        <div style={{fontSize:11,color:C.muted,marginTop:2}}>(306) 737-5407</div>
+        {clientMode&&onSignOut&&<button onClick={onSignOut} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:6,padding:"5px 10px",fontSize:10,cursor:"pointer",marginTop:12,width:"100%",fontFamily:fb}}>Sign Out</button>}
+      </div>
+    </aside>
+
+    {/* MAIN */}
+    <main style={{flex:1,padding:"24px 28px 60px",minWidth:0,minHeight:0,height:"100%",overflowY:"auto"}} className="cpv2-main">
+      {/* PROJECT HEADER */}
+      <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",marginBottom:18}}>
+        {allPhotos[0]&&<div style={{height:160,position:"relative",background:`url(${allPhotos[0].url}) center/cover`}}>
+          <div style={{position:"absolute",inset:0,background:`linear-gradient(to bottom, transparent 30%, ${C.navy}f0 95%)`}}/>
+          <div style={{position:"absolute",bottom:14,left:22,right:22}}>
+            <div style={{fontSize:9,color:C.gold,fontWeight:700,letterSpacing:1.5}}>{(selJob.type||"PROJECT").toUpperCase()}</div>
+            <h1 style={{fontFamily:font,color:C.white,fontSize:24,margin:"4px 0 2px",fontWeight:400}}>{selJob.name}</h1>
+            <div style={{color:"#ffffffaa",fontSize:12}}>{selJob.address}</div>
+          </div>
+        </div>}
+        {!allPhotos[0]&&<div style={{padding:"22px 24px 4px"}}>
+          <div style={{fontSize:9,color:C.gold,fontWeight:700,letterSpacing:1.5}}>{(selJob.type||"PROJECT").toUpperCase()}</div>
+          <h1 style={{fontFamily:font,color:C.white,fontSize:24,margin:"4px 0 2px",fontWeight:400}}>{selJob.name}</h1>
+          <div style={{color:C.muted,fontSize:12}}>{selJob.address}</div>
+        </div>}
+        <div style={{padding:"18px 22px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
+            <div style={{fontSize:12,color:C.muted}}>{fmtDate(selJob.start_date)} → {fmtDate(selJob.end_date)}</div>
+            <div style={{display:"flex",alignItems:"baseline",gap:6}}>
+              <span style={{color:C.muted,fontSize:11}}>Progress</span>
+              <span style={{color:C.gold,fontFamily:font,fontSize:22,fontWeight:600}}>{selJob.progress||0}%</span>
+            </div>
+          </div>
+          <div style={{background:C.border,borderRadius:99,height:8,overflow:"hidden",marginBottom:8}}>
+            <div style={{background:`linear-gradient(90deg, ${C.gold}, #e8c87a)`,height:"100%",width:`${selJob.progress||0}%`,transition:"width 1s",boxShadow:`0 0 10px ${C.gold}66`}}/>
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:10,marginTop:2,gap:6,flexWrap:"wrap"}}>
+            {stages.map((s,i)=>{
+              const done=i<activeStageIdx;
+              const active=i===activeStageIdx;
+              return <span key={s} style={{
+                color:done?C.success:active?C.gold:C.muted,
+                fontWeight:active||done?600:400,
+                whiteSpace:"nowrap"
+              }}>{done?"✓ ":active?"● ":""}{s}</span>;
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* OVERVIEW */}
+      {tab==="overview"&&<div className="cpv2-overview-grid" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) 240px",gap:16}}>
+        <div>
+          {totalContract>0&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:16,marginBottom:14}}>
+            <div style={{fontSize:13,color:C.white,fontWeight:600,marginBottom:14}}>Payment summary</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}>
+              {[
+                {label:"Contract",value:fmt$(totalContract),color:C.white},
+                {label:"Paid",value:fmt$(displayPaid),color:C.success},
+                {label:"Remaining",value:fmt$(remaining),color:remaining===0?C.success:C.warn}
+              ].map(s=><div key={s.label} style={{background:C.navy,borderRadius:8,padding:"10px 12px",border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{s.label}</div>
+                <div style={{fontSize:15,color:s.color,fontWeight:700}}>{s.value}</div>
+              </div>)}
+            </div>
+            <div style={{background:C.border,borderRadius:99,height:6,overflow:"hidden"}}>
+              <div style={{background:C.success,height:"100%",width:`${totalContract>0?Math.round((displayPaid/totalContract)*100):0}%`,transition:"width 1s"}}/>
+            </div>
+            {nextDue&&<div style={{fontSize:11,color:C.warn,marginTop:10}}>Next: <strong>{nextDue.label}</strong> — {fmt$(nextDue.amount)} on {fmtDate(nextDue.due_date)}</div>}
+          </div>}
+          {allPhotos.length>0&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:16,marginBottom:14}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <div style={{fontSize:13,color:C.white,fontWeight:600}}>Recent photos</div>
+              <span style={{fontSize:11,color:C.muted}}>{allPhotos.length} total</span>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(78px,1fr))",gap:6}}>
+              {allPhotos.slice(0,8).map((ph,i)=>(
+                <div key={i} onClick={()=>setLightbox(ph.url)} style={{aspectRatio:"1",borderRadius:6,overflow:"hidden",cursor:"zoom-in"}}>
+                  <img src={ph.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                </div>
+              ))}
+            </div>
+          </div>}
+          {jobLogs[0]&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:16}}>
+            <div style={{fontSize:13,color:C.white,fontWeight:600,marginBottom:10}}>Latest update</div>
+            <div style={{display:"flex",gap:14,fontSize:11,color:C.muted,marginBottom:8,flexWrap:"wrap"}}>
+              <span style={{color:C.gold,fontWeight:600}}>{fmtDate(jobLogs[0].date)}</span>
+              <span>{jobLogs[0].weather}</span>
+              <span>👷 {jobLogs[0].crew}</span>
+              <span>⏱ {jobLogs[0].hours}h</span>
+            </div>
+            <p style={{color:C.muted,fontSize:13,lineHeight:1.7,margin:0,whiteSpace:"pre-wrap"}}>{(jobLogs[0].notes||"").slice(0,260)}{(jobLogs[0].notes||"").length>260?"…":""}</p>
+          </div>}
+        </div>
+        <div className="cpv2-rail">
+          <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:14,marginBottom:12}}>
+            <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:0.8,marginBottom:8}}>Up next</div>
+            {upcoming.length===0&&<div style={{fontSize:12,color:C.muted}}>Nothing scheduled.</div>}
+            {upcoming.map(item=>{
+              const isMs=item._kind==="milestone";
+              const color=isMs?"#EC4899":(item.color||C.gold);
+              return <div key={(isMs?"m":"e")+item.id} style={{padding:"7px 0",borderBottom:`1px solid ${C.border}33`}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{width:6,height:6,borderRadius:99,background:color,flexShrink:0,display:"inline-block"}}/>
+                  <span style={{color:C.white,fontSize:12,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.title}</span>
+                </div>
+                <div style={{fontSize:10,color:C.muted,marginLeft:14,marginTop:1}}>{fmtDate(item.date)}</div>
+              </div>;
+            })}
+          </div>
+          {nextDue&&<div style={{background:C.warn+"15",border:`1px solid ${C.warn}55`,borderRadius:12,padding:14,marginBottom:12}}>
+            <div style={{fontSize:9,color:C.warn,textTransform:"uppercase",letterSpacing:0.8,marginBottom:6}}>Next payment</div>
+            <div style={{fontSize:18,color:C.white,fontWeight:700}}>{fmt$(nextDue.amount)}</div>
+            <div style={{fontSize:11,color:C.muted,marginTop:2}}>{nextDue.label}</div>
+            <div style={{fontSize:11,color:C.muted}}>Due {fmtDate(nextDue.due_date)}</div>
+          </div>}
+          <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:14}}>
+            <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:0.8,marginBottom:6}}>Need anything?</div>
+            <div style={{fontSize:12,color:C.white,marginBottom:10}}>Message Tall Guy Builds directly.</div>
+            <button disabled style={{width:"100%",background:C.gold+"33",color:C.gold,border:"none",padding:"8px 12px",borderRadius:6,fontSize:11,fontWeight:600,cursor:"not-allowed",fontFamily:fb}}>Open messages (Phase B)</button>
+          </div>
+        </div>
+      </div>}
+
+      {/* PHASE A PLACEHOLDER */}
+      {tab==="schedule"&&<ClientCalendar events={events} milestones={milestones} loading={false}/>}
+      {tab!=="overview"&&tab!=="schedule"&&<div style={{background:C.navyLight,border:`1px dashed ${C.border}`,borderRadius:14,padding:50,textAlign:"center"}}>
+        <div style={{fontSize:36,marginBottom:14}}>🔧</div>
+        <div style={{fontFamily:font,color:C.white,fontSize:18,marginBottom:6}}>{V2_NAV.find(n=>n.id===tab)?.label} — coming in Phase B</div>
+        <div style={{color:C.muted,fontSize:13,maxWidth:400,margin:"0 auto"}}>This tab is being rebuilt. Until Phase B ships, drop the <code style={{color:C.gold,background:C.navy,padding:"1px 6px",borderRadius:4,fontSize:11}}>?v=2</code> from the URL to use the original portal.</div>
+      </div>}
+    </main>
+
+    {/* LIGHTBOX */}
+    {lightbox&&<div onClick={()=>setLightbox(null)} style={{position:"fixed",inset:0,background:"#000000DD",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:20,cursor:"zoom-out"}}>
+      <img src={lightbox} alt="" style={{maxWidth:"100%",maxHeight:"90vh",borderRadius:10,boxShadow:"0 0 80px #000"}}/>
+      <div style={{position:"absolute",bottom:24,left:"50%",transform:"translateX(-50%)",color:C.muted,fontSize:11}}>click to close</div>
+    </div>}
+
+    {/* RESPONSIVE */}
+    <style>{`
+      @media (max-width: 720px) {
+        .cpv2-root { flex-direction: column !important; height: auto !important; overflow: visible !important; }
+        .cpv2-sidebar { width: 100% !important; min-width: 0 !important; max-width: none !important; height: auto !important; padding: 12px !important; }
+        .cpv2-main { padding: 16px 14px 40px !important; height: auto !important; overflow: visible !important; }
+        .cpv2-overview-grid { grid-template-columns: 1fr !important; }
+        .cpv2-rail { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      }
+    `}</style>
+  </div>;
+}
+
+
 function DashboardView({jobs,leads,logs,setPage}){
   const active=jobs.filter(j=>j.status==="Active");
   const pipe=leads.filter(l=>!["Won","Lost"].includes(l.stage)).reduce((s,l)=>s+(l.value||0),0);
@@ -2537,6 +2840,14 @@ function ClientPortalWrapper({session,onSignOut}){
       <Btn variant="ghost" onClick={onSignOut}>Sign Out</Btn>
     </div>
   </div>;
+
+  // ── V2 PORTAL TOGGLE ──
+  // Append ?v=2 to the URL to render the new Buildertrend-style portal (Phase A).
+  // Without it, the original portal (V1) renders exactly as before. Zero risk to existing clients.
+  const useV2=typeof window!=="undefined"&&new URLSearchParams(window.location.search).get("v")==="2";
+  if(useV2){
+    return <ClientPortalV2 jobs={jobs} logs={logs} clientMode={true} onSignOut={onSignOut}/>;
+  }
 
   return <div style={{background:C.bg,minHeight:"100vh",fontFamily:fb}}>
     <div style={{maxWidth:760,margin:"0 auto",padding:"24px 16px"}}>
