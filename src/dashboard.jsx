@@ -8,6 +8,20 @@ const fb="system-ui,-apple-system,sans-serif";
 const fmt$=v=>"$"+Number(v||0).toLocaleString();
 const fmtDate=d=>d?new Date(d+"T12:00:00").toLocaleDateString("en-CA",{month:"short",day:"numeric",year:"numeric"}):"—";
 const todayStr=()=>new Date().toISOString().slice(0,10);
+
+// ── V2 PORTAL TOGGLE HELPER ──
+// Returns true if the new ClientPortalV2 should render. Checks URL ?v=2 first
+// (sets a localStorage flag so the choice survives magic-link redirects which
+// strip query params). Pass ?v=1 to explicitly opt back to V1.
+function usePortalV2(){
+  if(typeof window==="undefined")return false;
+  try{
+    const v=new URLSearchParams(window.location.search).get("v");
+    if(v==="2"){localStorage.setItem("tgb_portal_v","2");return true;}
+    if(v==="1"){localStorage.removeItem("tgb_portal_v");return false;}
+    return localStorage.getItem("tgb_portal_v")==="2";
+  }catch(e){return false;}
+}
 const WEATHER=["☀️ Sunny","⛅ Partly Cloudy","☁️ Overcast","🌧️ Rain","❄️ Snow","🌨️ Blowing Snow","🌬️ Windy","🌡️ Extreme Cold"];
 const LEAD_STAGES=["New","Quoted","Follow-up","Won","Lost"];
 const JOB_STATUSES=["Upcoming","Active","Completed","On Hold"];
@@ -2842,10 +2856,9 @@ function ClientPortalWrapper({session,onSignOut}){
   </div>;
 
   // ── V2 PORTAL TOGGLE ──
-  // Append ?v=2 to the URL to render the new Buildertrend-style portal (Phase A).
-  // Without it, the original portal (V1) renders exactly as before. Zero risk to existing clients.
-  const useV2=typeof window!=="undefined"&&new URLSearchParams(window.location.search).get("v")==="2";
-  if(useV2){
+  // usePortalV2() checks ?v=2 in URL (and localStorage so the choice survives
+  // magic-link redirects). Pass ?v=1 in URL to opt back to V1.
+  if(usePortalV2()){
     return <ClientPortalV2 jobs={jobs} logs={logs} clientMode={true} onSignOut={onSignOut}/>;
   }
 
@@ -2963,7 +2976,7 @@ export default function App(){
         {page==="schedule"&&<Schedule events={events} setEvents={setEvents} jobs={jobs} milestones={milestones} setMilestones={setMilestones}/>}
         {page==="subs"&&<Subs subs={subs} setSubs={setSubs}/>}
         {page==="logs"&&<DailyLog logs={logs} setLogs={setLogs} jobs={jobs}/>}
-        {page==="portal"&&<ClientPortal jobs={jobs} logs={logs} milestones={milestones}/>}
+        {page==="portal"&&(usePortalV2()?<ClientPortalV2 jobs={jobs} logs={logs}/>:<ClientPortal jobs={jobs} logs={logs} milestones={milestones}/>)}
         {page==="estimator"&&<Estimator jobs={jobs} leads={leads}/>}
         {page==="settings"&&<Settings/>}
         {page==="deck-designer"&&<div style={{height:"calc(100vh - 120px)",display:"flex",flexDirection:"column"}}><DeckDesigner/></div>}
