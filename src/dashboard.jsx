@@ -5,7 +5,7 @@ import DeckDesigner from './DeckDesigner';
 const C={navy:"#1F2A37",navyLight:"#2C3E50",gold:"#C8A96A",muted:"#6B7280",border:"#2E3D4F",warn:"#F59E0B",danger:"#EF4444",white:"#FFFFFF",bg:"#16212E",success:"#4CAF50"};
 const font="'Georgia',serif";
 const fb="system-ui,-apple-system,sans-serif";
-const fmt$=v=>"$"+Number(v||0).toLocaleString();
+const fmt$=v=>"$"+Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtDate=d=>d?new Date(d+"T12:00:00").toLocaleDateString("en-CA",{month:"short",day:"numeric",year:"numeric"}):"—";
 const todayStr=()=>new Date().toISOString().slice(0,10);
 
@@ -926,15 +926,15 @@ function ClientPortalV2({jobs,logs,clientMode=false,onSignOut}){
     <main style={{flex:1,padding:"24px 28px 60px",minWidth:0,minHeight:0,height:"100%",overflowY:"auto"}} className="cpv2-main">
       {/* PROJECT HEADER */}
       <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",marginBottom:18}}>
-        {allPhotos[0]&&<div style={{height:160,position:"relative",background:`url(${allPhotos[0].url}) center/cover`}}>
+        {(()=>{const heroUrl=selJob.hero_photo_url||(allPhotos[0]&&allPhotos[0].url);return heroUrl?<div style={{height:160,position:"relative",background:`url(${heroUrl}) center/cover`}}>
           <div style={{position:"absolute",inset:0,background:`linear-gradient(to bottom, transparent 30%, ${C.navy}f0 95%)`}}/>
           <div style={{position:"absolute",bottom:14,left:22,right:22}}>
             <div style={{fontSize:9,color:C.gold,fontWeight:700,letterSpacing:1.5}}>{(selJob.type||"PROJECT").toUpperCase()}</div>
             <h1 style={{fontFamily:font,color:C.white,fontSize:24,margin:"4px 0 2px",fontWeight:400}}>{selJob.name}</h1>
             <div style={{color:"#ffffffaa",fontSize:12}}>{selJob.address}</div>
           </div>
-        </div>}
-        {!allPhotos[0]&&<div style={{padding:"22px 24px 4px"}}>
+        </div>:null;})()}
+        {!selJob.hero_photo_url&&!allPhotos[0]&&<div style={{padding:"22px 24px 4px"}}>
           <div style={{fontSize:9,color:C.gold,fontWeight:700,letterSpacing:1.5}}>{(selJob.type||"PROJECT").toUpperCase()}</div>
           <h1 style={{fontFamily:font,color:C.white,fontSize:24,margin:"4px 0 2px",fontWeight:400}}>{selJob.name}</h1>
           <div style={{color:C.muted,fontSize:12}}>{selJob.address}</div>
@@ -1230,7 +1230,7 @@ function ClientAssignment({jobId,allClients,onClientsChange,onEmailSuggested}){
 }
 
 // ── PROJECTS ──────────────────────────────────────────────────────────────────
-function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
+function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[],logs=[]}){
   const [showM,setShowM]=useState(false);
   const [sel,setSel]=useState(null);
   const [form,setForm]=useState({});
@@ -1252,7 +1252,7 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
   // Build client list from leads (Won + all others deduplicated by name)
   const clientNames=[...new Set(leads.map(l=>l.name).filter(Boolean))].sort();
 
-  function openNew(){setForm({name:"",client:"",client_email:"",address:"",type:"",status:"Upcoming",value:"",paid:"",start_date:"",end_date:"",progress:0,notes:"",shared_with_client:false,payment_schedule:[]});setSel(null);setTab("details");setLinkSent(false);setShowM(true);}
+  function openNew(){setForm({name:"",client:"",client_email:"",address:"",type:"",status:"Upcoming",value:"",paid:"",start_date:"",end_date:"",progress:0,notes:"",shared_with_client:false,payment_schedule:[],hero_photo_url:""});setSel(null);setTab("details");setLinkSent(false);setShowM(true);}
   function openEdit(j){setForm({...j,value:String(j.value||""),paid:String(j.paid||""),client_email:j.client_email||"",payment_schedule:j.payment_schedule||[]});setSel(j);setTab("details");setLinkSent(false);setShowM(true);}
 
   // When a client is selected from dropdown, also pull email if the lead has one
@@ -1302,6 +1302,7 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
       notes:form.notes||null,
       shared_with_client:form.shared_with_client||false,
       payment_schedule:form.payment_schedule||[],
+      hero_photo_url:form.hero_photo_url||null,
     };
     const wasShared=sel?.shared_with_client||false;
     const nowShared=form.shared_with_client||false;
@@ -1428,6 +1429,34 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[]}){
             }
           </div>}
         </div>
+        {/* ── PORTAL HERO PHOTO PICKER ── */}
+        {form.shared_with_client&&sel&&(()=>{
+          const projPhotos=logs.filter(l=>l.job_id===sel.id&&l.visible_to_client).flatMap(l=>(l.photos||[]).map(ph=>({url:ph.url||ph,name:ph.name||"photo",date:l.date})));
+          if(projPhotos.length===0)return <div style={{background:C.navy,borderRadius:10,border:`1px dashed ${C.border}`,padding:"14px 16px",marginTop:10}}>
+            <div style={{fontSize:13,color:C.white,fontWeight:600,marginBottom:4}}>Portal Hero Photo</div>
+            <div style={{fontSize:11,color:C.muted}}>Add a daily log photo to this project first, then come back to pick a hero.</div>
+          </div>;
+          return <div style={{background:C.navy,borderRadius:10,border:`1px solid ${C.border}`,padding:"14px 16px",marginTop:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+              <div style={{fontSize:13,color:C.white,fontWeight:600}}>Portal Hero Photo</div>
+              {form.hero_photo_url&&<button onClick={()=>f("hero_photo_url","")} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:6,padding:"3px 10px",fontSize:11,cursor:"pointer",fontFamily:fb}}>Clear</button>}
+            </div>
+            <div style={{fontSize:11,color:C.muted,marginBottom:10}}>Click a photo to feature it at the top of the client portal. Defaults to the most recent log photo if none picked.</div>
+            <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:6}}>
+              {projPhotos.map((ph,i)=>{
+                const isSelected=form.hero_photo_url===ph.url;
+                return <div key={i} onClick={()=>f("hero_photo_url",ph.url)} style={{
+                  width:96,height:64,flexShrink:0,borderRadius:6,overflow:"hidden",cursor:"pointer",
+                  border:isSelected?`2px solid ${C.gold}`:`1px solid ${C.border}`,
+                  position:"relative",boxSizing:"border-box"
+                }}>
+                  <img src={ph.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                  {isSelected&&<div style={{position:"absolute",top:3,right:3,background:C.gold,color:C.navy,width:18,height:18,borderRadius:99,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700}}>✓</div>}
+                </div>;
+              })}
+            </div>
+          </div>;
+        })()}
         {/* Client assignment */}
         <div style={{background:C.navy,borderRadius:10,border:`1px solid ${C.border}`,padding:"14px 16px",marginTop:10}}>
           <div style={{fontSize:13,color:C.white,fontWeight:600,marginBottom:10}}>Assigned Clients</div>
@@ -2971,7 +3000,7 @@ export default function App(){
     <div style={{marginLeft:220,flex:1,padding:24,boxSizing:"border-box"}}>
       <div style={{maxWidth:900,margin:"0 auto"}}>
         {page==="dashboard"&&<DashboardView jobs={jobs} leads={leads} logs={logs} setPage={setPage}/>}
-        {page==="jobs"&&<Jobs jobs={jobs} setJobs={setJobs} leads={leads} setMilestonesGlobal={setMilestones} clients={clients}/>}
+        {page==="jobs"&&<Jobs jobs={jobs} setJobs={setJobs} leads={leads} setMilestonesGlobal={setMilestones} clients={clients} logs={logs}/>}
         {page==="leads"&&<Leads leads={leads} setLeads={setLeads}/>}
         {page==="schedule"&&<Schedule events={events} setEvents={setEvents} jobs={jobs} milestones={milestones} setMilestones={setMilestones}/>}
         {page==="subs"&&<Subs subs={subs} setSubs={setSubs}/>}
