@@ -113,13 +113,13 @@ function Btn({children,onClick,variant="primary",size="md",style={}}){
   return <button onClick={onClick} style={{cursor:"pointer",borderRadius:6,fontFamily:fb,fontWeight:600,border:"none",...v[variant],...s[size],...style}}>{children}</button>;
 }
 function Modal({title,onClose,children,wide=false}){
-  return <div style={{position:"fixed",inset:0,background:"#00000090",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2000,padding:16}}>
-    <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:24,width:"100%",maxWidth:wide?700:500,maxHeight:"92vh",overflowY:"auto"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-        <h2 style={{margin:0,color:C.white,fontFamily:font,fontSize:19}}>{title}</h2>
-        <button onClick={onClose} style={{background:"none",border:"none",color:C.muted,fontSize:22,cursor:"pointer",lineHeight:1}}>×</button>
+  return <div style={{position:"fixed",inset:0,background:"#0F172A88",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2000,padding:16,backdropFilter:"blur(3px)"}}>
+    <div style={{background:LC.surface,borderRadius:14,padding:0,width:"100%",maxWidth:wide?720:520,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 24px 56px rgba(15,23,42,0.35)",borderTop:`4px solid ${LC.gold}`}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"20px 24px 0"}}>
+        <h2 style={{margin:0,color:LC.text,fontFamily:fb,fontSize:20,fontWeight:600,letterSpacing:"-0.01em"}}>{title}</h2>
+        <button onClick={onClose} style={{background:"transparent",border:"none",color:LC.textMuted,fontSize:26,cursor:"pointer",lineHeight:1,padding:"4px 8px",borderRadius:6,transition:"all 0.1s"}} onMouseEnter={e=>{e.currentTarget.style.background=LC.bg;e.currentTarget.style.color=LC.text;}} onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color=LC.textMuted;}}>×</button>
       </div>
-      {children}
+      <div style={{padding:"16px 24px 24px",color:LC.textBody}}>{children}</div>
     </div>
   </div>;
 }
@@ -335,13 +335,15 @@ function PaymentScheduleEditor({schedule,contractValue,onChange}){
 // ── CLIENT CALENDAR V2 (HYBRID THEME) ─────────────────────────────────────────
 // Buildertrend-inspired month grid for client portal. Light cards on light bg.
 // Multi-day chips, type filter, click-to-expand, today highlight, UTC-safe dates.
-function ClientCalendarV2({events,milestones,loading,editable=false,onCreate,onEdit}){
+function ClientCalendarV2({events,milestones,loading,editable=false,onCreate,onEdit,onReschedule}){
   const [currentMonth,setCurrentMonth]=useState(()=>{
     const d=new Date();
     return new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1));
   });
   const [hiddenTypes,setHiddenTypes]=useState(new Set());
   const [expandedItem,setExpandedItem]=useState(null);
+  const [dragId,setDragId]=useState(null);
+  const [dragOverDate,setDragOverDate]=useState(null);
 
   const allItems=[
     ...(events||[]).map(e=>({
@@ -427,30 +429,44 @@ function ClientCalendarV2({events,milestones,loading,editable=false,onCreate,onE
       </div>
     </div>
 
-    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5,marginBottom:5}}>
+    <div style={{background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:10,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:0,borderBottom:`1px solid ${LC.border}`,background:LC.bg}}>
       {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=>(
-        <div key={d} style={{textAlign:"center",fontSize:10,color:LC.textMuted,textTransform:"uppercase",letterSpacing:0.8,padding:"7px 0",fontWeight:700}}>{d}</div>
+        <div key={d} style={{textAlign:"center",fontSize:10,color:LC.textMuted,textTransform:"uppercase",letterSpacing:0.8,padding:"9px 0",fontWeight:700}}>{d}</div>
       ))}
     </div>
 
-    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:0}}>
       {cells.map((cell,i)=>{
-        if(!cell)return <div key={"e"+i} style={{minHeight:104,background:"transparent"}}/>;
+        if(!cell){
+          const colIdx=i%7;const rowIdx=Math.floor(i/7);
+          return <div key={"e"+i} style={{minHeight:108,background:LC.bg,borderRight:colIdx<6?`1px solid ${LC.border}`:"none",borderBottom:rowIdx<5?`1px solid ${LC.border}`:"none"}}/>;
+        }
         const ds=dateStr(cell);
         const dayItems=itemsForDate(ds);
         const isToday=ds===todayUTC;
-        return <div key={ds} onClick={editable&&onCreate?(e)=>{if(e.target===e.currentTarget||e.target.tagName==="SPAN")onCreate(ds);}:undefined} style={{
-          minHeight:104,
-          background:isToday?LC.goldLight:LC.surface,
-          border:`${isToday?2:1}px solid ${isToday?LC.gold:LC.border}`,
-          borderRadius:8,
-          padding:6,
-          display:"flex",flexDirection:"column",gap:3,
-          overflow:"hidden",
-          boxSizing:"border-box",
-          boxShadow:"0 1px 2px rgba(0,0,0,0.04)",
-          cursor:editable&&onCreate?"pointer":"default"
-        }}>
+        const colIdx=i%7;
+        const rowIdx=Math.floor(i/7);
+        const isDropTarget=dragOverDate===ds;
+        return <div key={ds}
+          onClick={editable&&onCreate?(e)=>{if(e.target===e.currentTarget||e.target.tagName==="SPAN")onCreate(ds);}:undefined}
+          onDragOver={editable&&onReschedule?(e)=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dragOverDate!==ds)setDragOverDate(ds);}:undefined}
+          onDragLeave={editable&&onReschedule?(e)=>{if(dragOverDate===ds)setDragOverDate(null);}:undefined}
+          onDrop={editable&&onReschedule?(e)=>{e.preventDefault();setDragOverDate(null);if(dragId&&dragId!==ds){const item=visibleItems.find(it=>it._kind+"-"+it.id===dragId);if(item){const startMs=new Date(item.date+"T12:00:00Z").getTime();const endMs=new Date(item.date_end+"T12:00:00Z").getTime();const newStartMs=new Date(ds+"T12:00:00Z").getTime();const newEnd=new Date(newStartMs+(endMs-startMs)).toISOString().slice(0,10);onReschedule(item.id,ds,newEnd);}setDragId(null);}}:undefined}
+          style={{
+            minHeight:108,
+            background:isDropTarget?LC.gold+"33":(isToday?LC.goldLight:LC.surface),
+            borderRight:colIdx<6?`1px solid ${LC.border}`:"none",
+            borderBottom:rowIdx<5?`1px solid ${LC.border}`:"none",
+            padding:7,
+            display:"flex",flexDirection:"column",gap:3,
+            overflow:"hidden",
+            boxSizing:"border-box",
+            cursor:editable&&onCreate?"pointer":"default",
+            position:"relative",
+            transition:"background 0.1s"
+          }}>
+          {isToday&&<div style={{position:"absolute",top:6,right:6,width:5,height:5,borderRadius:99,background:LC.gold}}/>}
           <div style={{
             fontSize:12,fontWeight:isToday?700:500,
             color:isToday?LC.text:LC.textBody,
@@ -464,9 +480,17 @@ function ClientCalendarV2({events,milestones,loading,editable=false,onCreate,onE
             const isStart=item.date===ds;
             const isEnd=item.date_end===ds;
             const isMulti=item.date!==item.date_end;
-            return <div key={item._kind+"-"+item.id+"-"+ds} onClick={(e)=>{e.stopPropagation();if(editable&&onEdit&&item._kind==="event"){onEdit(item);}else{setExpandedItem(item);}}} style={{
+            const canDrag=editable&&onReschedule&&item._kind==="event";
+            const itemDragId=item._kind+"-"+item.id;
+            const isBeingDragged=dragId===itemDragId;
+            return <div key={item._kind+"-"+item.id+"-"+ds}
+              draggable={canDrag&&isStart}
+              onDragStart={canDrag&&isStart?(e)=>{e.stopPropagation();setDragId(itemDragId);e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",itemDragId);}:undefined}
+              onDragEnd={canDrag?(e)=>{setDragId(null);setDragOverDate(null);}:undefined}
+              onClick={(e)=>{e.stopPropagation();if(editable&&onEdit&&item._kind==="event"){onEdit(item);}else{setExpandedItem(item);}}} style={{
               background:item.color,
               color:"#ffffff",
+              opacity:isBeingDragged?0.4:1,
               fontSize:10,
               padding:"3px 7px",
               borderRadius:isMulti?(isStart&&isEnd?5:isStart?"5px 0 0 5px":isEnd?"0 5px 5px 0":0):5,
@@ -483,6 +507,7 @@ function ClientCalendarV2({events,milestones,loading,editable=false,onCreate,onE
           })}
         </div>;
       })}
+    </div>
     </div>
 
     {expandedItem&&<div onClick={()=>setExpandedItem(null)} style={{
@@ -2666,7 +2691,7 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
 
     {/* ── CALENDAR VIEW ── */}
     {view==="calendar"&&<div style={{background:LC.bg,border:`1px solid ${LC.border}`,borderRadius:14,padding:18,boxSizing:"border-box"}}>
-      <ClientCalendarV2 events={filtered} milestones={mFiltered} loading={false} editable onCreate={openNew} onEdit={openEdit}/>
+      <ClientCalendarV2 events={filtered} milestones={mFiltered} loading={false} editable onCreate={openNew} onEdit={openEdit} onReschedule={async(id,newDate,newEnd)=>{const ev=events.find(e=>e.id===id);if(!ev)return;setEvents(es=>es.map(e=>e.id===id?{...e,date:newDate,date_end:newEnd}:e));await supabase.from("events").update({date:newDate,date_end:newEnd}).eq("id",id);}}/>
     </div>}
     {showM&&<Modal title={sel?"Edit Event":"Add Event"} onClose={()=>setShowM(false)}>
       <Inp label="Event Title" value={form.title||""} onChange={v=>f("title",v)}/>
