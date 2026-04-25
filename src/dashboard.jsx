@@ -3,6 +3,25 @@ import { supabase } from "./supabase";
 import DeckDesigner from './DeckDesigner';
 
 const C={navy:"#1F2A37",navyLight:"#2C3E50",gold:"#C8A96A",muted:"#6B7280",border:"#2E3D4F",warn:"#F59E0B",danger:"#EF4444",white:"#FFFFFF",bg:"#16212E",success:"#4CAF50"};
+// ── LIGHT COLOR PALETTE (Hybrid theme — used by V2 portal & redesigned admin pages) ──
+const LC={
+  bg:"#F4F5F7",
+  surface:"#FFFFFF",
+  surfaceAlt:"#FAFBFC",
+  border:"#E5E7EB",
+  borderStrong:"#D1D5DB",
+  text:"#1F2A37",
+  textBody:"#374151",
+  textMuted:"#6B7280",
+  gold:"#C8A96A",
+  goldHover:"#B89859",
+  goldLight:"#F5EDD9",
+  success:"#16A34A",
+  warn:"#F59E0B",
+  danger:"#DC2626",
+  info:"#2563EB"
+};
+
 const font="'Georgia',serif";
 const fb="system-ui,-apple-system,sans-serif";
 const fmt$=v=>"$"+Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
