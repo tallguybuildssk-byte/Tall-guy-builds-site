@@ -465,7 +465,7 @@ function ClientCalendarV2({events,milestones,loading,editable=false,onCreate,onE
       {cells.map((cell,i)=>{
         if(!cell){
           const colIdx=i%7;const rowIdx=Math.floor(i/7);
-          return <div key={"e"+i} style={{minHeight:108,background:LC.bg,borderRight:colIdx<6?`1px solid ${LC.border}`:"none",borderBottom:rowIdx<5?`1px solid ${LC.border}`:"none"}}/>;
+          return <div key={"e"+i} className="tgb-cal-cell" style={{minHeight:108,background:LC.bg,borderRight:colIdx<6?`1px solid ${LC.border}`:"none",borderBottom:rowIdx<5?`1px solid ${LC.border}`:"none"}}/>;
         }
         const ds=dateStr(cell);
         const dayItems=itemsForDate(ds);
@@ -473,7 +473,7 @@ function ClientCalendarV2({events,milestones,loading,editable=false,onCreate,onE
         const colIdx=i%7;
         const rowIdx=Math.floor(i/7);
         const isDropTarget=dragOverDate===ds;
-        return <div key={ds}
+        return <div key={ds} className="tgb-cal-cell"
           onClick={editable&&onCreate?(e)=>{if(e.target===e.currentTarget||e.target.tagName==="SPAN")onCreate(ds);}:undefined}
           onDragOver={editable&&onReschedule?(e)=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dragOverDate!==ds)setDragOverDate(ds);}:undefined}
           onDragLeave={editable&&onReschedule?(e)=>{if(dragOverDate===ds)setDragOverDate(null);}:undefined}
@@ -492,7 +492,7 @@ function ClientCalendarV2({events,milestones,loading,editable=false,onCreate,onE
             transition:"background 0.1s"
           }}>
           {isToday&&<div style={{position:"absolute",top:6,right:6,width:5,height:5,borderRadius:99,background:LC.gold}}/>}
-          <div style={{
+          <div className="tgb-cal-day-num" style={{
             fontSize:12,fontWeight:isToday?700:500,
             color:isToday?LC.text:LC.textBody,
             display:"flex",justifyContent:"space-between",alignItems:"center",
@@ -508,7 +508,7 @@ function ClientCalendarV2({events,milestones,loading,editable=false,onCreate,onE
             const canDrag=editable&&onReschedule&&item._kind==="event";
             const itemDragId=item._kind+"-"+item.id;
             const isBeingDragged=dragId===itemDragId;
-            return <div key={item._kind+"-"+item.id+"-"+ds}
+            return <div key={item._kind+"-"+item.id+"-"+ds} className="tgb-cal-chip"
               draggable={canDrag&&isStart}
               onDragStart={canDrag&&isStart?(e)=>{e.stopPropagation();setDragId(itemDragId);e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",itemDragId);}:undefined}
               onDragEnd={canDrag?(e)=>{setDragId(null);setDragOverDate(null);}:undefined}
@@ -1635,9 +1635,9 @@ function DashboardView({jobs,leads,logs,setPage}){
     <div style={{fontSize:12,color:LC.textMuted,letterSpacing:"0.05em",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Today</div>
     <h1 style={{fontFamily:fbHero,color:LC.text,fontSize:42,marginTop:0,marginBottom:0,fontWeight:800,letterSpacing:"-0.03em",lineHeight:1.05}}>What needs attention?</h1>
     <p style={{color:LC.textMuted,marginTop:12,marginBottom:26,fontSize:14,lineHeight:1.5}}>Active jobs, recent activity, and what&apos;s waiting on you.</p>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10,marginBottom:22}}>
+    <div className="tgb-stat-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10,marginBottom:22}}>
       {[{label:"Active Jobs",value:active.length,sub:"in progress",color:C.gold},{label:"Pipeline",value:fmt$(pipe),sub:"open leads",color:"#3B82F6"},{label:"Remaining",value:fmt$(out),sub:"to invoice",color:C.warn},{label:"Won",value:fmt$(won),sub:"closed",color:"#16A34A"}].map(k=>(
-        <Card key={k.label} style={{padding:"20px 22px"}}><div style={{fontSize:12,color:LC.textMuted,marginBottom:10,fontWeight:500}}>{k.label}</div><div style={{fontSize:32,fontFamily:fbHero,color:k.color,marginBottom:8,fontWeight:800,letterSpacing:"-0.025em",lineHeight:1}}>{k.value}</div><div style={{fontSize:11,color:LC.textMuted}}>{k.sub}</div></Card>
+        <Card key={k.label} style={{padding:"20px 22px"}}><div style={{fontSize:12,color:LC.textMuted,marginBottom:10,fontWeight:500}}>{k.label}</div><div className="tgb-stat-num" style={{fontSize:32,fontFamily:fbHero,color:k.color,marginBottom:8,fontWeight:800,letterSpacing:"-0.025em",lineHeight:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{k.value}</div><div style={{fontSize:11,color:LC.textMuted}}>{k.sub}</div></Card>
       ))}
     </div>
     <h2 style={{fontFamily:fbHero,color:LC.text,fontSize:22,fontWeight:800,letterSpacing:"-0.02em",marginBottom:14,marginTop:18}}>Active Projects</h2>
@@ -3395,7 +3395,15 @@ export default function App(){
   // Auth listener
   useEffect(()=>{
     supabase.auth.getSession().then(({data:{session}})=>setSession(session));
-    const {data:{subscription}}=supabase.auth.onAuthStateChange((_,session)=>setSession(session));
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{
+      setSession(session);
+      // Magic-link race: when SIGNED_IN fires from hash processing, React state can desync
+      // (user sees Login screen until manual refresh). Force a clean reload — once.
+      if(event==="SIGNED_IN"&&window.location.hash.includes("access_token")){
+        window.history.replaceState(null,"",window.location.pathname+window.location.search);
+        window.location.reload();
+      }
+    });
     return ()=>subscription.unsubscribe();
   },[]);
 
@@ -3443,6 +3451,19 @@ export default function App(){
   if(isClient)return <ClientPortalWrapper session={session} onSignOut={handleSignOut}/>;
 
   return <div style={{background:LC.bg,minHeight:"100vh",display:"flex",fontFamily:fb}}>
+    <style>{`
+      @media (max-width: 720px) {
+        .tgb-stat-num { font-size: 22px !important; }
+        .tgb-cal-day-header { display: none !important; }
+        .tgb-cal-cell { min-height: 56px !important; padding: 3px !important; }
+        .tgb-cal-day-num { font-size: 10px !important; }
+        .tgb-cal-chip { font-size: 8px !important; padding: 1px 3px !important; line-height: 1.3 !important; }
+        .tgb-stat-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+      }
+      @media (max-width: 480px) {
+        .tgb-stat-num { font-size: 18px !important; }
+      }
+    `}</style>
     <div style={{width:sidebarCollapsed?64:220,background:C.navy,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",position:"fixed",top:0,left:0,height:"100vh",zIndex:100,transition:"width 0.2s ease",overflow:"hidden"}}>
       <div style={{padding:sidebarCollapsed?"20px 12px":"20px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:sidebarCollapsed?"center":"space-between",gap:8}}>
         {!sidebarCollapsed&&<div style={{display:"flex",alignItems:"center",gap:10,minWidth:0}}>
