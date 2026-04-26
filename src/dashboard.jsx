@@ -77,6 +77,40 @@ async function sendMilestoneEmail(job, milestoneName){
   }catch(e){console.warn("Email send failed:",e);}
 }
 
+// Sends a "new site update" email to each assigned client when admin posts a client-visible daily log.
+// Uses the same EmailJS template as milestones (re-purposes milestone_name field for the update label).
+async function sendDailyLogEmail(job, log, clientEmails){
+  if(!clientEmails||clientEmails.length===0)return;
+  try{
+    const s=JSON.parse(localStorage.getItem("tgb_emailjs")||"{}");
+    if(!s.service_id||!s.template_id||!s.public_key)return;
+    const dateStr=log.date?new Date(log.date+"T12:00:00").toLocaleDateString("en-CA",{month:"short",day:"numeric"}):"";
+    for(const email of clientEmails){
+      try{
+        const res=await fetch("https://api.emailjs.com/api/v1.0/email/send",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            service_id:s.service_id,
+            template_id:s.template_id,
+            user_id:s.public_key,
+            template_params:{
+              to_email:email,
+              client_name:job.client||"",
+              project_name:job.name||"",
+              milestone_name:`New site update — ${dateStr}`,
+              portal_url:"https://app.tallguybuilds.ca?portal=1",
+              contractor_name:"Tall Guy Builds Inc.",
+              contractor_phone:"(306)737-5407",
+            }
+          })
+        });
+        if(!res.ok)console.warn("Daily log email failed for",email,res.status);
+      }catch(e){console.warn("Daily log email error for",email,e);}
+    }
+  }catch(e){console.warn("Daily log email outer:",e);}
+}
+
 // ── UI PRIMITIVES ─────────────────────────────────────────────────────────────
 function Badge({label}){
   const m={
@@ -158,7 +192,7 @@ function Toggle({checked,onChange,label}){
 }
 
 // ── MESSAGE THREAD ────────────────────────────────────────────────────────────
-function MessageThread({jobId,senderType,senderName}){
+function MessageThread({jobId,senderType,senderName,onRead}){
   const [msgs,setMsgs]=useState([]);
   const [body,setBody]=useState("");
   const [loading,setLoading]=useState(true);
@@ -167,21 +201,30 @@ function MessageThread({jobId,senderType,senderName}){
 
   useEffect(()=>{
     if(!jobId)return;
-    loadMsgs();
-    // Mark all unread messages as read for this viewer role
-    supabase.from("messages")
-      .update(senderType==="admin"?{read_by_admin:true}:{read_by_client:true})
-      .eq("job_id",jobId)
-      .eq(senderType==="admin"?"read_by_admin":"read_by_client",false)
-      .then(()=>{});
-    const iv=setInterval(loadMsgs,8000);
+    loadAndMark();
+    const iv=setInterval(loadAndMark,8000);
     return ()=>clearInterval(iv);
   },[jobId]);
+
+  async function loadAndMark(){
+    await loadMsgs();
+    await markRead();
+  }
 
   async function loadMsgs(){
     const {data}=await supabase.from("messages").select("*").eq("job_id",jobId).order("created_at");
     setMsgs(data||[]);setLoading(false);
     setTimeout(()=>bottomRef.current?.scrollIntoView({behavior:"smooth"}),60);
+  }
+
+  async function markRead(){
+    const field=senderType==="admin"?"read_by_admin":"read_by_client";
+    const {data}=await supabase.from("messages")
+      .update({[field]:true})
+      .eq("job_id",jobId)
+      .eq(field,false)
+      .select("id");
+    if(data&&data.length>0&&onRead)onRead();
   }
 
   async function send(){
@@ -199,22 +242,22 @@ function MessageThread({jobId,senderType,senderName}){
     return d.toLocaleDateString("en-CA",{month:"short",day:"numeric"})+" "+d.toLocaleTimeString("en-CA",{hour:"2-digit",minute:"2-digit"});
   };
 
-  if(!jobId)return <div style={{color:C.muted,fontSize:13,padding:16,textAlign:"center"}}>Save the project first to enable messaging.</div>;
-  if(loading)return <div style={{color:C.muted,fontSize:13,padding:16,textAlign:"center"}}>Loading messages…</div>;
+  if(!jobId)return <div style={{color:LC.textMuted,fontSize:13,padding:16,textAlign:"center"}}>Save the project first to enable messaging.</div>;
+  if(loading)return <div style={{color:LC.textMuted,fontSize:13,padding:16,textAlign:"center"}}>Loading messages…</div>;
 
   return <div style={{display:"flex",flexDirection:"column",height:400}}>
     <div style={{flex:1,overflowY:"auto",paddingRight:4,marginBottom:12}}>
-      {msgs.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:C.muted,fontSize:13}}>
+      {msgs.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:LC.textMuted,fontSize:13}}>
         <div style={{fontSize:28,marginBottom:8}}>💬</div>No messages yet — start the conversation.
       </div>}
       {msgs.map(m=>{
         const isMe=m.sender_type===senderType;
         return <div key={m.id} style={{display:"flex",justifyContent:isMe?"flex-end":"flex-start",marginBottom:10}}>
           <div style={{maxWidth:"76%"}}>
-            <div style={{fontSize:10,color:C.muted,marginBottom:3,textAlign:isMe?"right":"left"}}>
+            <div style={{fontSize:10,color:LC.textMuted,marginBottom:4,textAlign:isMe?"right":"left",fontWeight:500}}>
               {m.sender_name||(m.sender_type==="admin"?"Tall Guy Builds":"Client")} · {fmtTs(m.created_at)}
             </div>
-            <div style={{background:isMe?C.gold:C.navy,color:isMe?C.navy:C.white,borderRadius:isMe?"12px 12px 3px 12px":"12px 12px 12px 3px",padding:"10px 14px",fontSize:13,lineHeight:1.5,border:`1px solid ${isMe?C.gold+"99":C.border}`,wordBreak:"break-word"}}>
+            <div style={{background:isMe?LC.gold:LC.bg,color:isMe?LC.text:LC.text,borderRadius:isMe?"14px 14px 4px 14px":"14px 14px 14px 4px",padding:"10px 14px",fontSize:13,lineHeight:1.5,border:`1px solid ${isMe?LC.gold:LC.border}`,wordBreak:"break-word",boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
               {m.text}
             </div>
           </div>
@@ -222,12 +265,12 @@ function MessageThread({jobId,senderType,senderName}){
       })}
       <div ref={bottomRef}/>
     </div>
-    <div style={{display:"flex",gap:8,alignItems:"flex-end",borderTop:`1px solid ${C.border}`,paddingTop:12}}>
+    <div style={{display:"flex",gap:8,alignItems:"flex-end",borderTop:`1px solid ${LC.border}`,paddingTop:12}}>
       <textarea value={body} onChange={e=>setBody(e.target.value)}
         onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}}
         placeholder="Type a message… (Enter to send)"
         rows={2}
-        style={{flex:1,background:C.navy,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 11px",color:C.white,fontSize:13,fontFamily:fb,outline:"none",resize:"none",lineHeight:1.5}}
+        style={{flex:1,background:LC.surface,border:`1px solid ${LC.border}`,borderRadius:8,padding:"9px 12px",color:LC.text,fontSize:13,fontFamily:fb,outline:"none",resize:"none",lineHeight:1.5}}
       />
       <Btn onClick={send} style={{opacity:sending||!body.trim()?0.45:1}}>Send</Btn>
     </div>
@@ -1800,13 +1843,15 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[],logs=[]}){
   const f=(k,v)=>setForm(p=>({...p,[k]:v}));
 
   // Load unread message counts for all jobs (admin = messages where read_by_admin is false)
-  useEffect(()=>{
-    supabase.from("messages").select("job_id").eq("read_by_admin",false).then(({data})=>{
-      const counts={};
-      (data||[]).forEach(m=>{counts[m.job_id]=(counts[m.job_id]||0)+1;});
-      setUnreadCounts(counts);
-    });
-  },[jobs]);
+  async function refreshUnread(){
+    const {data}=await supabase.from("messages").select("job_id").eq("read_by_admin",false);
+    const counts={};
+    (data||[]).forEach(m=>{counts[m.job_id]=(counts[m.job_id]||0)+1;});
+    setUnreadCounts(counts);
+  }
+  useEffect(()=>{refreshUnread();},[jobs]);
+  // Also refresh when the project edit modal closes (admin may have read messages)
+  useEffect(()=>{if(!showM)refreshUnread();},[showM]);
 
   // Build client list from leads (Won + all others deduplicated by name)
   const clientNames=[...new Set(leads.map(l=>l.name).filter(Boolean))].sort();
@@ -2029,7 +2074,7 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[],logs=[]}){
       {tab==="documents"&&<DocumentsAdmin jobId={sel?.id} jobName={sel?.name}/>}
       {tab==="messages"&&sel&&<>
         <div style={{fontSize:11,color:LC.textMuted,marginBottom:12}}>Direct messages with <strong style={{color:LC.text}}>{sel.client||"client"}</strong>. Client sees these in their portal under the Messages tab.</div>
-        <MessageThread jobId={sel.id} senderType="admin" senderName="Tall Guy Builds"/>
+        <MessageThread jobId={sel.id} senderType="admin" senderName="Tall Guy Builds" onRead={refreshUnread}/>
       </>}
       {tab==="messages"&&!sel&&<div style={{color:C.muted,fontSize:12,padding:"20px 0",textAlign:"center"}}>Save the project first to enable messaging.</div>}
       {tab!=="messages"&&<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:14}}>
@@ -3005,8 +3050,29 @@ function DailyLog({logs,setLogs,jobs}){
   function openEdit(log){setForm({...log,job_id:log.job_id||""});setSel(log);setShowM(true);}
   async function save(){
     const u={...form,crew:+form.crew||0,hours:+form.hours||0,job_id:form.job_id||null,photos:form.photos||[]};
-    if(sel){const {data}=await supabase.from("daily_logs").update(u).eq("id",sel.id).select().single();if(data)setLogs(ls=>ls.map(l=>l.id===sel.id?data:l));}
-    else{const {data}=await supabase.from("daily_logs").insert(u).select().single();if(data)setLogs(ls=>[data,...ls]);}
+    const wasVisible=sel?.visible_to_client||false;
+    let saved=null;
+    if(sel){
+      const {data}=await supabase.from("daily_logs").update(u).eq("id",sel.id).select().single();
+      saved=data;
+      if(data)setLogs(ls=>ls.map(l=>l.id===sel.id?data:l));
+    }else{
+      const {data}=await supabase.from("daily_logs").insert(u).select().single();
+      saved=data;
+      if(data)setLogs(ls=>[data,...ls]);
+    }
+    // Auto-email assigned clients when a log is newly visible to them
+    // Trigger on: brand-new log marked visible, OR existing log toggled hidden → visible
+    if(saved&&saved.visible_to_client&&saved.job_id&&!wasVisible){
+      const job=jobs.find(j=>j.id===saved.job_id);
+      if(job){
+        try{
+          const {data:cj}=await supabase.from("client_jobs").select("clients(email)").eq("job_id",saved.job_id);
+          const emails=(cj||[]).map(r=>r.clients?.email).filter(Boolean);
+          if(emails.length>0)sendDailyLogEmail(job,saved,emails);
+        }catch(e){console.warn("Could not look up client emails:",e);}
+      }
+    }
     setShowM(false);
   }
   async function del(){await supabase.from("daily_logs").delete().eq("id",sel.id);setLogs(ls=>ls.filter(l=>l.id!==sel.id));setShowM(false);}
@@ -3103,7 +3169,7 @@ function DailyLog({logs,setLogs,jobs}){
       </div>
       <div style={{marginBottom:14,padding:"12px 14px",background:LC.surface,borderRadius:8,border:`1px solid ${LC.border}`}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div><div style={{fontSize:12,color:LC.text,fontWeight:600}}>Visible to Client</div><div style={{fontSize:11,color:C.muted,marginTop:2}}>Client sees this update in their portal</div></div>
+          <div><div style={{fontSize:12,color:LC.text,fontWeight:600}}>Visible to Client</div><div style={{fontSize:11,color:LC.textMuted,marginTop:2}}>{form.visible_to_client?"✉ Will email assigned clients on save (only first time made visible)":"Client sees this update in their portal when toggled on"}</div></div>
           <Toggle checked={form.visible_to_client||false} onChange={v=>f("visible_to_client",v)}/>
         </div>
       </div>
