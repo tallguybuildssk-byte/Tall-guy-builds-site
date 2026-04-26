@@ -30,17 +30,17 @@ const fmtDate=d=>d?new Date(d+"T12:00:00").toLocaleDateString("en-CA",{month:"sh
 const todayStr=()=>new Date().toISOString().slice(0,10);
 
 // ── V2 PORTAL TOGGLE HELPER ──
-// Returns true if the new ClientPortalV2 should render. Checks URL ?v=2 first
-// (sets a localStorage flag so the choice survives magic-link redirects which
-// strip query params). Pass ?v=1 to explicitly opt back to V1.
+// V2 is the DEFAULT. Pass ?v=1 in the URL to opt back to the original V1 portal
+// (sets a localStorage flag so the choice sticks across redirects). ?v=2 reverts
+// to default (V2). All clients see V2 unless they explicitly opted out.
 function usePortalV2(){
-  if(typeof window==="undefined")return false;
+  if(typeof window==="undefined")return true;
   try{
     const v=new URLSearchParams(window.location.search).get("v");
-    if(v==="2"){localStorage.setItem("tgb_portal_v","2");return true;}
-    if(v==="1"){localStorage.removeItem("tgb_portal_v");return false;}
-    return localStorage.getItem("tgb_portal_v")==="2";
-  }catch(e){return false;}
+    if(v==="1"){localStorage.setItem("tgb_portal_v","1");return false;}
+    if(v==="2"){localStorage.removeItem("tgb_portal_v");return true;}
+    return localStorage.getItem("tgb_portal_v")!=="1";
+  }catch(e){return true;}
 }
 const WEATHER=["☀️ Sunny","⛅ Partly Cloudy","☁️ Overcast","🌧️ Rain","❄️ Snow","🌨️ Blowing Snow","🌬️ Windy","🌡️ Extreme Cold"];
 const LEAD_STAGES=["New","Quoted","Follow-up","Won","Lost"];
@@ -3377,6 +3377,8 @@ const NAV=[
 
 export default function App(){
   const [page,setPage]=useState("dashboard");
+  const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>{try{return localStorage.getItem("tgb_sidebar_collapsed")==="1";}catch(e){return false;}});
+  const toggleSidebar=()=>{const n=!sidebarCollapsed;setSidebarCollapsed(n);try{localStorage.setItem("tgb_sidebar_collapsed",n?"1":"0");}catch(e){}};
   const [session,setSession]=useState(undefined);
   const [isClient,setIsClient]=useState(false); // true if logged-in user is a portal client
   const [clientMode,setClientMode]=useState(()=>new URLSearchParams(window.location.search).get("portal")==="1"); // auto-switches to client login when ?portal=1 is in URL (from magic link email)
@@ -3441,27 +3443,31 @@ export default function App(){
   if(isClient)return <ClientPortalWrapper session={session} onSignOut={handleSignOut}/>;
 
   return <div style={{background:LC.bg,minHeight:"100vh",display:"flex",fontFamily:fb}}>
-    <div style={{width:220,background:C.navy,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",position:"fixed",top:0,left:0,height:"100vh",zIndex:100}}>
-      <div style={{padding:"20px 16px",borderBottom:`1px solid ${C.border}`}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <img src="/tgb-logo.svg" alt="TGB" style={{width:40,height:40,borderRadius:8,objectFit:"contain"}}/>
-          <div>
-            <div style={{color:C.white,fontWeight:700,fontSize:13,fontFamily:font}}>Tall Guy Builds</div>
+    <div style={{width:sidebarCollapsed?64:220,background:C.navy,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",position:"fixed",top:0,left:0,height:"100vh",zIndex:100,transition:"width 0.2s ease",overflow:"hidden"}}>
+      <div style={{padding:sidebarCollapsed?"20px 12px":"20px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:sidebarCollapsed?"center":"space-between",gap:8}}>
+        {!sidebarCollapsed&&<div style={{display:"flex",alignItems:"center",gap:10,minWidth:0}}>
+          <img src="/tgb-logo.svg" alt="TGB" style={{width:40,height:40,borderRadius:8,objectFit:"contain",flexShrink:0}}/>
+          <div style={{minWidth:0}}>
+            <div style={{color:C.white,fontWeight:700,fontSize:13,fontFamily:fb,letterSpacing:"-0.01em"}}>Tall Guy Builds</div>
             <div style={{color:C.gold,fontSize:9,letterSpacing:1,fontWeight:600}}>BUILT RIGHT.</div>
             <div style={{color:C.gold,fontSize:9,letterSpacing:1,fontWeight:600}}>DESIGNED TO LAST.</div>
           </div>
-        </div>
+        </div>}
+        {sidebarCollapsed&&<img src="/tgb-logo.svg" alt="TGB" style={{width:36,height:36,borderRadius:7,objectFit:"contain"}}/>}
+        <button onClick={toggleSidebar} title={sidebarCollapsed?"Expand sidebar":"Collapse sidebar"} style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,borderRadius:6,width:26,height:26,cursor:"pointer",fontSize:14,display:sidebarCollapsed?"none":"flex",alignItems:"center",justifyContent:"center",fontFamily:fb,flexShrink:0}}>‹</button>
       </div>
-      <nav style={{flex:1,padding:"12px 8px",overflowY:"auto"}}>
+      <nav style={{flex:1,padding:sidebarCollapsed?"12px 6px":"12px 8px",overflowY:"auto"}}>
         {NAV.map(n=>(
-          <button key={n.id} onClick={()=>setPage(n.id)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"9px 12px",borderRadius:8,border:"none",background:page===n.id?C.gold+"22":"transparent",color:page===n.id?C.gold:C.muted,fontFamily:fb,fontSize:13,fontWeight:page===n.id?700:400,cursor:"pointer",textAlign:"left",marginBottom:2,transition:"all 0.1s"}}>
-            <span style={{fontSize:14}}>{n.icon}</span>{n.label}
+          <button key={n.id} onClick={()=>setPage(n.id)} title={sidebarCollapsed?n.label:undefined} style={{display:"flex",alignItems:"center",justifyContent:sidebarCollapsed?"center":"flex-start",gap:sidebarCollapsed?0:10,width:"100%",padding:sidebarCollapsed?"10px 0":"9px 12px",borderRadius:8,border:"none",background:page===n.id?C.gold+"22":"transparent",color:page===n.id?C.gold:C.muted,fontFamily:fb,fontSize:13,fontWeight:page===n.id?700:400,cursor:"pointer",textAlign:"left",marginBottom:2,transition:"all 0.1s"}}>
+            <span style={{fontSize:16}}>{n.icon}</span>
+            {!sidebarCollapsed&&<span>{n.label}</span>}
           </button>
         ))}
       </nav>
+      {sidebarCollapsed&&<button onClick={toggleSidebar} title="Expand sidebar" style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,borderRadius:6,padding:"8px 0",margin:"8px 6px",cursor:"pointer",fontSize:14,fontFamily:fb}}>›</button>}
     </div>
-    <div style={{marginLeft:220,flex:1,padding:24,boxSizing:"border-box"}}>
-      <div style={{maxWidth:900,margin:"0 auto"}}>
+    <div style={{marginLeft:sidebarCollapsed?64:220,flex:1,padding:24,boxSizing:"border-box",transition:"margin-left 0.2s ease",minWidth:0}}>
+      <div style={page==="schedule"?{maxWidth:"none",width:"100%"}:{maxWidth:1100,margin:"0 auto"}}>
         {page==="dashboard"&&<DashboardView jobs={jobs} leads={leads} logs={logs} setPage={setPage}/>}
         {page==="jobs"&&<Jobs jobs={jobs} setJobs={setJobs} leads={leads} setMilestonesGlobal={setMilestones} clients={clients} logs={logs}/>}
         {page==="leads"&&<Leads leads={leads} setLeads={setLeads}/>}
