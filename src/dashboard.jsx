@@ -1668,6 +1668,406 @@ function ClientPortalV2({jobs,logs,clientMode=false,onSignOut}){
   </div>;
 }
 
+// ── RECEIPTS ─────────────────────────────────────────────────────────────────
+const RECEIPT_CATEGORIES = ["Materials","Subs","Disposal","Equipment","Admin","Fuel","Tools","Other"];
+const CAT_COLORS = {
+  Materials:"#3B82F6", Subs:"#22C55E", Disposal:"#F97316", Equipment:"#A855F7",
+  Admin:"#6B7280", Fuel:"#EAB308", Tools:"#06B6D4", Other:"#94A3B8"
+};
+
+function Receipts({jobs}){
+  const [activeJobId, setActiveJobId] = useState("");
+  const [receipts, setReceipts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [parsing, setParsing] = useState(false);
+  const [pendingReceipt, setPendingReceipt] = useState(null);
+  const [filterJob, setFilterJob] = useState("active"); // active / all / unassigned / specific job id
+  const fileRef = useRef(null);
+
+  // Load active job + recent receipts on mount
+  useEffect(()=>{
+    Promise.all([
+      supabase.from("settings").select("value").eq("key","active_job").maybeSingle(),
+      supabase.from("receipts").select("*, jobs(id, name)").order("created_at",{ascending:false}).limit(100),
+    ]).then(([s, r])=>{
+      const jobId = s.data?.value?.job_id || "";
+      setActiveJobId(jobId);
+      setReceipts(r.data || []);
+      setLoading(false);
+    });
+  },[]);
+
+  async function reloadReceipts(){
+    const {data} = await supabase.from("receipts").select("*, jobs(id, name)").order("created_at",{ascending:false}).limit(100);
+    setReceipts(data || []);
+  }
+
+  async function setActiveJob(jobId){
+    setActiveJobId(jobId);
+    await supabase.from("settings").upsert({key:"active_job", value:{job_id: jobId||null}}, {onConflict:"key"});
+  }
+
+  function fileToBase64(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result.split(",")[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handlePhoto(e){
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if(!file) return;
+    setUploading(true);
+
+    // 1. Upload photo to Supabase Storage
+    const safeName = (file.name || "receipt.jpg").replace(/[^a-zA-Z0-9._-]/g, "-");
+    const path = `${Date.now()}-${safeName}`;
+    const {error: upErr} = await supabase.storage.from("receipts").upload(path, file, {cacheControl:"3600", upsert:false});
+    if(upErr){
+      alert("Photo upload failed: "+upErr.message);
+      setUploading(false);
+      return;
+    }
+    const {data:{publicUrl}} = supabase.storage.from("receipts").getPublicUrl(path);
+
+    // 2. Create a pending receipt row
+    const {data: row, error: insErr} = await supabase.from("receipts").insert({
+      photo_url: publicUrl,
+      storage_path: path,
+      job_id: activeJobId || null,
+      ai_confidence: "pending"
+    }).select("*, jobs(id, name)").single();
+
+    setUploading(false);
+    if(insErr || !row){
+      alert("Database insert failed: " + (insErr?.message || "no row returned"));
+      return;
+    }
+
+    // 3. Add to list immediately so user sees something happened
+    setReceipts(prev => [row, ...prev]);
+
+    // 4. Send to Claude vision to parse
+    await parseReceipt(row, file);
+  }
+
+  async function parseReceipt(row, file){
+    setParsing(true);
+    setPendingReceipt({...row, _parsing: true});
+
+    try {
+      const base64 = await fileToBase64(file);
+      const mediaType = file.type && file.type.startsWith("image/") ? file.type : "image/jpeg";
+
+      const res = await fetch("/.netlify/functions/claude", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 800,
+          messages: [{
+            role: "user",
+            content: [
+              {type: "image", source: {type:"base64", media_type: mediaType, data: base64}},
+              {type: "text", text: `Extract the following from this receipt photo. Return ONLY valid JSON, no markdown.
+
+{
+  "vendor": "store name",
+  "amount": 0.00,
+  "receipt_date": "YYYY-MM-DD",
+  "category": "Materials",
+  "description": "short summary of items",
+  "gst_amount": 0.00,
+  "pst_amount": 0.00,
+  "payment_method": "Visa 4321"
+}
+
+CATEGORY MUST BE ONE OF: Materials, Subs, Disposal, Equipment, Admin, Fuel, Tools, Other.
+
+Category guide for Tall Guy Builds Inc. (construction contractor in Regina SK):
+- Materials: lumber, drywall, fasteners, paint, tile, hardware (Home Depot, Rona, Fries Tallman, Castle, Windsor Plywood, Lowe's)
+- Subs: payments to subtrades (Danko, TNT Tile, Chris Murray Cabinets, VJ Authentic Stone, Flooring Superstores, Southern Coring)
+- Disposal: dump fees, landfill (Regina Landfill, Greenway Disposal, Loraas)
+- Equipment: rentals, machine rentals (Cooper Equipment, Rentaurant, United Rentals)
+- Admin: office supplies, software, business fees, parking, banking
+- Fuel: gas stations (Petro-Canada, Co-op, Shell, Esso, 7-Eleven, Husky)
+- Tools: durable tool purchases (DeWalt, Milwaukee, Lee Valley, Princess Auto, Acklands)
+- Other: anything that doesn't fit
+
+amount = total INCLUDING all taxes shown.
+gst_amount = GST line if shown, else 0.
+pst_amount = PST line if shown, else 0.
+payment_method = last 4 digits of card if visible (e.g. "Visa 4321"), or "Cash" / "Debit" / "E-transfer". null if can't tell.
+receipt_date = YYYY-MM-DD format. null if can't read.
+
+If a field is unreadable, use null. Be accurate, not creative.`}
+            ]
+          }]
+        })
+      });
+
+      const rawText = await res.text();
+      if(!res.ok){
+        throw new Error(`API ${res.status}: ${rawText.slice(0, 200)}`);
+      }
+      const data = JSON.parse(rawText);
+      const text = data.content?.find(b => b.type === "text")?.text || "";
+      const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
+
+      // Build the updated row but don't save yet — user will confirm
+      const updated = {
+        ...row,
+        vendor: parsed.vendor || null,
+        amount: parsed.amount || null,
+        receipt_date: parsed.receipt_date || null,
+        category: parsed.category && RECEIPT_CATEGORIES.includes(parsed.category) ? parsed.category : "Other",
+        description: parsed.description || null,
+        gst_amount: parsed.gst_amount || 0,
+        pst_amount: parsed.pst_amount || 0,
+        payment_method: parsed.payment_method || null,
+        ai_confidence: "parsed",
+        raw_ai_response: data,
+        _parsing: false
+      };
+      setPendingReceipt(updated);
+
+      // Also write the parsed fields to the DB so a refresh doesn't lose them
+      await supabase.from("receipts").update({
+        vendor: updated.vendor, amount: updated.amount, receipt_date: updated.receipt_date,
+        category: updated.category, description: updated.description,
+        gst_amount: updated.gst_amount, pst_amount: updated.pst_amount,
+        payment_method: updated.payment_method,
+        ai_confidence: "parsed", raw_ai_response: data
+      }).eq("id", row.id);
+      reloadReceipts();
+    } catch(e){
+      console.warn("Receipt parse error:", e);
+      await supabase.from("receipts").update({ai_confidence: "failed"}).eq("id", row.id);
+      setPendingReceipt({...row, ai_confidence: "failed", _parsing: false, _error: e.message});
+      reloadReceipts();
+    }
+    setParsing(false);
+  }
+
+  function patchPending(field, value){
+    setPendingReceipt(p => p ? {...p, [field]: value} : p);
+  }
+
+  async function confirmReceipt(){
+    if(!pendingReceipt) return;
+    const r = pendingReceipt;
+    await supabase.from("receipts").update({
+      vendor: r.vendor || null,
+      amount: Number(r.amount) || null,
+      receipt_date: r.receipt_date || null,
+      category: r.category || "Other",
+      description: r.description || null,
+      gst_amount: Number(r.gst_amount) || 0,
+      pst_amount: Number(r.pst_amount) || 0,
+      payment_method: r.payment_method || null,
+      job_id: r.job_id || null,
+      ai_confidence: "confirmed",
+    }).eq("id", r.id);
+    setPendingReceipt(null);
+    reloadReceipts();
+  }
+
+  async function deleteReceipt(id, storagePath){
+    if(!confirm("Delete this receipt? This can't be undone.")) return;
+    if(storagePath) await supabase.storage.from("receipts").remove([storagePath]);
+    await supabase.from("receipts").delete().eq("id", id);
+    if(pendingReceipt?.id === id) setPendingReceipt(null);
+    reloadReceipts();
+  }
+
+  function openCamera(){
+    if(fileRef.current) fileRef.current.click();
+  }
+
+  // Filtered list
+  const filteredReceipts = receipts.filter(r => {
+    if(filterJob === "all") return true;
+    if(filterJob === "active") return r.job_id === activeJobId;
+    if(filterJob === "unassigned") return !r.job_id;
+    return r.job_id === filterJob;
+  });
+
+  const activeJob = jobs.find(j => j.id === activeJobId);
+
+  // Totals
+  const totalAmount = filteredReceipts.reduce((s, r) => s + Number(r.amount || 0), 0);
+  const totalGst = filteredReceipts.reduce((s, r) => s + Number(r.gst_amount || 0), 0);
+
+  return <div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
+      <h1 style={{fontFamily:fbHero,color:LC.text,fontSize:30,margin:0,fontWeight:800,letterSpacing:"-0.025em"}}>Receipts</h1>
+      <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={handlePhoto}/>
+    </div>
+    <p style={{color:LC.textMuted,fontSize:13,marginTop:0,marginBottom:18}}>Snap a receipt, AI reads it, files it. No typing.</p>
+
+    {/* Active project picker */}
+    <div style={{background:LC.surface,border:`1px solid ${activeJobId?LC.gold:LC.border}`,borderRadius:12,padding:"14px 18px",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+      <div style={{fontSize:10,color:LC.textMuted,textTransform:"uppercase",letterSpacing:0.8,marginBottom:6,fontWeight:700}}>Active Project</div>
+      <select value={activeJobId} onChange={e => setActiveJob(e.target.value)} style={{
+        width:"100%",background:LC.bg,border:`1px solid ${LC.border}`,borderRadius:7,
+        padding:"10px 12px",color:activeJobId?LC.text:LC.textMuted,fontSize:14,fontFamily:fb,outline:"none",fontWeight:600,boxSizing:"border-box"
+      }}>
+        <option value="">— Not on any job — receipts go to "unassigned"</option>
+        {jobs.filter(j=>j.status!=="Completed").map(j => <option key={j.id} value={j.id}>{j.name}{j.client?` (${j.client})`:""}</option>)}
+      </select>
+      <div style={{fontSize:11,color:LC.textMuted,marginTop:6}}>
+        {activeJob ? `New receipts auto-attach to ${activeJob.name}. Change at the start of each workday.` : "Pick a job — every receipt you snap today gets filed against it automatically."}
+      </div>
+    </div>
+
+    {/* Big snap button */}
+    <button onClick={openCamera} disabled={uploading} style={{
+      width:"100%", padding:"24px 18px", marginBottom:18,
+      background: uploading ? LC.bg : `linear-gradient(135deg, ${LC.gold}, #E2BE82)`,
+      color: LC.text, border: "none", borderRadius: 14, fontFamily: fb, fontSize: 18, fontWeight: 800,
+      cursor: uploading ? "wait" : "pointer", letterSpacing: "-0.01em",
+      boxShadow: uploading ? "none" : `0 4px 14px ${LC.gold}55`,
+      display:"flex",alignItems:"center",justifyContent:"center",gap:10
+    }}>
+      {uploading ? "⏳ Uploading..." : <>📷 <span>Snap Receipt</span></>}
+    </button>
+
+    {/* Pending receipt review */}
+    {pendingReceipt && <PendingReceiptCard
+      receipt={pendingReceipt}
+      jobs={jobs}
+      parsing={parsing}
+      onPatch={patchPending}
+      onConfirm={confirmReceipt}
+      onDiscard={()=>deleteReceipt(pendingReceipt.id, pendingReceipt.storage_path)}
+      onClose={()=>setPendingReceipt(null)}
+    />}
+
+    {/* Filter chips */}
+    <div style={{display:"flex",gap:6,marginTop:18,marginBottom:12,flexWrap:"wrap"}}>
+      {[
+        {id:"active", lbl: activeJob ? `On ${activeJob.name}` : "Active job"},
+        {id:"all", lbl:"All"},
+        {id:"unassigned", lbl:"Unassigned"},
+      ].map(f => (
+        <button key={f.id} onClick={()=>setFilterJob(f.id)} style={{
+          padding:"6px 13px",borderRadius:20,border:`1px solid ${filterJob===f.id?LC.gold:LC.border}`,
+          background:filterJob===f.id?LC.gold+"22":"transparent",
+          color:filterJob===f.id?LC.gold:LC.textMuted,
+          fontFamily:fb,fontSize:12,fontWeight:filterJob===f.id?700:500,cursor:"pointer"
+        }}>{f.lbl}</button>
+      ))}
+    </div>
+
+    {/* Totals header */}
+    {filteredReceipts.length > 0 && <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:LC.bg,border:`1px solid ${LC.border}`,borderRadius:8,marginBottom:10}}>
+      <div style={{fontSize:12,color:LC.textMuted,fontWeight:500}}>{filteredReceipts.length} receipt{filteredReceipts.length===1?"":"s"}</div>
+      <div style={{fontSize:14,color:LC.text,fontWeight:700}}>{fmt$(totalAmount)} <span style={{fontSize:11,color:LC.textMuted,fontWeight:500}}>(GST {fmt$(totalGst)})</span></div>
+    </div>}
+
+    {/* Receipt list */}
+    {loading && <div style={{textAlign:"center",padding:30,color:LC.textMuted,fontSize:13}}>Loading receipts…</div>}
+    {!loading && filteredReceipts.length===0 && <div style={{background:LC.surface,border:`1px dashed ${LC.borderStrong}`,borderRadius:12,padding:40,textAlign:"center",color:LC.textMuted,fontSize:13}}>
+      No receipts in this filter yet. <strong style={{color:LC.text}}>Snap one</strong> to get started.
+    </div>}
+
+    <div style={{display:"grid",gap:8}}>
+      {filteredReceipts.map(r => <ReceiptRow key={r.id} r={r} onClick={()=>setPendingReceipt(r)}/>)}
+    </div>
+  </div>;
+}
+
+function ReceiptRow({r, onClick}){
+  const cat = r.category || "Other";
+  const color = CAT_COLORS[cat] || LC.textMuted;
+  const isPending = r.ai_confidence === "pending" || r.ai_confidence === "parsed";
+  const isFailed = r.ai_confidence === "failed";
+  return <Card onClick={onClick} style={{padding:"12px 14px",borderLeft:`4px solid ${color}`}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}>
+      <div style={{display:"flex",gap:10,flex:1,minWidth:200,alignItems:"flex-start"}}>
+        {r.photo_url && <img src={r.photo_url} alt="" style={{width:48,height:48,objectFit:"cover",borderRadius:6,border:`1px solid ${LC.border}`,flexShrink:0}}/>}
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:2,flexWrap:"wrap"}}>
+            <span style={{fontWeight:700,color:LC.text,fontSize:14}}>{r.vendor || (isFailed ? "Couldn't read" : "Pending…")}</span>
+            <span style={{fontSize:10,padding:"2px 8px",borderRadius:10,background:color+"22",color,fontWeight:700,letterSpacing:0.3}}>{cat}</span>
+            {isPending && r.ai_confidence==="pending" && <span style={{fontSize:10,color:LC.warn,fontWeight:600}}>⏳ AI reading…</span>}
+            {r.ai_confidence==="parsed" && <span style={{fontSize:10,color:LC.warn,fontWeight:600}}>· Needs review</span>}
+            {isFailed && <span style={{fontSize:10,color:LC.danger,fontWeight:600}}>· Failed — tap to edit</span>}
+          </div>
+          <div style={{fontSize:11,color:LC.textMuted}}>
+            {r.receipt_date ? fmtDate(r.receipt_date) : "(no date)"}
+            {r.jobs?.name && <> · 📁 <span style={{color:LC.gold,fontWeight:600}}>{r.jobs.name}</span></>}
+            {!r.jobs?.name && <> · <span style={{color:LC.danger}}>Unassigned</span></>}
+            {r.description && <> · {r.description}</>}
+          </div>
+        </div>
+      </div>
+      <div style={{textAlign:"right",flexShrink:0}}>
+        <div style={{color:LC.text,fontWeight:800,fontSize:16,fontFamily:fbHero,letterSpacing:"-0.01em"}}>{r.amount ? fmt$(r.amount) : "—"}</div>
+        {r.payment_method && <div style={{fontSize:10,color:LC.textMuted}}>{r.payment_method}</div>}
+      </div>
+    </div>
+  </Card>;
+}
+
+function PendingReceiptCard({receipt, jobs, parsing, onPatch, onConfirm, onDiscard, onClose}){
+  const isParsing = receipt._parsing || parsing;
+  const isFailed = receipt.ai_confidence === "failed";
+  return <div style={{background:LC.surface,border:`2px solid ${LC.gold}`,borderRadius:14,padding:18,marginBottom:16,boxShadow:"0 4px 20px rgba(200,169,106,0.25)"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+      <div style={{fontSize:13,color:LC.gold,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase"}}>
+        {isParsing ? "🤖 AI Reading…" : isFailed ? "⚠️ Couldn't Auto-Read — Enter Manually" : "✓ Review & Confirm"}
+      </div>
+      <button onClick={onClose} style={{background:"transparent",border:"none",color:LC.textMuted,fontSize:22,cursor:"pointer",lineHeight:1,padding:"0 6px"}}>×</button>
+    </div>
+
+    <div style={{display:"grid",gridTemplateColumns:"160px 1fr",gap:14,alignItems:"flex-start"}} className="receipt-review-grid">
+      {/* Photo */}
+      {receipt.photo_url && <a href={receipt.photo_url} target="_blank" rel="noopener noreferrer">
+        <img src={receipt.photo_url} alt="receipt" style={{width:"100%",borderRadius:8,border:`1px solid ${LC.border}`,display:"block"}}/>
+      </a>}
+
+      {/* Fields */}
+      <div style={{display:"grid",gap:9}}>
+        {isParsing && <div style={{padding:"12px 0",color:LC.textMuted,fontSize:13,textAlign:"center"}}>Claude is reading the receipt…</div>}
+        {!isParsing && <>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 110px",gap:9}}>
+            <Inp label="Vendor" value={receipt.vendor||""} onChange={v=>onPatch("vendor",v)} placeholder="e.g. Home Depot"/>
+            <Inp label="Amount ($)" type="number" value={receipt.amount||""} onChange={v=>onPatch("amount",v)}/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"140px 1fr",gap:9}}>
+            <Inp label="Date" type="date" value={receipt.receipt_date||""} onChange={v=>onPatch("receipt_date",v)}/>
+            <Sel label="Category" value={receipt.category||"Other"} onChange={v=>onPatch("category",v)} options={RECEIPT_CATEGORIES}/>
+          </div>
+          <Inp label="Description" value={receipt.description||""} onChange={v=>onPatch("description",v)} placeholder="What was bought"/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9}}>
+            <Inp label="GST" type="number" value={receipt.gst_amount||""} onChange={v=>onPatch("gst_amount",v)}/>
+            <Inp label="PST" type="number" value={receipt.pst_amount||""} onChange={v=>onPatch("pst_amount",v)}/>
+            <Inp label="Payment" value={receipt.payment_method||""} onChange={v=>onPatch("payment_method",v)} placeholder="Visa 4321"/>
+          </div>
+          <Sel label="Project" value={receipt.job_id||""} onChange={v=>onPatch("job_id", v||null)} options={["",...jobs.map(j=>j.id)]} display={["(Unassigned)",...jobs.map(j=>j.name)]}/>
+        </>}
+      </div>
+    </div>
+
+    {!isParsing && <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14,flexWrap:"wrap"}}>
+      <Btn variant="danger" onClick={onDiscard}>🗑 Discard</Btn>
+      <Btn variant="ghost" onClick={onClose}>Save Draft</Btn>
+      <Btn onClick={onConfirm}>✓ Confirm & File</Btn>
+    </div>}
+
+    <style>{`
+      @media (max-width: 600px) {
+        .receipt-review-grid { grid-template-columns: 1fr !important; }
+      }
+    `}</style>
+  </div>;
+}
+
 function DashboardView({jobs,leads,logs,setPage}){
   const active=jobs.filter(j=>j.status==="Active");
   const pipe=leads.filter(l=>!["Won","Lost"].includes(l.stage)).reduce((s,l)=>s+(l.value||0),0);
@@ -2664,7 +3064,7 @@ Return ONLY valid JSON:
         <div><label style={{color:C.muted,fontSize:11,fontWeight:700,display:"block",marginBottom:5,textTransform:"uppercase"}}>Project Address (optional)</label><input value={address} onChange={e=>setAddress(e.target.value)} placeholder="e.g. 123 Main St, Regina" style={IS()}/></div>
       </div>
       <div style={{display:"flex",justifyContent:"flex-end",gap:8,flexWrap:"wrap"}}>
-        <Btn variant="ghost" onClick={startManual} disabled={!projectType}>✏️ Build Manually</Btn>
+        <Btn variant="ghost" onClick={startManual}>✏️ Build Manually</Btn>
         <Btn onClick={()=>setEstStep(2)} disabled={!projectType}>✨ Use AI to Draft →</Btn>
       </div>
       <div style={{marginTop:12,fontSize:11,color:LC.textMuted,textAlign:"right",lineHeight:1.6}}>
@@ -3537,6 +3937,7 @@ const NAV=[
   {id:"schedule",label:"Schedule",icon:"▦"},
   {id:"subs",label:"Subtrades",icon:"◆"},
   {id:"logs",label:"Daily Log",icon:"📋"},
+  {id:"receipts",label:"Receipts",icon:"🧾"},
   {id:"portal",label:"Client Portal",icon:"◈"},
   {id:"estimator",label:"Estimator",icon:"💲"},
   {id:"settings",label:"Settings",icon:"⚙"},
@@ -3663,6 +4064,7 @@ export default function App(){
         {page==="schedule"&&<Schedule events={events} setEvents={setEvents} jobs={jobs} milestones={milestones} setMilestones={setMilestones}/>}
         {page==="subs"&&<Subs subs={subs} setSubs={setSubs}/>}
         {page==="logs"&&<DailyLog logs={logs} setLogs={setLogs} jobs={jobs}/>}
+        {page==="receipts"&&<Receipts jobs={jobs}/>}
         {page==="portal"&&(usePortalV2()?<ClientPortalV2 jobs={jobs} logs={logs}/>:<ClientPortal jobs={jobs} logs={logs} milestones={milestones}/>)}
         {page==="estimator"&&<Estimator jobs={jobs} leads={leads}/>}
         {page==="settings"&&<Settings/>}
