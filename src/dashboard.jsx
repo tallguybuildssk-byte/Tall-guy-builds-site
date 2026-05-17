@@ -162,14 +162,14 @@ function Sel({label,value,onChange,options,display}){
     </select>
   </div>;
 }
-function Btn({children,onClick,variant="primary",size="md",style={}}){
+function Btn({children,onClick,variant="primary",size="md",style={},disabled=false}){
   const v={
     primary:{background:LC.gold,color:LC.text,border:"none"},
     ghost:{background:LC.surface,color:LC.text,border:`1px solid ${LC.border}`},
     danger:{background:LC.surface,color:LC.danger,border:`1px solid ${LC.danger}55`}
   };
   const s={sm:{padding:"5px 12px",fontSize:11},md:{padding:"9px 18px",fontSize:13}};
-  return <button onClick={onClick} style={{cursor:"pointer",borderRadius:7,fontFamily:fb,fontWeight:700,...v[variant],...s[size],transition:"all 0.12s",...style}}>{children}</button>;
+  return <button onClick={onClick} disabled={disabled} style={{cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.5:1,borderRadius:7,fontFamily:fb,fontWeight:700,...v[variant],...s[size],transition:"all 0.12s",...style}}>{children}</button>;
 }
 function Modal({title,onClose,children,wide=false}){
   return <div style={{position:"fixed",inset:0,background:"#0F172A88",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2000,padding:16,backdropFilter:"blur(3px)"}}>
@@ -2682,7 +2682,7 @@ Return ONLY valid JSON:
       </div>
       {projectType==="Deck"&&(drawMode?<DeckDrawingTool onApply={({sqft,perimeter,stairCount})=>{setField('sqft',String(sqft));setField('perimeter',String(perimeter));setField('stairs',stairCount>0?stairCount+' set'+(stairCount>1?'s':''):'None');setDrawMode(false);}} onCancel={()=>setDrawMode(false)}/>:<button onClick={()=>setDrawMode(true)} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,width:'100%',padding:'10px 16px',background:'#0f1f35',border:'1px dashed #3b82f6',borderRadius:8,color:'#93c5fd',fontSize:13,fontWeight:600,cursor:'pointer',marginBottom:12}}>✏ Draw custom shape — auto-calc sq ft, perimeter & stairs</button>)}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-        {EST_FIELDS[projectType].map(field=><div key={field.key} style={field.type==="textarea"?{gridColumn:"1 / -1"}:{}}>
+        {(EST_FIELDS[projectType]||[]).map(field=><div key={field.key} style={field.type==="textarea"?{gridColumn:"1 / -1"}:{}}>
           <label style={{color:C.muted,fontSize:11,fontWeight:700,display:"block",marginBottom:5,textTransform:"uppercase"}}>{field.label}</label>
           <EstFieldInput field={field} value={inputs[field.key]} onChange={setField}/>
         </div>)}
