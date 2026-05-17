@@ -2414,7 +2414,7 @@ function EstFieldInput({field,value,onChange}){
 }
 
 function Estimator({jobs=[],leads=[]}){
-  const [estStep,setEstStep]=useState(1);
+  const [estStep,setEstStep]=useState(0); // 0=list, 1=type, 2=AI details, 3=quote editor
   const [projectType,setProjectType]=useState("");
   const [clientName,setClientName]=useState("");
   const [address,setAddress]=useState("");
@@ -2424,32 +2424,97 @@ function Estimator({jobs=[],leads=[]}){
   const [editingItem,setEditingItem]=useState(null);
   const [markup,setMarkup]=useState(20);
   const [drawMode,setDrawMode]=useState(false);
-  // Save Estimate state
+
+  // v2 state
+  const [loadedEstimateId,setLoadedEstimateId]=useState(null);
+  const [manualMode,setManualMode]=useState(false);
+  const [savedEstimates,setSavedEstimates]=useState([]);
+  const [loadingList,setLoadingList]=useState(false);
+  const [listFilter,setListFilter]=useState("all");
+
+  // Save modal state
   const [showSaveModal,setShowSaveModal]=useState(false);
-  const [saveTarget,setSaveTarget]=useState("lead"); // "lead" | "job"
+  const [saveTarget,setSaveTarget]=useState("lead");
   const [saveTargetId,setSaveTargetId]=useState("");
   const [saving,setSaving]=useState(false);
   const [savedMsg,setSavedMsg]=useState("");
+
+  // Reload list when returning to step 0
+  useEffect(()=>{
+    if(estStep!==0)return;
+    setLoadingList(true);
+    supabase.from("estimates").select("*").order("created_at",{ascending:false}).limit(100).then(({data})=>{
+      setSavedEstimates(data||[]);
+      setLoadingList(false);
+    });
+  },[estStep]);
+
   function setField(k,v){setInputs(p=>({...p,[k]:v}));}
-  function resetEst(){setEstStep(1);setProjectType("");setClientName("");setAddress("");setInputs({});setQuote(null);setEditingItem(null);setSavedMsg("");}
+
+  function resetEst(){
+    setEstStep(0);
+    setProjectType("");setClientName("");setAddress("");
+    setInputs({});setQuote(null);setEditingItem(null);
+    setSavedMsg("");setLoadedEstimateId(null);setManualMode(false);
+    setMarkup(20);
+  }
+
+  function loadEstimate(est){
+    setLoadedEstimateId(est.id);
+    setProjectType(est.project_type||"");
+    setClientName(est.client_name||"");
+    setAddress(est.address||"");
+    setMarkup(Number(est.markup_pct)||20);
+    setQuote({
+      summary: est.summary||"",
+      lineItems: est.line_items||[],
+      estimatedDays: est.estimated_days||0,
+      assumptions: est.assumptions||[],
+      exclusions: est.exclusions||[],
+    });
+    setManualMode(false); // we don't know which mode it was — irrelevant once loaded
+    setSavedMsg("");
+    setEstStep(3);
+  }
+
+  function startManual(){
+    setManualMode(true);
+    setLoadedEstimateId(null);
+    setQuote({summary:projectType?(projectType+" — manual entry"):"Manual estimate",lineItems:[],estimatedDays:0,assumptions:[],exclusions:[]});
+    setEstStep(3);
+  }
 
   async function saveEstimate(){
-    if(!saveTargetId){alert("Please select a project or lead to attach this estimate to.");return;}
+    if(!loadedEstimateId && !saveTargetId){
+      alert("Pick a project or lead to attach this estimate to.");return;
+    }
     setSaving(true);
     const payload={
-      project_type:projectType,client_name:clientName||null,address:address||null,
-      summary:quote.summary,line_items:quote.lineItems,estimated_days:quote.estimatedDays,
-      assumptions:quote.assumptions||[],exclusions:quote.exclusions||[],
-      markup_pct:markup,subtotal,markup_amt:markupAmt,gst,total,
-      job_id:saveTarget==="job"?saveTargetId:null,
-      lead_id:saveTarget==="lead"?saveTargetId:null,
+      project_type:projectType||null,
+      client_name:clientName||null,
+      address:address||null,
+      summary:quote.summary||"",
+      line_items:quote.lineItems||[],
+      estimated_days:quote.estimatedDays||0,
+      assumptions:quote.assumptions||[],
+      exclusions:quote.exclusions||[],
+      markup_pct:markup,
+      subtotal,markup_amt:markupAmt,gst,pst_amount:pst,total,
     };
-    const {error}=await supabase.from("estimates").insert(payload);
-    setSaving(false);
-    if(error){alert("Could not save estimate: "+error.message);return;}
-    setSavedMsg("Estimate saved!");setSavedMsg("");
+    if(loadedEstimateId){
+      const {error}=await supabase.from("estimates").update(payload).eq("id",loadedEstimateId);
+      setSaving(false);
+      if(error){alert("Update failed: "+error.message);return;}
+    } else {
+      payload.job_id = saveTarget==="job"?saveTargetId:null;
+      payload.lead_id = saveTarget==="lead"?saveTargetId:null;
+      const {data,error}=await supabase.from("estimates").insert(payload).select().single();
+      setSaving(false);
+      if(error){alert("Save failed: "+error.message);return;}
+      if(data)setLoadedEstimateId(data.id);
+    }
     setShowSaveModal(false);
-    setTimeout(()=>setSavedMsg("✓ Saved"),100);
+    setSavedMsg("✓ Saved");
     setTimeout(()=>setSavedMsg(""),3000);
   }
 
@@ -2459,68 +2524,16 @@ function Estimator({jobs=[],leads=[]}){
     const summary=fields.map(f=>`${f.label}: ${inputs[f.key]||"not specified"}`).join("\n");
     try{
       const res=await fetch("/.netlify/functions/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,messages:[{role:"user",content:`You are an expert construction estimator for Tall Guy Builds Inc. in Regina, Saskatchewan.
-
 CRITICAL RULES:
-- Calculate ALL quantities mathematically from the dimensions provided. Do NOT guess or round up wildly.
-- For a deck: perimeter = 2×(length+width). Fascia = perimeter lf. Decking boards = area (sqft). Joists = every 16" across width. Posts = every 8ft along perimeter.
-- For a garage: floor area = length×width. Framing lumber based on actual wall heights and stud spacing.
-- For a basement: all quantities must be derived from the square footage provided.
-- Price ALL labour as FLAT RATES per scope of work — NEVER use hourly billing. Hourly billing penalizes efficiency and undervalues skilled work.- Each labour line item is one complete deliverable (e.g. "Framing &amp; structure", "Decking installation", "Stair build and landing", "Demo &amp; haul-away"). Price what that scope is WORTH in the Regina SK market, not hours spent.- Regina SK flat-rate labour benchmarks (2025-2026): Minor task $400–900 | Mid scope $1,200–3,500 | Large scope $4,000–12,000+. Price at full market value for quality craftsmanship.- DECK-SPECIFIC LABOUR RATES (labour component, apply whether labour-only or supply+install): Deck framing $6.50/sqft | Composite inlay decking $6/sqft | Composite border/picture frame $7/sqft | Stairs (fully enclosed supply+install — stringers, treads, risers, fascia, enclosed sides): $275 per linear foot of stair WIDTH (e.g. 6ft wide = $1,650 / 6ft10in wide = $1,869). Width is the main cost driver. For labour-only stair jobs use ~$800/set | Aluminum railing install $25/linear ft | Glass railing install $40/linear ft | Fascia install $5-6/linear ft (NOT sqft — fascia is priced per linear foot of deck perimeter). For supply+install jobs add materials + 20% markup on top of these labour rates. For labour-only jobs charge labour rates only.- TUDS MARKET BENCHMARKS (Regina SK, use to sanity-check deck quotes): ~263 sqft low deck (2–3 ft off grade, mid composite, single picture frame, aluminum railing): TUDS managed install $9,879–$10,918, total project $15,404–$17,024. ~288 sqft elevated deck (helical piles, mid composite, double picture frame, aluminum+glass railing): TUDS managed install $9,506–$11,049, total project $27,726–$32,232. Target 5–15% below TUDS total to be competitive.- NEVER output labour items with unit "hrs". All labour must be qty:1, unit:"ls" (lump sum). This is non-negotiable.
-
-MATERIAL PRICING — use these exact prices from Fries Tallman Lumber Regina (contractor pricing, September 2025):
-
-PRESSURE TREATED FRAMING LUMBER (Fries Tallman contractor prices):
-- 2x8x10 PT: $21.69/board
-- 2x8x16 PT: $34.71/board
-- 2x10x16 PT: $45.85/board
-- 2x12x12 PT (stair stringers): $48.39/board
-- 4x4x8 PT post: $16.95/board
-- Scale other sizes proportionally (e.g. 2x8x12 ~$26, 2x8x20 ~$43, 4x4x12 ~$25)
-- Simpson LUS28Z 2x8 joist hanger (galvanized): $2.37/ea
-
-COMPOSITE DECKING — Trex Transcend (high end, Fries Tallman contractor prices):
-- 16ft grooved board: $159.98/board = $10.00/lf
-- 20ft square edge board: $202.77/board = $10.14/lf
-- 1x12 fascia 12ft board: $203.63/board
-- Fascia boards come in 12ft or 20ft — always round perimeter UP to nearest full board length
-- Cortex fascia fastener kit (100lf): $124.15/box
-- Cortex field fastener kit (100lf): $156.19/box
-
-COMPOSITE DECKING — Trex Enhance Naturals (mid grade, TUDS retail minus 15%):
-- 16ft grooved: ~$79/board = $4.94/lf
-- 20ft solid/grooved: ~$98/board
-- 12ft grooved: ~$59/board
-- 7.25" riser: ~$114/board
-- 12" fascia (12ft): ~$183/board — round perimeter to nearest full board
-
-COMPOSITE DECKING — Eva-Last Apex Plus (premium, TUDS retail minus 15%):
-- 12ft grooved: ~$109/board = $9.08/lf
-- 16ft grooved: ~$145/board
-- 20ft solid/grooved: ~$181/board
-- 7.25" riser: ~$139/board
-- 12" fascia (12ft): ~$209/board — round perimeter to nearest full board
-
-GLASS RAILING:
-- Matelux tempered 6mm glass panels: $24.50/panel (Fries Tallman)
-- Typical panel coverage ~6" wide, calculate panels from linear footage
-
-ALUMINUM RAILING (Vista or Regal textured black — most common):
-- Supply only: ~$55-70/lf
-
-GENERAL RULES:
-- Always round board counts UP — never partial boards
-- Calculate ALL quantities mathematically from dimensions first
-- For fascia: perimeter = 2x(length+width), round up to board lengths
-- For decking: area = length x width, add 10% waste factor
-- For joists: quantity = (deck width / 16") + 1, use nearest available board length
+- Calculate ALL quantities mathematically from the dimensions provided.
+- Price ALL labour as FLAT RATES per scope of work — NEVER use hourly billing.
+- All labour items: qty:1, unit:"ls". Materials: qty + unit.
 - Keep line items concise — 8-15 items max. Group similar work together.
-
 Project: ${projectType}
 Client: ${clientName||"TBD"}, Address: ${address||"TBD"}
 Details:
 ${summary}
-
-Return ONLY valid JSON, no markdown, no explanation:
+Return ONLY valid JSON:
 {"summary":"one sentence scope","estimatedDays":5,"lineItems":[{"category":"Labour","description":"item","qty":1,"unit":"ls","rate":4500,"total":4500},{"category":"Materials","description":"item","qty":20,"unit":"ea","rate":25.00,"total":500}],"assumptions":["string"],"exclusions":["string"]}`}]})});
       const rawText=await res.text();
       if(!res.ok){alert("API error "+res.status+": "+rawText.slice(0,200));setLoading(false);return;}
@@ -2532,23 +2545,26 @@ Return ONLY valid JSON, no markdown, no explanation:
     setLoading(false);
   }
 
-  function updateItem(idx,field,val){setQuote(q=>{const items=[...q.lineItems];items[idx]={...items[idx],[field]:field==="description"||field==="unit"?val:parseFloat(val)||0};if(field==="qty"||field==="rate")items[idx].total=items[idx].qty*items[idx].rate;return{...q,lineItems:items};});}
+  function updateItem(idx,field,val){setQuote(q=>{const items=[...q.lineItems];items[idx]={...items[idx],[field]:(field==="description"||field==="unit"||field==="category")?val:parseFloat(val)||0};if(field==="qty"||field==="rate")items[idx].total=items[idx].qty*items[idx].rate;return{...q,lineItems:items};});}
   function removeItem(idx){setQuote(q=>({...q,lineItems:q.lineItems.filter((_,i)=>i!==idx)}));}
-  function addItem(cat){setQuote(q=>({...q,lineItems:[...q.lineItems,{category:cat,description:"New item",qty:1,unit:"ls",rate:0,total:0}]}));}
+  function addItem(cat){setQuote(q=>({...q,lineItems:[...(q?.lineItems||[]),{category:cat,description:"New item",qty:1,unit:"ls",rate:0,total:0}]}));}
 
+  // ── Totals with PST ─────────────────────────────────────────────────
   const subtotal=quote?.lineItems?.reduce((s,i)=>s+i.total,0)||0;
   const markupAmt=subtotal*(markup/100);
   const gst=(subtotal+markupAmt)*0.05;
-  const total=subtotal+markupAmt+gst;
+  const pst=(subtotal+markupAmt)*0.06; // SK PST
+  const total=subtotal+markupAmt+gst+pst;
   const fmt$=n=>"$"+n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,",");
 
   function printQuote(){
     const w=window.open("","_blank");
     const today=new Date().toLocaleDateString("en-CA");
+    const estNum=loadedEstimateId?savedEstimates.find(e=>e.id===loadedEstimateId)?.estimate_number:null;
     const labourItems=quote.lineItems.filter(i=>i.category==="Labour");
     const matItems=quote.lineItems.filter(i=>i.category==="Materials");
     const tr=items=>items.map(i=>i.unit==="ls"?`<tr><td>${i.description}</td><td colspan="3" style="color:#C8A96A;font-size:11px;font-weight:700;letter-spacing:0.5px">FLAT RATE</td><td style="font-weight:700">${fmt$(i.total)}</td></tr>`:`<tr><td>${i.description}</td><td>${i.qty}</td><td>${i.unit}</td><td>${fmt$(i.rate)}</td><td style="font-weight:700">${fmt$(i.total)}</td></tr>`).join("");
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Estimate — ${clientName||projectType}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#1F2A37}.hdr{background:#1F2A37;padding:28px 40px}.co{font-size:22px;font-weight:700;color:#C8A96A}.sub{font-size:11px;color:#aaa;margin-top:4px}.body{padding:28px 40px}.meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;background:#f5f5f5;padding:16px;border-radius:8px;margin-bottom:24px}.ml{font-size:10px;text-transform:uppercase;color:#888;margin-bottom:2px}.mv{font-size:13px;font-weight:600}h3{font-size:12px;text-transform:uppercase;color:#C8A96A;margin:20px 0 8px;border-bottom:2px solid #C8A96A;padding-bottom:4px}table{width:100%;border-collapse:collapse}th{background:#1F2A37;color:#fff;padding:8px 10px;font-size:11px;text-align:left}td{padding:8px 10px;font-size:12px;border-bottom:1px solid #eee}tr:nth-child(even) td{background:#fafafa}.totals{display:flex;justify-content:flex-end;margin-top:20px}.tbox{min-width:280px}.trow{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px solid #eee}.tfinal{display:flex;justify-content:space-between;padding:10px 0 0;font-size:17px;font-weight:700;border-top:2px solid #C8A96A;margin-top:4px}.notes{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px}.nbox{background:#f5f5f5;padding:14px;border-radius:6px}.nbox h4{font-size:10px;text-transform:uppercase;color:#888;margin-bottom:8px}.nbox li{font-size:11px;color:#555;margin-bottom:4px;list-style:disc;margin-left:14px}.disc{margin-top:24px;background:#fff8ee;border:1px solid #C8A96A;border-radius:6px;padding:12px;font-size:11px;color:#777}.ftr{background:#1F2A37;color:#888;text-align:center;padding:14px;font-size:11px;margin-top:32px}.ftr span{color:#C8A96A}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><div class="hdr"><div class="co">TALL GUY BUILDS INC.</div><div class="sub">Built Right. Designed to Last. | tallguybuilds.ca | 306-737-5407 | Regina, SK</div></div><div class="body"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><div><div style="font-size:22px;font-weight:700">ESTIMATE</div><div style="color:#666;font-size:13px;margin-top:4px">${quote.summary}</div></div><div style="text-align:right"><div style="font-size:10px;color:#888">Date</div><div style="font-weight:600">${today}</div></div></div><div class="meta"><div><div class="ml">Client</div><div class="mv">${clientName||"—"}</div></div><div><div class="ml">Address</div><div class="mv">${address||"—"}</div></div><div><div class="ml">Project</div><div class="mv">${projectType}</div></div><div><div class="ml">Duration</div><div class="mv">${quote.estimatedDays} working days</div></div></div>${labourItems.length?`<h3>Labour</h3><table><thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Rate</th><th>Total</th></tr></thead><tbody>${tr(labourItems)}</tbody></table>`:""}${matItems.length?`<h3>Materials</h3><table><thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Rate</th><th>Total</th></tr></thead><tbody>${tr(matItems)}</tbody></table>`:""}<div class="totals"><div class="tbox"><div class="trow"><span>Subtotal</span><span>${fmt$(subtotal)}</span></div><div class="trow"><span>Overhead &amp; Profit (${markup}%)</span><span>${fmt$(markupAmt)}</span></div><div class="trow"><span>GST (5%)</span><span>${fmt$(gst)}</span></div><div class="tfinal"><span>TOTAL</span><span>${fmt$(total)}</span></div></div></div><div class="notes">${quote.assumptions?.length?`<div class="nbox"><h4>Assumptions</h4><ul>${quote.assumptions.map(a=>`<li>${a}</li>`).join("")}</ul></div>`:""}${quote.exclusions?.length?`<div class="nbox"><h4>Exclusions</h4><ul>${quote.exclusions.map(e=>`<li>${e}</li>`).join("")}</ul></div>`:""}</div><div class="disc"><strong>Note:</strong> Preliminary estimate only. Final pricing subject to site visit. Valid 30 days. All prices CAD.</div></div><div class="ftr"><span>Tall Guy Builds Inc.</span> | Regina, SK | 306-737-5407 | tallguybuilds.ca | @tallguybuildssk</div><script>window.onload=()=>window.print();</script></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Estimate${estNum?" #"+estNum:""} — ${clientName||projectType}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#1F2A37}.hdr{background:#1F2A37;padding:28px 40px}.co{font-size:22px;font-weight:700;color:#C8A96A}.sub{font-size:11px;color:#aaa;margin-top:4px}.body{padding:28px 40px}.meta{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;background:#f5f5f5;padding:16px;border-radius:8px;margin-bottom:24px}.ml{font-size:10px;text-transform:uppercase;color:#888;margin-bottom:2px}.mv{font-size:13px;font-weight:600}h3{font-size:12px;text-transform:uppercase;color:#C8A96A;margin:20px 0 8px;border-bottom:2px solid #C8A96A;padding-bottom:4px}table{width:100%;border-collapse:collapse}th{background:#1F2A37;color:#fff;padding:8px 10px;font-size:11px;text-align:left}td{padding:8px 10px;font-size:12px;border-bottom:1px solid #eee}tr:nth-child(even) td{background:#fafafa}.totals{display:flex;justify-content:flex-end;margin-top:20px}.tbox{min-width:300px}.trow{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px solid #eee}.tfinal{display:flex;justify-content:space-between;padding:10px 0 0;font-size:17px;font-weight:700;border-top:2px solid #C8A96A;margin-top:4px}.notes{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px}.nbox{background:#f5f5f5;padding:14px;border-radius:6px}.nbox h4{font-size:10px;text-transform:uppercase;color:#888;margin-bottom:8px}.nbox li{font-size:11px;color:#555;margin-bottom:4px;list-style:disc;margin-left:14px}.disc{margin-top:24px;background:#fff8ee;border:1px solid #C8A96A;border-radius:6px;padding:12px;font-size:11px;color:#777}.ftr{background:#1F2A37;color:#888;text-align:center;padding:14px;font-size:11px;margin-top:32px}.ftr span{color:#C8A96A}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><div class="hdr"><div class="co">TALL GUY BUILDS INC.</div><div class="sub">Built Right. Designed to Last. | tallguybuilds.ca | 306-737-5407 | Regina, SK</div></div><div class="body"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><div><div style="font-size:22px;font-weight:700">ESTIMATE${estNum?` <span style="color:#C8A96A">#${estNum}</span>`:""}</div><div style="color:#666;font-size:13px;margin-top:4px">${quote.summary||""}</div></div><div style="text-align:right"><div style="font-size:10px;color:#888">Date</div><div style="font-weight:600">${today}</div></div></div><div class="meta"><div><div class="ml">Client</div><div class="mv">${clientName||"—"}</div></div><div><div class="ml">Address</div><div class="mv">${address||"—"}</div></div><div><div class="ml">Project</div><div class="mv">${projectType||"—"}</div></div><div><div class="ml">Duration</div><div class="mv">${quote.estimatedDays||"—"}${quote.estimatedDays?" working days":""}</div></div></div>${labourItems.length?`<h3>Labour</h3><table><thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Rate</th><th>Total</th></tr></thead><tbody>${tr(labourItems)}</tbody></table>`:""}${matItems.length?`<h3>Materials</h3><table><thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Rate</th><th>Total</th></tr></thead><tbody>${tr(matItems)}</tbody></table>`:""}<div class="totals"><div class="tbox"><div class="trow"><span>Subtotal</span><span>${fmt$(subtotal)}</span></div><div class="trow"><span>Overhead &amp; Profit (${markup}%)</span><span>${fmt$(markupAmt)}</span></div><div class="trow"><span>GST (5%)</span><span>${fmt$(gst)}</span></div><div class="trow"><span>PST (6% SK)</span><span>${fmt$(pst)}</span></div><div class="tfinal"><span>TOTAL</span><span>${fmt$(total)}</span></div></div></div><div class="notes">${quote.assumptions?.length?`<div class="nbox"><h4>Assumptions</h4><ul>${quote.assumptions.map(a=>`<li>${a}</li>`).join("")}</ul></div>`:""}${quote.exclusions?.length?`<div class="nbox"><h4>Exclusions</h4><ul>${quote.exclusions.map(e=>`<li>${e}</li>`).join("")}</ul></div>`:""}</div><div class="disc"><strong>Note:</strong> Preliminary estimate only. Final pricing subject to site visit. Valid 30 days. All prices CAD.</div></div><div class="ftr"><span>Tall Guy Builds Inc.</span> | Regina, SK | 306-737-5407 | tallguybuilds.ca | @tallguybuildssk</div><script>window.onload=()=>window.print();</script></body></html>`);
     w.document.close();
   }
 
@@ -2556,21 +2572,87 @@ Return ONLY valid JSON, no markdown, no explanation:
   const TYPES=["Deck","Basement Development","Garage"];
   const ICONS={"Deck":"🪵","Basement Development":"🏗️","Garage":"🚗"};
 
+  const filteredSaved = listFilter==="all" ? savedEstimates :
+                        listFilter==="unattached" ? savedEstimates.filter(e=>!e.job_id&&!e.lead_id) :
+                        savedEstimates.filter(e=>(e.status||"draft")===listFilter);
+
   return <div>
+    {/* ── Header ── */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
       <h1 style={{fontFamily:fbHero,color:LC.text,fontSize:30,margin:0,fontWeight:800,letterSpacing:"-0.025em"}}>Estimator</h1>
-      {estStep>1&&<div style={{display:"flex",gap:6,alignItems:"center"}}>
+      {estStep>=1&&<div style={{display:"flex",gap:6,alignItems:"center"}}>
         {["Type","Details","Quote"].map((s,i)=><div key={s} style={{display:"flex",alignItems:"center",gap:5}}>
           <div style={{width:22,height:22,borderRadius:"50%",background:estStep>=i+1?C.gold:C.border,color:estStep>=i+1?C.navy:C.muted,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700}}>{estStep>i+1?"✓":i+1}</div>
           <span style={{fontSize:11,color:estStep===i+1?C.gold:C.muted}}>{s}</span>
           {i<2&&<span style={{color:C.border,fontSize:10}}>›</span>}
         </div>)}
       </div>}
-      {estStep>1&&<Btn variant="ghost" onClick={resetEst}>+ New Estimate</Btn>}
+      <div style={{display:"flex",gap:8}}>
+        {estStep!==0&&<Btn variant="ghost" onClick={resetEst}>📋 Saved Estimates</Btn>}
+        {estStep===0&&<Btn onClick={()=>{setLoadedEstimateId(null);setQuote(null);setManualMode(false);setProjectType("");setEstStep(1);}}>+ New Estimate</Btn>}
+      </div>
     </div>
 
+    {/* ── STEP 0: SAVED ESTIMATES LIST ── */}
+    {estStep===0&&<div>
+      <p style={{color:LC.textMuted,fontSize:13,marginBottom:16}}>Your saved estimates. Click any to reopen and edit.</p>
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+        {[
+          {id:"all",lbl:"All"},
+          {id:"draft",lbl:"Draft"},
+          {id:"sent",lbl:"Sent"},
+          {id:"accepted",lbl:"Accepted"},
+          {id:"unattached",lbl:"Unattached"},
+        ].map(f=>(
+          <button key={f.id} onClick={()=>setListFilter(f.id)} style={{
+            padding:"6px 13px",borderRadius:20,border:`1px solid ${listFilter===f.id?LC.gold:LC.border}`,
+            background:listFilter===f.id?LC.gold+"22":"transparent",
+            color:listFilter===f.id?LC.gold:LC.textMuted,
+            fontFamily:fb,fontSize:12,fontWeight:listFilter===f.id?700:500,cursor:"pointer"
+          }}>{f.lbl}</button>
+        ))}
+      </div>
+
+      {loadingList&&<div style={{textAlign:"center",padding:30,color:LC.textMuted,fontSize:13}}>Loading…</div>}
+      {!loadingList&&filteredSaved.length===0&&<div style={{background:LC.surface,border:`1px dashed ${LC.borderStrong}`,borderRadius:12,padding:40,textAlign:"center",color:LC.textMuted,fontSize:13}}>
+        No saved estimates match this filter. Click <strong style={{color:LC.text}}>+ New Estimate</strong> to start one.
+      </div>}
+      <div style={{display:"grid",gap:8}}>
+        {filteredSaved.map(est=>{
+          const linkedJob=est.job_id?jobs.find(j=>j.id===est.job_id):null;
+          const linkedLead=est.lead_id?leads.find(l=>l.id===est.lead_id):null;
+          const linked=linkedJob?.name||linkedLead?.name||null;
+          return <Card key={est.id} onClick={()=>loadEstimate(est)}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}>
+              <div style={{flex:1,minWidth:200}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3,flexWrap:"wrap"}}>
+                  <span style={{fontWeight:700,color:LC.text,fontSize:14}}>#{est.estimate_number||"—"}</span>
+                  <span style={{color:LC.textBody,fontSize:14,fontWeight:600}}>{est.client_name||"(no client)"}</span>
+                  {est.status&&<Badge label={est.status==="draft"?"Draft":est.status==="sent"?"Sent":est.status==="accepted"?"Won":est.status==="declined"?"Lost":est.status}/>}
+                </div>
+                <div style={{color:LC.textMuted,fontSize:11}}>
+                  {est.project_type||"—"}
+                  {linked&&<> · <span style={{color:LC.gold,fontWeight:600}}>📁 {linked}</span></>}
+                  {est.address&&<> · {est.address}</>}
+                </div>
+                <div style={{color:LC.textMuted,fontSize:11,marginTop:3}}>
+                  Created {fmtDate((est.created_at||"").slice(0,10))}
+                  {est.updated_at&&est.updated_at!==est.created_at&&<> · Updated {fmtDate((est.updated_at||"").slice(0,10))}</>}
+                </div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{color:LC.text,fontWeight:800,fontSize:17,fontFamily:fbHero,letterSpacing:"-0.01em"}}>{fmt$(Number(est.total)||0)}</div>
+                <div style={{color:LC.textMuted,fontSize:10}}>incl. tax</div>
+              </div>
+            </div>
+          </Card>;
+        })}
+      </div>
+    </div>}
+
+    {/* ── STEP 1: TYPE PICKER + manual/AI choice ── */}
     {estStep===1&&<div>
-      <p style={{color:C.muted,fontSize:13,marginBottom:20}}>Select a project type to get started</p>
+      <p style={{color:C.muted,fontSize:13,marginBottom:20}}>Pick a project type — then either use AI to draft or build manually.</p>
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:24}}>
         {TYPES.map(type=><div key={type} onClick={()=>setProjectType(type)} style={{background:projectType===type?C.navyLight:C.navy,border:`2px solid ${projectType===type?C.gold:C.border}`,borderRadius:12,padding:"24px 16px",cursor:"pointer",textAlign:"center",transition:"all 0.15s"}}>
           <div style={{fontSize:32,marginBottom:10}}>{ICONS[type]}</div>
@@ -2581,77 +2663,95 @@ Return ONLY valid JSON, no markdown, no explanation:
         <div><label style={{color:C.muted,fontSize:11,fontWeight:700,display:"block",marginBottom:5,textTransform:"uppercase"}}>Client Name (optional)</label><input value={clientName} onChange={e=>setClientName(e.target.value)} placeholder="e.g. John Smith" style={IS()}/></div>
         <div><label style={{color:C.muted,fontSize:11,fontWeight:700,display:"block",marginBottom:5,textTransform:"uppercase"}}>Project Address (optional)</label><input value={address} onChange={e=>setAddress(e.target.value)} placeholder="e.g. 123 Main St, Regina" style={IS()}/></div>
       </div>
-      <div style={{display:"flex",justifyContent:"flex-end"}}><Btn onClick={()=>setEstStep(2)} disabled={!projectType}>Next: Project Details →</Btn></div>
+      <div style={{display:"flex",justifyContent:"flex-end",gap:8,flexWrap:"wrap"}}>
+        <Btn variant="ghost" onClick={startManual} disabled={!projectType}>✏️ Build Manually</Btn>
+        <Btn onClick={()=>setEstStep(2)} disabled={!projectType}>✨ Use AI to Draft →</Btn>
+      </div>
+      <div style={{marginTop:12,fontSize:11,color:LC.textMuted,textAlign:"right",lineHeight:1.6}}>
+        <strong style={{color:LC.text}}>Manual</strong> = empty editor, plug in sub quotes directly. Use when subs have given you real numbers.<br/>
+        <strong style={{color:LC.text}}>AI</strong> = Claude drafts line items from a few dimensions. Use for early ballpark.
+      </div>
     </div>}
 
+    {/* ── STEP 2: AI DETAILS ── */}
     {estStep===2&&<div>
       <div style={{marginBottom:20}}>
         <button onClick={()=>setEstStep(1)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,padding:0,marginBottom:8}}>← Back</button>
         <h2 style={{color:C.white,fontFamily:font,fontSize:20,margin:"0 0 4px"}}>{projectType}</h2>
-        <p style={{color:C.muted,fontSize:13,margin:0}}>Fill in what you know — AI will estimate anything left blank</p>
+        <p style={{color:C.muted,fontSize:13,margin:0}}>Fill in what you know — AI will estimate anything left blank.</p>
       </div>
-      {projectType==="Deck"&&(drawMode?<DeckDrawingTool onApply={({sqft,perimeter,stairCount})=>{setField('sqft',String(sqft));setField('perimeter',String(perimeter));setField('stairs',stairCount>0?stairCount+' set'+(stairCount>1?'s':''):'None');setDrawMode(false);}} onCancel={()=>setDrawMode(false)}/>:<button onClick={()=>setDrawMode(true)} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,width:'100%',padding:'10px 16px',background:'#0f1f35',border:'1px dashed #3b82f6',borderRadius:8,color:'#93c5fd',fontSize:13,fontWeight:600,cursor:'pointer',marginBottom:12}}>&#x270F; Draw custom shape — auto-calc sq ft, perimeter &amp; stairs</button>)}
+      {projectType==="Deck"&&(drawMode?<DeckDrawingTool onApply={({sqft,perimeter,stairCount})=>{setField('sqft',String(sqft));setField('perimeter',String(perimeter));setField('stairs',stairCount>0?stairCount+' set'+(stairCount>1?'s':''):'None');setDrawMode(false);}} onCancel={()=>setDrawMode(false)}/>:<button onClick={()=>setDrawMode(true)} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,width:'100%',padding:'10px 16px',background:'#0f1f35',border:'1px dashed #3b82f6',borderRadius:8,color:'#93c5fd',fontSize:13,fontWeight:600,cursor:'pointer',marginBottom:12}}>✏ Draw custom shape — auto-calc sq ft, perimeter & stairs</button>)}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
         {EST_FIELDS[projectType].map(field=><div key={field.key} style={field.type==="textarea"?{gridColumn:"1 / -1"}:{}}>
           <label style={{color:C.muted,fontSize:11,fontWeight:700,display:"block",marginBottom:5,textTransform:"uppercase"}}>{field.label}</label>
           <EstFieldInput field={field} value={inputs[field.key]} onChange={setField}/>
         </div>)}
       </div>
-      <div style={{display:"flex",justifyContent:"space-between",marginTop:24}}>
+      <div style={{display:"flex",justifyContent:"space-between",marginTop:24,gap:8,flexWrap:"wrap"}}>
         <Btn variant="ghost" onClick={()=>setEstStep(1)}>← Back</Btn>
-        <Btn onClick={generate} disabled={loading} style={{minWidth:200}}>{loading?"⚙️ Generating...":"✨ Generate Estimate"}</Btn>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <Btn variant="ghost" onClick={startManual}>✏️ Skip AI — Build Manually</Btn>
+          <Btn onClick={generate} disabled={loading} style={{minWidth:200}}>{loading?"⚙️ Generating...":"✨ Generate Estimate"}</Btn>
+        </div>
       </div>
     </div>}
 
+    {/* ── STEP 3: QUOTE EDITOR ── */}
     {estStep===3&&quote&&<div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18,flexWrap:"wrap",gap:10}}>
         <div>
-          <button onClick={()=>setEstStep(2)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,padding:0,marginBottom:6}}>← Edit Details</button>
-          <h2 style={{color:C.white,fontFamily:font,fontSize:20,margin:"0 0 4px"}}>{projectType} Estimate</h2>
-          <p style={{color:C.muted,fontSize:12,margin:0}}>{quote.summary}</p>
+          <button onClick={()=>setEstStep(loadedEstimateId?0:(manualMode?1:2))} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,padding:0,marginBottom:6}}>← {loadedEstimateId?"Back to list":"Edit Details"}</button>
+          <h2 style={{color:C.white,fontFamily:font,fontSize:20,margin:"0 0 4px"}}>
+            {loadedEstimateId?`Estimate #${savedEstimates.find(e=>e.id===loadedEstimateId)?.estimate_number||""}`:`${projectType||"New"} Estimate`}
+            {manualMode&&<span style={{fontSize:11,color:LC.gold,marginLeft:8,fontWeight:600,letterSpacing:0.5}}>· MANUAL</span>}
+          </h2>
+          <p style={{color:C.muted,fontSize:12,margin:0}}>{quote.summary||"(no summary)"}</p>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-          <Btn variant="ghost" onClick={generate} disabled={loading}>{loading?"...":"↺ Regenerate"}</Btn>
-          <Btn variant="ghost" onClick={()=>setShowSaveModal(true)}>💾 Save Estimate</Btn>
+          {!manualMode&&!loadedEstimateId&&<Btn variant="ghost" onClick={generate} disabled={loading}>{loading?"...":"↺ Regenerate"}</Btn>}
+          <Btn variant="ghost" onClick={()=>setShowSaveModal(true)}>💾 {loadedEstimateId?"Update":"Save"}</Btn>
           <Btn onClick={printQuote}>🖨 Print / PDF</Btn>
           {savedMsg&&<span style={{color:"#4ade80",fontSize:12,fontFamily:fb}}>{savedMsg}</span>}
         </div>
       </div>
 
-      {/* ── Save Estimate Modal ── */}
-      {showSaveModal&&<Modal title="Save Estimate" onClose={()=>setShowSaveModal(false)}>
-        <div style={{fontSize:12,color:C.muted,marginBottom:14}}>Attach this estimate to a lead or project so you can find it later.</div>
-        <div style={{display:"flex",gap:8,marginBottom:14}}>
-          {["lead","job"].map(t=>(
-            <button key={t} onClick={()=>{setSaveTarget(t);setSaveTargetId("");}} style={{flex:1,padding:"9px 0",borderRadius:8,border:`2px solid ${saveTarget===t?C.gold:C.border}`,background:saveTarget===t?C.gold+"22":"transparent",color:saveTarget===t?C.gold:C.muted,fontFamily:fb,fontSize:13,fontWeight:saveTarget===t?700:400,cursor:"pointer"}}>
-              {t==="lead"?"📋 Lead / Pipeline":"⬡ Active Project"}
-            </button>
-          ))}
-        </div>
-        {saveTarget==="lead"&&<>
-          <label style={{display:"block",fontSize:11,color:C.muted,marginBottom:5,textTransform:"uppercase"}}>Select Lead</label>
-          <select value={saveTargetId} onChange={e=>setSaveTargetId(e.target.value)} style={{width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:saveTargetId?C.white:C.muted,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",marginBottom:14}}>
-            <option value="">Choose a lead…</option>
-            {leads.map(l=><option key={l.id} value={l.id}>{l.name}{l.type?` — ${l.type}`:""}</option>)}
-          </select>
-        </>}
-        {saveTarget==="job"&&<>
-          <label style={{display:"block",fontSize:11,color:C.muted,marginBottom:5,textTransform:"uppercase"}}>Select Project</label>
-          <select value={saveTargetId} onChange={e=>setSaveTargetId(e.target.value)} style={{width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:saveTargetId?C.white:C.muted,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",marginBottom:14}}>
-            <option value="">Choose a project…</option>
-            {jobs.map(j=><option key={j.id} value={j.id}>{j.name}{j.client?` — ${j.client}`:""}</option>)}
-          </select>
-        </>}
+      {showSaveModal&&<Modal title={loadedEstimateId?"Update Estimate":"Save Estimate"} onClose={()=>setShowSaveModal(false)}>
+        {loadedEstimateId
+          ? <div style={{fontSize:13,color:LC.textBody,marginBottom:14}}>Save changes to estimate <strong>#{savedEstimates.find(e=>e.id===loadedEstimateId)?.estimate_number}</strong>?</div>
+          : <>
+            <div style={{fontSize:12,color:C.muted,marginBottom:14}}>Attach this estimate to a lead or project so you can find it later.</div>
+            <div style={{display:"flex",gap:8,marginBottom:14}}>
+              {["lead","job"].map(t=>(
+                <button key={t} onClick={()=>{setSaveTarget(t);setSaveTargetId("");}} style={{flex:1,padding:"9px 0",borderRadius:8,border:`2px solid ${saveTarget===t?C.gold:C.border}`,background:saveTarget===t?C.gold+"22":"transparent",color:saveTarget===t?C.gold:C.muted,fontFamily:fb,fontSize:13,fontWeight:saveTarget===t?700:400,cursor:"pointer"}}>
+                  {t==="lead"?"📋 Lead / Pipeline":"⬡ Active Project"}
+                </button>
+              ))}
+            </div>
+            {saveTarget==="lead"&&<>
+              <label style={{display:"block",fontSize:11,color:C.muted,marginBottom:5,textTransform:"uppercase"}}>Select Lead</label>
+              <select value={saveTargetId} onChange={e=>setSaveTargetId(e.target.value)} style={{width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:saveTargetId?C.white:C.muted,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",marginBottom:14}}>
+                <option value="">Choose a lead…</option>
+                {leads.map(l=><option key={l.id} value={l.id}>{l.name}{l.type?` — ${l.type}`:""}</option>)}
+              </select>
+            </>}
+            {saveTarget==="job"&&<>
+              <label style={{display:"block",fontSize:11,color:C.muted,marginBottom:5,textTransform:"uppercase"}}>Select Project</label>
+              <select value={saveTargetId} onChange={e=>setSaveTargetId(e.target.value)} style={{width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:saveTargetId?C.white:C.muted,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",marginBottom:14}}>
+                <option value="">Choose a project…</option>
+                {jobs.map(j=><option key={j.id} value={j.id}>{j.name}{j.client?` — ${j.client}`:""}</option>)}
+              </select>
+            </>}
+          </>}
         <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
           <Btn variant="ghost" onClick={()=>setShowSaveModal(false)}>Cancel</Btn>
-          <Btn onClick={saveEstimate} style={{opacity:saving?0.6:1}}>{saving?"Saving…":"Save Estimate"}</Btn>
+          <Btn onClick={saveEstimate} style={{opacity:saving?0.6:1}}>{saving?"Saving…":(loadedEstimateId?"Update":"Save Estimate")}</Btn>
         </div>
       </Modal>}
 
       {(clientName||address)&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 16px",marginBottom:16,display:"flex",gap:24,flexWrap:"wrap"}}>
         {clientName&&<div><div style={{fontSize:10,color:C.muted,textTransform:"uppercase",marginBottom:1}}>Client</div><div style={{color:C.white,fontSize:13,fontWeight:600}}>{clientName}</div></div>}
         {address&&<div><div style={{fontSize:10,color:C.muted,textTransform:"uppercase",marginBottom:1}}>Address</div><div style={{color:C.white,fontSize:13,fontWeight:600}}>{address}</div></div>}
-        <div><div style={{fontSize:10,color:C.muted,textTransform:"uppercase",marginBottom:1}}>Duration</div><div style={{color:C.white,fontSize:13,fontWeight:600}}>{quote.estimatedDays} working days</div></div>
+        {quote.estimatedDays>0&&<div><div style={{fontSize:10,color:C.muted,textTransform:"uppercase",marginBottom:1}}>Duration</div><div style={{color:C.white,fontSize:13,fontWeight:600}}>{quote.estimatedDays} working days</div></div>}
       </div>}
 
       {["Labour","Materials"].map(cat=>{
@@ -2662,7 +2762,7 @@ Return ONLY valid JSON, no markdown, no explanation:
             <div style={{display:"grid",gridTemplateColumns:"3fr 70px 70px 90px 100px 50px",padding:"7px 12px",background:C.navy}}>
               {["Description","Qty","Unit","Rate","Total",""].map(h=><div key={h} style={{color:C.muted,fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
             </div>
-            {items.length===0&&<div style={{padding:"12px",color:C.muted,fontSize:12}}>No items</div>}
+            {items.length===0&&<div style={{padding:"12px",color:C.muted,fontSize:12}}>No items — click "+ Add {cat} Line" below to add one.</div>}
             {items.map(item=>{
               const gi=quote.lineItems.indexOf(item);
               const isE=editingItem===gi;
@@ -2693,8 +2793,9 @@ Return ONLY valid JSON, no markdown, no explanation:
         </div>;
       })}
 
+      {/* ── TOTALS BLOCK (includes PST) ── */}
       <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}>
-        <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:18,minWidth:290}}>
+        <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:18,minWidth:320}}>
           <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:13,color:C.white}}><span>Subtotal</span><span>{fmt$(subtotal)}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:13,color:C.white}}>
             <span>Overhead & Profit</span>
@@ -2705,6 +2806,7 @@ Return ONLY valid JSON, no markdown, no explanation:
             </div>
           </div>
           <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:13,color:C.white}}><span>GST (5%)</span><span>{fmt$(gst)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:13,color:C.white}}><span>PST (6% SK)</span><span>{fmt$(pst)}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0 0",fontSize:18,fontWeight:700,color:C.gold}}><span>TOTAL</span><span>{fmt$(total)}</span></div>
         </div>
       </div>
