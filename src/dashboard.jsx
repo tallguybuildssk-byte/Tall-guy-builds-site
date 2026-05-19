@@ -2162,54 +2162,148 @@ function PendingReceiptCard({receipt, jobs, parsing, onPatch, onConfirm, onDisca
   </div>;
 }
 
+// ── DASHBOARD "TODAY" VIEW ───────────────────────────────────────────────────
+// Profit OS-style landing page. Pure derivation from props (jobs/leads/logs) —
+// no new tables. Surfaces a daily score, the next 3-5 moves, and a green/yellow/
+// red heat map of every live job. Wire change_orders into props later to light
+// up an explicit "unbilled CO" move; today's CO proxy is Completed jobs with an
+// unpaid balance.
 function DashboardView({jobs,leads,logs,setPage}){
-  const active=jobs.filter(j=>j.status==="Active");
-  const pipe=leads.filter(l=>!["Won","Lost"].includes(l.stage)).reduce((s,l)=>s+(l.value||0),0);
-  const out=jobs.reduce((s,j)=>s+((j.value||0)-(j.paid||0)),0);
-  const won=leads.filter(l=>l.stage==="Won").reduce((s,l)=>s+(l.value||0),0);
-  const recentLogs=[...logs].sort((a,b)=>b.date?.localeCompare(a.date)).slice(0,3);
+  const today=todayStr();
+  const daysSince=ds=>{if(!ds)return 9999;const a=new Date(ds+"T12:00:00").getTime();const b=new Date(today+"T12:00:00").getTime();return Math.floor((b-a)/86400000);};
+
+  // ── Per-job signals (single pass, reused by moves + heat map + score) ────
+  const signals=jobs.map(j=>{
+    const ps=Array.isArray(j.payment_schedule)?j.payment_schedule:[];
+    const overduePayments=ps.filter(p=>!p.paid&&p.due_date&&daysSince(p.due_date)>0);
+    const jobLogs=logs.filter(l=>l.job_id===j.id);
+    const lastLog=jobLogs.sort((a,b)=>(b.date||"").localeCompare(a.date||""))[0];
+    const daysQuiet=lastLog?daysSince(lastLog.date):9999;
+    const hoursLogged=jobLogs.reduce((s,l)=>s+(+l.hours||0),0);
+    const remaining=(+j.value||0)-(+j.paid||0);
+    // Labour burn: brother sub rate ($75) as honest proxy until Profit OS port lands.
+    const labourBurn=j.status==="Active"&&remaining>0&&(hoursLogged*75)>remaining*0.6;
+    const stale=j.status==="Active"&&daysQuiet>=10;
+    const finalOverdue=j.status==="Active"&&j.end_date&&daysSince(j.end_date)>0&&remaining>=2000;
+    const noStart=j.status==="Active"&&(j.progress||0)===0&&j.start_date&&daysSince(j.start_date)>=7;
+    const unbilledClose=j.status==="Completed"&&remaining>=500;
+    let heat="green";
+    if(j.status==="On Hold"||overduePayments.length>0||daysQuiet>=14||finalOverdue)heat="red";
+    else if(j.status==="Active"&&(daysQuiet>=7||labourBurn||noStart))heat="yellow";
+    if(j.status==="Completed")heat=unbilledClose?"yellow":"grey";
+    return {j,ps,overduePayments,daysQuiet,hoursLogged,remaining,labourBurn,stale,finalOverdue,noStart,unbilledClose,heat};
+  });
+
+  // ── Top moves (sorted by priority, cap 5) ────────────────────────────────
+  const moves=[];
+  signals.forEach(s=>s.overduePayments.forEach(p=>moves.push({pri:1,icon:"💰",label:`Collect ${p.label||"payment"} — ${s.j.name}`,detail:`${fmt$(p.amount)} · due ${fmtDate(p.due_date)} (${daysSince(p.due_date)}d late)`,page:"jobs"})));
+  signals.filter(s=>s.finalOverdue).forEach(s=>moves.push({pri:2,icon:"📤",label:`Final invoice — ${s.j.name}`,detail:`${fmt$(s.remaining)} outstanding · ended ${fmtDate(s.j.end_date)}`,page:"jobs"}));
+  signals.filter(s=>s.unbilledClose).forEach(s=>moves.push({pri:2,icon:"📋",label:`Unbilled balance — ${s.j.name}`,detail:`${fmt$(s.remaining)} not collected on completed job`,page:"jobs"}));
+  signals.filter(s=>s.labourBurn).forEach(s=>moves.push({pri:3,icon:"🔥",label:`Labour burn — ${s.j.name}`,detail:`${s.hoursLogged.toFixed(1)}h logged · ${fmt$(s.hoursLogged*75)} projected vs ${fmt$(s.remaining)} remaining`,page:"logs"}));
+  signals.filter(s=>s.stale&&s.overduePayments.length===0).forEach(s=>moves.push({pri:4,icon:"📍",label:`Check in — ${s.j.name}`,detail:`No site log in ${s.daysQuiet>=9999?"ever":s.daysQuiet+" days"}`,page:"logs"}));
+  leads.filter(l=>["Quoted","Follow-up"].includes(l.stage)&&l.date&&daysSince(l.date)>=14).forEach(l=>moves.push({pri:5,icon:"📞",label:`Follow up — ${l.name}`,detail:`${l.stage} ${daysSince(l.date)}d ago · ${fmt$(l.value)}`,page:"leads"}));
+  const topMoves=moves.sort((a,b)=>a.pri-b.pri).slice(0,5);
+
+  // ── Daily score (100 minus capped demerits) ──────────────────────────────
+  let dem=0;
+  dem+=Math.min(30,signals.reduce((s,x)=>s+x.overduePayments.length*6,0));
+  dem+=Math.min(20,signals.filter(x=>x.stale).length*4);
+  dem+=Math.min(20,signals.filter(x=>x.labourBurn).length*5);
+  dem+=Math.min(15,leads.filter(l=>["Quoted","Follow-up"].includes(l.stage)&&l.date&&daysSince(l.date)>=14).length*3);
+  dem+=Math.min(25,Math.floor(signals.filter(x=>x.finalOverdue||x.unbilledClose).reduce((s,x)=>s+x.remaining,0)/1000));
+  const score=Math.max(0,Math.min(100,100-dem));
+  const sColor=score>=80?LC.success:score>=50?LC.warn:LC.danger;
+  const sLabel=score>=80?"On track":score>=50?"Watch list":"Needs attention";
+
+  // ── Heat map ─────────────────────────────────────────────────────────────
+  const heatJobs=signals.filter(s=>s.j.status!=="Completed"||s.unbilledClose);
+  const heatColor=h=>h==="green"?LC.success:h==="yellow"?LC.warn:h==="red"?LC.danger:LC.textMuted;
+  const greens=heatJobs.filter(s=>s.heat==="green").length;
+  const yellows=heatJobs.filter(s=>s.heat==="yellow").length;
+  const reds=heatJobs.filter(s=>s.heat==="red").length;
+
+  // ── Header KPIs (cashflow context, kept from prior view) ─────────────────
+  const outstanding=jobs.reduce((s,j)=>s+((+j.value||0)-(+j.paid||0)),0);
+  const pipeline=leads.filter(l=>!["Won","Lost"].includes(l.stage)).reduce((s,l)=>s+(+l.value||0),0);
+  const activeCount=jobs.filter(j=>j.status==="Active").length;
+  const todayLabel=new Date().toLocaleDateString("en-CA",{weekday:"long",month:"long",day:"numeric"});
+
   return <div>
-    <div style={{fontSize:12,color:LC.textMuted,letterSpacing:"0.05em",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Today</div>
-    <h1 style={{fontFamily:fbHero,color:LC.text,fontSize:42,marginTop:0,marginBottom:0,fontWeight:800,letterSpacing:"-0.03em",lineHeight:1.05}}>What needs attention?</h1>
-    <p style={{color:LC.textMuted,marginTop:12,marginBottom:26,fontSize:14,lineHeight:1.5}}>Active jobs, recent activity, and what&apos;s waiting on you.</p>
-    <div className="tgb-stat-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10,marginBottom:22}}>
-      {[{label:"Active Jobs",value:active.length,sub:"in progress",color:C.gold},{label:"Pipeline",value:fmt$(pipe),sub:"open leads",color:"#3B82F6"},{label:"Remaining",value:fmt$(out),sub:"to invoice",color:C.warn},{label:"Won",value:fmt$(won),sub:"closed",color:"#16A34A"}].map(k=>(
-        <Card key={k.label} style={{padding:"20px 22px"}}><div style={{fontSize:12,color:LC.textMuted,marginBottom:10,fontWeight:500}}>{k.label}</div><div className="tgb-stat-num" style={{fontSize:32,fontFamily:fbHero,color:k.color,marginBottom:8,fontWeight:800,letterSpacing:"-0.025em",lineHeight:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{k.value}</div><div style={{fontSize:11,color:LC.textMuted}}>{k.sub}</div></Card>
-      ))}
-    </div>
-    <h2 style={{fontFamily:fbHero,color:LC.text,fontSize:22,fontWeight:800,letterSpacing:"-0.02em",marginBottom:14,marginTop:18}}>Active Projects</h2>
-    <div style={{display:"grid",gap:9,marginBottom:22}}>
-      {active.length===0&&<div style={{color:C.muted,fontSize:12}}>No active projects.</div>}
-      {active.map(job=>(
-        <Card key={job.id} onClick={()=>setPage("jobs")} style={{borderLeft:`3px solid ${LC.gold}`,paddingLeft:16}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:7}}>
-            <div><div style={{fontWeight:700,color:LC.text,fontSize:15,letterSpacing:"-0.01em"}}>{job.name}</div><div style={{color:LC.textMuted,fontSize:11,marginTop:2}}>{job.client} · {job.address}</div></div>
-            <Badge label={job.status}/>
-          </div>
-          <div style={{marginTop:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:LC.textMuted,marginBottom:3}}><span>{job.progress||0}% complete</span></div>
-            <div style={{background:LC.border,borderRadius:4,height:5}}><div style={{background:LC.gold,borderRadius:4,height:5,width:`${job.progress||0}%`,transition:"width 0.5s"}}/></div>
-          </div>
+    <div style={{fontSize:12,color:LC.textMuted,letterSpacing:"0.05em",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Today · {todayLabel}</div>
+    <h1 style={{fontFamily:fbHero,color:LC.text,fontSize:42,marginTop:0,marginBottom:0,fontWeight:800,letterSpacing:"-0.03em",lineHeight:1.05}}>What needs you first?</h1>
+    <p style={{color:LC.textMuted,marginTop:12,marginBottom:22,fontSize:14,lineHeight:1.5}}>One score, the next five moves, and the colour of every live job.</p>
+
+    {/* ── Score + headline KPIs ──────────────────────────────────────────── */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10,marginBottom:24}}>
+      <Card style={{padding:"20px 22px",borderLeft:`4px solid ${sColor}`}}>
+        <div style={{fontSize:12,color:LC.textMuted,marginBottom:10,fontWeight:500}}>Daily Score</div>
+        <div style={{display:"flex",alignItems:"baseline",gap:8}}>
+          <div style={{fontSize:42,fontFamily:fbHero,color:sColor,fontWeight:800,letterSpacing:"-0.03em",lineHeight:1}}>{score}</div>
+          <div style={{fontSize:13,color:LC.textMuted,fontWeight:600}}>/ 100</div>
+        </div>
+        <div style={{fontSize:12,color:sColor,fontWeight:700,marginTop:6}}>{sLabel}</div>
+      </Card>
+      {[
+        {label:"Active",value:activeCount,sub:"jobs running",color:LC.gold},
+        {label:"Outstanding",value:fmt$(outstanding),sub:"to invoice",color:LC.warn},
+        {label:"Pipeline",value:fmt$(pipeline),sub:"open leads",color:LC.info},
+      ].map(k=>(
+        <Card key={k.label} style={{padding:"20px 22px"}}>
+          <div style={{fontSize:12,color:LC.textMuted,marginBottom:10,fontWeight:500}}>{k.label}</div>
+          <div className="tgb-stat-num" style={{fontSize:28,fontFamily:fbHero,color:k.color,marginBottom:8,fontWeight:800,letterSpacing:"-0.025em",lineHeight:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{k.value}</div>
+          <div style={{fontSize:11,color:LC.textMuted}}>{k.sub}</div>
         </Card>
       ))}
     </div>
-    {recentLogs.length>0&&<><h2 style={{fontFamily:fbHero,color:LC.text,fontSize:22,fontWeight:800,letterSpacing:"-0.02em",marginBottom:14,marginTop:18}}>Recent Site Logs</h2>
-    <div style={{display:"grid",gap:9,marginBottom:22}}>
-      {recentLogs.map(log=>(
-        <Card key={log.id} onClick={()=>setPage("logs")} style={{padding:13}}>
-          <div style={{fontWeight:700,color:LC.text,fontSize:13}}>{log.job_name||"General"}</div>
-          <div style={{color:LC.textMuted,fontSize:11,marginTop:2}}>{fmtDate(log.date)} · {log.weather} · {log.crew} crew · {log.hours}h</div>
-          <div style={{color:LC.textBody,fontSize:11,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:280}}>{log.notes}</div>
-        </Card>
+
+    {/* ── Top moves today ────────────────────────────────────────────────── */}
+    <h2 style={{fontFamily:fbHero,color:LC.text,fontSize:22,fontWeight:800,letterSpacing:"-0.02em",marginBottom:14,marginTop:6}}>Top moves today</h2>
+    <Card style={{padding:0,marginBottom:24,overflow:"hidden"}}>
+      {topMoves.length===0&&<div style={{padding:"28px 22px",color:LC.textMuted,fontSize:13,textAlign:"center"}}>🎯 Inbox zero. Nothing flagged.</div>}
+      {topMoves.map((m,i)=>(
+        <div key={i} onClick={()=>setPage(m.page)} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px",borderBottom:i<topMoves.length-1?`1px solid ${LC.border}`:"none",cursor:"pointer",transition:"background 0.1s"}} onMouseEnter={e=>e.currentTarget.style.background=LC.surfaceAlt} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+          <div style={{fontSize:22,lineHeight:1,flexShrink:0}}>{m.icon}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:14,fontWeight:700,color:LC.text,letterSpacing:"-0.005em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.label}</div>
+            <div style={{fontSize:12,color:LC.textMuted,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.detail}</div>
+          </div>
+          <div style={{fontSize:20,color:LC.textMuted,fontWeight:300,flexShrink:0}}>›</div>
+        </div>
       ))}
-    </div></>}
-    <h2 style={{fontFamily:fbHero,color:LC.text,fontSize:22,fontWeight:800,letterSpacing:"-0.02em",marginBottom:14,marginTop:18}}>Recent Leads</h2>
-    <Card>{leads.slice(0,4).map((l,i)=>(
-      <div key={l.id} onClick={()=>setPage("leads")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:i<3?`1px solid ${LC.border}`:"none",flexWrap:"wrap",gap:7,cursor:"pointer"}}>
-        <div><span style={{color:LC.text,fontWeight:600,fontSize:12}}>{l.name}</span><span style={{color:LC.textMuted,fontSize:11,marginLeft:7}}>{l.type}</span></div>
-        <div style={{display:"flex",gap:9,alignItems:"center"}}><span style={{color:LC.gold,fontWeight:700,fontSize:12}}>{fmt$(l.value)}</span><Badge label={l.stage}/></div>
-      </div>
-    ))}</Card>
+    </Card>
+
+    {/* ── Heat map ───────────────────────────────────────────────────────── */}
+    <h2 style={{fontFamily:fbHero,color:LC.text,fontSize:22,fontWeight:800,letterSpacing:"-0.02em",marginBottom:8,marginTop:6}}>Job heat map</h2>
+    <div style={{fontSize:12,color:LC.textMuted,marginBottom:12,display:"flex",gap:14,flexWrap:"wrap"}}>
+      <span style={{display:"flex",alignItems:"center",gap:6}}><span style={{width:9,height:9,borderRadius:99,background:LC.success}}/>{greens} healthy</span>
+      <span style={{display:"flex",alignItems:"center",gap:6}}><span style={{width:9,height:9,borderRadius:99,background:LC.warn}}/>{yellows} watch</span>
+      <span style={{display:"flex",alignItems:"center",gap:6}}><span style={{width:9,height:9,borderRadius:99,background:LC.danger}}/>{reds} attention</span>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:9,marginBottom:24}}>
+      {heatJobs.length===0&&<div style={{color:LC.textMuted,fontSize:12}}>No active jobs.</div>}
+      {heatJobs.map(s=>{
+        const c=heatColor(s.heat);
+        const why=[];
+        if(s.overduePayments.length)why.push(`${s.overduePayments.length} overdue pmt${s.overduePayments.length>1?"s":""}`);
+        if(s.j.status==="On Hold")why.push("on hold");
+        if(s.daysQuiet>=14)why.push(`no log ${s.daysQuiet>=9999?"ever":s.daysQuiet+"d"}`);
+        else if(s.daysQuiet>=7&&s.j.status==="Active")why.push(`${s.daysQuiet}d quiet`);
+        if(s.labourBurn)why.push("labour burn");
+        if(s.finalOverdue)why.push("invoice overdue");
+        if(s.unbilledClose)why.push("unbilled close-out");
+        if(s.noStart)why.push("not started");
+        return <Card key={s.j.id} onClick={()=>setPage("jobs")} style={{borderLeft:`4px solid ${c}`,padding:"12px 14px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+            <span style={{width:10,height:10,borderRadius:99,background:c,flexShrink:0,boxShadow:`0 0 0 3px ${c}22`}}/>
+            <div style={{fontWeight:700,color:LC.text,fontSize:13,letterSpacing:"-0.005em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.j.name}</div>
+          </div>
+          <div style={{fontSize:11,color:LC.textMuted,marginBottom:6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.j.client||"—"}{s.j.address?" · "+s.j.address:""}</div>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:LC.textMuted,marginBottom:3}}><span>{s.j.progress||0}%</span><span>{fmt$(s.remaining)} left</span></div>
+          <div style={{background:LC.border,borderRadius:4,height:4,marginBottom:why.length?8:0}}><div style={{background:c,borderRadius:4,height:4,width:`${s.j.progress||0}%`,transition:"width 0.5s"}}/></div>
+          {why.length>0&&<div style={{fontSize:10,color:c,fontWeight:600,letterSpacing:"0.01em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{why.join(" · ")}</div>}
+        </Card>;
+      })}
+    </div>
   </div>;
 }
 
