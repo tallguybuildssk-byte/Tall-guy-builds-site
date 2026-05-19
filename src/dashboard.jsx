@@ -1684,6 +1684,12 @@ function Receipts({jobs}){
   const [pendingReceipt, setPendingReceipt] = useState(null);
   const [filterJob, setFilterJob] = useState("active"); // active / all / unassigned / specific job id
   const fileRef = useRef(null);
+  // QB CSV export state
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFrom, setExportFrom] = useState(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10);});
+  const [exportTo, setExportTo] = useState(()=>new Date().toISOString().slice(0,10));
+  const [includeExported, setIncludeExported] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Load active job + recent receipts on mount
   useEffect(()=>{
@@ -1853,6 +1859,69 @@ If a field is unreadable, use null. Be accurate, not creative.`}
     setParsing(false);
   }
 
+  async function exportToQBCSV(){
+    setExporting(true);
+    try {
+      // Pull receipts in range
+      let q = supabase.from("receipts").select("*, jobs(id, name)")
+        .gte("receipt_date", exportFrom)
+        .lte("receipt_date", exportTo)
+        .order("receipt_date", {ascending: true});
+      if(!includeExported) q = q.eq("is_qb_exported", false);
+      const {data: rows, error} = await q;
+      if(error){ alert("Export failed: "+error.message); setExporting(false); return; }
+      if(!rows || rows.length===0){ alert("No receipts to export in this range."); setExporting(false); return; }
+
+      // Build CSV — header + rows
+      const esc = v => {
+        if(v==null) return "";
+        const str = String(v);
+        return /[",\n]/.test(str) ? `"${str.replace(/"/g,'""')}"` : str;
+      };
+      const headers = ["Date","Vendor","Category","Description","Project","Amount","GST","PST","Net (pre-tax)","Payment Method","Receipt ID","Photo URL"];
+      const lines = [headers.join(",")];
+      let totalAmt = 0, totalGst = 0, totalPst = 0;
+      for(const r of rows){
+        const net = Math.max(0, Number(r.amount||0) - Number(r.gst_amount||0) - Number(r.pst_amount||0));
+        totalAmt += Number(r.amount||0); totalGst += Number(r.gst_amount||0); totalPst += Number(r.pst_amount||0);
+        lines.push([
+          esc(r.receipt_date), esc(r.vendor), esc(r.category), esc(r.description),
+          esc(r.jobs?.name || "Unassigned"),
+          esc(Number(r.amount||0).toFixed(2)),
+          esc(Number(r.gst_amount||0).toFixed(2)),
+          esc(Number(r.pst_amount||0).toFixed(2)),
+          esc(net.toFixed(2)),
+          esc(r.payment_method),
+          esc(r.id),
+          esc(r.photo_url)
+        ].join(","));
+      }
+      // Totals row
+      lines.push(["","","","","TOTAL",totalAmt.toFixed(2),totalGst.toFixed(2),totalPst.toFixed(2),(totalAmt-totalGst-totalPst).toFixed(2),"","",""].join(","));
+
+      // Download
+      const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8;"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `tgb-receipts-${exportFrom}-to-${exportTo}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      // Mark as exported
+      const ids = rows.map(r=>r.id);
+      await supabase.from("receipts").update({is_qb_exported: true}).in("id", ids);
+
+      // Refresh list
+      reloadReceipts();
+      setShowExportModal(false);
+      alert(`Exported ${rows.length} receipts · Total ${"$"+totalAmt.toFixed(2)} · GST ${"$"+totalGst.toFixed(2)}\n\nThe CSV downloaded to your browser. Import it into QuickBooks under Banking > File Upload, or use it as a reference for your bookkeeper.`);
+    } catch(e){
+      alert("Export error: "+e.message);
+    }
+    setExporting(false);
+  }
+
   function patchPending(field, value){
     setPendingReceipt(p => p ? {...p, [field]: value} : p);
   }
@@ -1935,6 +2004,31 @@ If a field is unreadable, use null. Be accurate, not creative.`}
     }}>
       {uploading ? "⏳ Uploading..." : <>📷 <span>Snap Receipt</span></>}
     </button>
+
+    {/* Export button row */}
+    <div style={{display:"flex",justifyContent:"flex-end",marginBottom:14}}>
+      <Btn variant="ghost" onClick={()=>setShowExportModal(true)}>📊 Export to QB CSV</Btn>
+    </div>
+
+    {/* QB Export modal */}
+    {showExportModal && <Modal title="Export Receipts to QB CSV" onClose={()=>setShowExportModal(false)}>
+      <div style={{fontSize:12,color:LC.textMuted,marginBottom:14}}>Generate a categorized CSV of receipts ready to hand to a bookkeeper or import into QuickBooks.</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9,marginBottom:12}}>
+        <Inp label="From Date" type="date" value={exportFrom} onChange={setExportFrom}/>
+        <Inp label="To Date" type="date" value={exportTo} onChange={setExportTo}/>
+      </div>
+      <label style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:LC.bg,border:`1px solid ${LC.border}`,borderRadius:8,marginBottom:14,cursor:"pointer"}}>
+        <input type="checkbox" checked={includeExported} onChange={e=>setIncludeExported(e.target.checked)} style={{accentColor:LC.gold,cursor:"pointer"}}/>
+        <div>
+          <div style={{fontSize:13,color:LC.text,fontWeight:600}}>Include already-exported receipts</div>
+          <div style={{fontSize:11,color:LC.textMuted,marginTop:2}}>Off = first-time-only (safe default, prevents double-import). On = re-export everything in the range.</div>
+        </div>
+      </label>
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+        <Btn variant="ghost" onClick={()=>setShowExportModal(false)}>Cancel</Btn>
+        <Btn onClick={exportToQBCSV} style={{opacity:exporting?0.6:1}}>{exporting?"Exporting…":"Export CSV"}</Btn>
+      </div>
+    </Modal>}
 
     {/* Pending receipt review */}
     {pendingReceipt && <PendingReceiptCard
@@ -3053,11 +3147,13 @@ Return ONLY valid JSON:
     {/* ── STEP 1: TYPE PICKER + manual/AI choice ── */}
     {estStep===1&&<div>
       <p style={{color:C.muted,fontSize:13,marginBottom:20}}>Pick a project type — then either use AI to draft or build manually.</p>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:24}}>
-        {TYPES.map(type=><div key={type} onClick={()=>setProjectType(type)} style={{background:projectType===type?C.navyLight:C.navy,border:`2px solid ${projectType===type?C.gold:C.border}`,borderRadius:12,padding:"24px 16px",cursor:"pointer",textAlign:"center",transition:"all 0.15s"}}>
-          <div style={{fontSize:32,marginBottom:10}}>{ICONS[type]}</div>
-          <div style={{color:C.white,fontWeight:700,fontSize:14,marginBottom:4}}>{type}</div>
-        </div>)}
+      <div style={{marginBottom:20,maxWidth:420}}>
+        <label style={{display:"block",fontSize:11,color:LC.textMuted,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>Project Type</label>
+        <select value={projectType} onChange={e=>setProjectType(e.target.value)} style={{width:"100%",background:LC.surface,border:`1px solid ${projectType?LC.gold:LC.border}`,borderRadius:8,padding:"10px 14px",color:projectType?LC.text:LC.textMuted,fontSize:14,fontFamily:fb,outline:"none",boxSizing:"border-box",cursor:"pointer",fontWeight:600}}>
+          <option value="">— Pick one (or skip and use Manual) —</option>
+          {TYPES.map(type=><option key={type} value={type}>{type}</option>)}
+        </select>
+        <div style={{fontSize:11,color:LC.textMuted,marginTop:6}}>Only matters for AI drafting. Manual mode works for any project.</div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:20}}>
         <div><label style={{color:C.muted,fontSize:11,fontWeight:700,display:"block",marginBottom:5,textTransform:"uppercase"}}>Client Name (optional)</label><input value={clientName} onChange={e=>setClientName(e.target.value)} placeholder="e.g. John Smith" style={IS()}/></div>
