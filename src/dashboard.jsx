@@ -1683,6 +1683,11 @@ function Receipts({jobs}){
   const [parsing, setParsing] = useState(false);
   const [pendingReceipt, setPendingReceipt] = useState(null);
   const [filterJob, setFilterJob] = useState("active"); // active / all / unassigned / specific job id
+  // Kiosk mode = chain-task receipt scanning. After each confirm the camera
+  // auto-reopens. Auto-enables when arriving from the Today scan tile so the
+  // common "burn the stack" path is friction-free; user can flip it off any time.
+  const [kiosk, setKiosk] = useState(false);
+  const [chainCount, setChainCount] = useState(0);
   const fileRef = useRef(null);
   // QB CSV export state
   const [showExportModal, setShowExportModal] = useState(false);
@@ -1702,6 +1707,15 @@ function Receipts({jobs}){
       setReceipts(r.data || []);
       setLoading(false);
     });
+    // ── Auto-open camera when arriving here from Today's scan tile. ──
+    try{
+      if(localStorage.getItem("tgb_scan_intent")){
+        localStorage.removeItem("tgb_scan_intent");
+        setKiosk(true); // arrived in "burn the stack" mode — chain on by default
+        // Slight delay so the file input has rendered before we click it.
+        setTimeout(()=>{try{fileRef.current&&fileRef.current.click();}catch(e){}},150);
+      }
+    }catch(e){}
   },[]);
 
   async function reloadReceipts(){
@@ -1943,6 +1957,13 @@ If a field is unreadable, use null. Be accurate, not creative.`}
     }).eq("id", r.id);
     setPendingReceipt(null);
     reloadReceipts();
+    // Kiosk: keep the chain going — reopen the camera after a short beat.
+    // Close/discard paths don't pass through here, so the chain only advances
+    // on real confirms (which is exactly the behaviour we want for streaks).
+    if(kiosk){
+      setChainCount(c => c + 1);
+      setTimeout(()=>{try{fileRef.current&&fileRef.current.click();}catch(e){}},500);
+    }
   }
 
   async function deleteReceipt(id, storagePath){
@@ -2005,8 +2026,18 @@ If a field is unreadable, use null. Be accurate, not creative.`}
       {uploading ? "⏳ Uploading..." : <>📷 <span>Snap Receipt</span></>}
     </button>
 
-    {/* Export button row */}
-    <div style={{display:"flex",justifyContent:"flex-end",marginBottom:14}}>
+    {/* Kiosk toggle + Export row */}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:10,flexWrap:"wrap"}}>
+      <button onClick={()=>{const next=!kiosk;setKiosk(next);if(!next)setChainCount(0);}} title="When on, the camera auto-reopens after each confirmed receipt. Tap to stop." style={{
+        background:kiosk?LC.gold+"22":"transparent",
+        border:`1px solid ${kiosk?LC.gold:LC.border}`,
+        color:kiosk?LC.text:LC.textMuted,
+        borderRadius:20,padding:"7px 14px",fontSize:12,fontWeight:kiosk?700:500,cursor:"pointer",fontFamily:fb,
+        display:"flex",alignItems:"center",gap:6,whiteSpace:"nowrap"
+      }}>
+        <span style={{fontSize:13}}>🔄</span>
+        <span>Keep scanning{kiosk&&chainCount>0?` · ${chainCount} in a row`:kiosk?" · on":""}</span>
+      </button>
       <Btn variant="ghost" onClick={()=>setShowExportModal(true)}>📊 Export to QB CSV</Btn>
     </div>
 
@@ -2171,6 +2202,22 @@ function PendingReceiptCard({receipt, jobs, parsing, onPatch, onConfirm, onDisca
 function DashboardView({jobs,leads,logs,setPage}){
   const today=todayStr();
   const daysSince=ds=>{if(!ds)return 9999;const a=new Date(ds+"T12:00:00").getTime();const b=new Date(today+"T12:00:00").getTime();return Math.floor((b-a)/86400000);};
+  // ── Receipts scan stats — fuels the 1-tap scan tile + the "last scan" move. ─
+  const [recState,setRecState]=useState({scanned7d:0,lastScan:null,loaded:false});
+  useEffect(()=>{
+    let cancelled=false;
+    const cutoff=new Date(Date.now()-30*86400000).toISOString();
+    supabase.from("receipts").select("id,created_at").gte("created_at",cutoff).order("created_at",{ascending:false}).limit(200).then(({data})=>{
+      if(cancelled)return;
+      const weekAgo=new Date(Date.now()-7*86400000).toISOString();
+      const scanned7d=(data||[]).filter(r=>r.created_at>=weekAgo).length;
+      const lastScan=(data||[])[0]?.created_at||null;
+      setRecState({scanned7d,lastScan,loaded:true});
+    }).catch(()=>{if(!cancelled)setRecState({scanned7d:0,lastScan:null,loaded:true});});
+    return()=>{cancelled=true;};
+  },[]);
+  const dSinceScan=recState.lastScan?Math.floor((Date.now()-new Date(recState.lastScan).getTime())/86400000):9999;
+  const fireScan=()=>{try{localStorage.setItem("tgb_scan_intent","1");}catch(e){}setPage("receipts");};
 
   // ── Per-job signals (single pass, reused by moves + heat map + score) ────
   const signals=jobs.map(j=>{
@@ -2202,6 +2249,7 @@ function DashboardView({jobs,leads,logs,setPage}){
   signals.filter(s=>s.labourBurn).forEach(s=>moves.push({pri:3,icon:"🔥",label:`Labour burn — ${s.j.name}`,detail:`${s.hoursLogged.toFixed(1)}h logged · ${fmt$(s.hoursLogged*75)} projected vs ${fmt$(s.remaining)} remaining`,page:"logs"}));
   signals.filter(s=>s.stale&&s.overduePayments.length===0).forEach(s=>moves.push({pri:4,icon:"📍",label:`Check in — ${s.j.name}`,detail:`No site log in ${s.daysQuiet>=9999?"ever":s.daysQuiet+" days"}`,page:"logs"}));
   leads.filter(l=>["Quoted","Follow-up"].includes(l.stage)&&l.date&&daysSince(l.date)>=14).forEach(l=>moves.push({pri:5,icon:"📞",label:`Follow up — ${l.name}`,detail:`${l.stage} ${daysSince(l.date)}d ago · ${fmt$(l.value)}`,page:"leads"}));
+  if(recState.loaded&&dSinceScan>=5)moves.push({pri:3,icon:"📸",label:`Receipts — last scan ${dSinceScan>=9999?"never":dSinceScan+"d ago"}`,detail:`Tap to fire the camera. ${recState.scanned7d} scanned this week.`,onClick:fireScan});
   const topMoves=moves.sort((a,b)=>a.pri-b.pri).slice(0,5);
 
   // ── Daily score (100 minus capped demerits) ──────────────────────────────
@@ -2256,12 +2304,24 @@ function DashboardView({jobs,leads,logs,setPage}){
       ))}
     </div>
 
+    {/* ── Scan-a-receipt tile (1-tap camera, kills the 3-tap path) ───────── */}
+    <Card onClick={fireScan} style={{padding:"14px 18px",marginBottom:24,display:"flex",alignItems:"center",gap:14,borderLeft:`4px solid ${LC.gold}`,cursor:"pointer"}}>
+      <div style={{fontSize:30,lineHeight:1,flexShrink:0}}>📸</div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:14,fontWeight:700,color:LC.text,letterSpacing:"-0.005em"}}>Scan a receipt</div>
+        <div style={{fontSize:12,color:LC.textMuted,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+          {recState.loaded?`${recState.scanned7d} scanned this week · ${recState.lastScan?(dSinceScan===0?"last scan today":dSinceScan===1?"last scan yesterday":`last scan ${dSinceScan}d ago`):"no scans yet"}`:"Loading…"}
+        </div>
+      </div>
+      <div style={{background:LC.gold,color:LC.text,padding:"9px 16px",borderRadius:8,fontSize:13,fontWeight:700,flexShrink:0,whiteSpace:"nowrap"}}>Tap to scan</div>
+    </Card>
+
     {/* ── Top moves today ────────────────────────────────────────────────── */}
     <h2 style={{fontFamily:fbHero,color:LC.text,fontSize:22,fontWeight:800,letterSpacing:"-0.02em",marginBottom:14,marginTop:6}}>Top moves today</h2>
     <Card style={{padding:0,marginBottom:24,overflow:"hidden"}}>
       {topMoves.length===0&&<div style={{padding:"28px 22px",color:LC.textMuted,fontSize:13,textAlign:"center"}}>🎯 Inbox zero. Nothing flagged.</div>}
       {topMoves.map((m,i)=>(
-        <div key={i} onClick={()=>setPage(m.page)} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px",borderBottom:i<topMoves.length-1?`1px solid ${LC.border}`:"none",cursor:"pointer",transition:"background 0.1s"}} onMouseEnter={e=>e.currentTarget.style.background=LC.surfaceAlt} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+        <div key={i} onClick={m.onClick||(()=>setPage(m.page))} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px",borderBottom:i<topMoves.length-1?`1px solid ${LC.border}`:"none",cursor:"pointer",transition:"background 0.1s"}} onMouseEnter={e=>e.currentTarget.style.background=LC.surfaceAlt} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
           <div style={{fontSize:22,lineHeight:1,flexShrink:0}}>{m.icon}</div>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:14,fontWeight:700,color:LC.text,letterSpacing:"-0.005em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.label}</div>
