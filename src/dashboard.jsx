@@ -162,14 +162,14 @@ function Sel({label,value,onChange,options,display}){
     </select>
   </div>;
 }
-function Btn({children,onClick,variant="primary",size="md",style={},disabled=false}){
+function Btn({children,onClick,variant="primary",size="md",style={}}){
   const v={
     primary:{background:LC.gold,color:LC.text,border:"none"},
     ghost:{background:LC.surface,color:LC.text,border:`1px solid ${LC.border}`},
     danger:{background:LC.surface,color:LC.danger,border:`1px solid ${LC.danger}55`}
   };
   const s={sm:{padding:"5px 12px",fontSize:11},md:{padding:"9px 18px",fontSize:13}};
-  return <button onClick={onClick} disabled={disabled} style={{cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.5:1,borderRadius:7,fontFamily:fb,fontWeight:700,...v[variant],...s[size],transition:"all 0.12s",...style}}>{children}</button>;
+  return <button onClick={onClick} style={{cursor:"pointer",borderRadius:7,fontFamily:fb,fontWeight:700,...v[variant],...s[size],transition:"all 0.12s",...style}}>{children}</button>;
 }
 function Modal({title,onClose,children,wide=false}){
   return <div style={{position:"fixed",inset:0,background:"#0F172A88",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2000,padding:16,backdropFilter:"blur(3px)"}}>
@@ -422,7 +422,8 @@ function ClientCalendarV2({events,milestones,loading,editable=false,onCreate,onE
       date_end:e.date_end||e.date,
       time:e.time,
       color:e.color||EC[e.type]||EC.other,
-      _kind:"event"
+      _kind:"event",
+      _original:e
     })),
     ...(milestones||[]).filter(m=>m.date).map(m=>({
       id:m.id,
@@ -432,7 +433,8 @@ function ClientCalendarV2({events,milestones,loading,editable=false,onCreate,onE
       date_end:m.date,
       status:m.status,
       color:EC.milestone,
-      _kind:"milestone"
+      _kind:"milestone",
+      _original:m
     }))
   ];
 
@@ -520,7 +522,7 @@ function ClientCalendarV2({events,milestones,loading,editable=false,onCreate,onE
           onClick={editable&&onCreate?(e)=>{if(e.target===e.currentTarget||e.target.tagName==="SPAN")onCreate(ds);}:undefined}
           onDragOver={editable&&onReschedule?(e)=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dragOverDate!==ds)setDragOverDate(ds);}:undefined}
           onDragLeave={editable&&onReschedule?(e)=>{if(dragOverDate===ds)setDragOverDate(null);}:undefined}
-          onDrop={editable&&onReschedule?(e)=>{e.preventDefault();setDragOverDate(null);if(dragId&&dragId!==ds){const item=visibleItems.find(it=>it._kind+"-"+it.id===dragId);if(item){const startMs=new Date(item.date+"T12:00:00Z").getTime();const endMs=new Date(item.date_end+"T12:00:00Z").getTime();const newStartMs=new Date(ds+"T12:00:00Z").getTime();const newEnd=new Date(newStartMs+(endMs-startMs)).toISOString().slice(0,10);onReschedule(item.id,ds,newEnd);}setDragId(null);}}:undefined}
+          onDrop={editable&&onReschedule?(e)=>{e.preventDefault();setDragOverDate(null);if(dragId&&dragId!==ds){const item=visibleItems.find(it=>it._kind+"-"+it.id===dragId);if(item){const origEnd=(item._original&&item._original.date_end)||null;const startMs=new Date(item.date+"T12:00:00Z").getTime();const endMs=new Date((origEnd||item.date)+"T12:00:00Z").getTime();const newStartMs=new Date(ds+"T12:00:00Z").getTime();const durationMs=endMs-startMs;const newEnd=origEnd?new Date(newStartMs+durationMs).toISOString().slice(0,10):null;onReschedule(item.id,ds,newEnd);}setDragId(null);}}:undefined}
           style={{
             minHeight:108,
             background:isDropTarget?LC.gold+"33":(isToday?LC.goldLight:LC.surface),
@@ -555,10 +557,13 @@ function ClientCalendarV2({events,milestones,loading,editable=false,onCreate,onE
               draggable={canDrag&&isStart}
               onDragStart={canDrag&&isStart?(e)=>{e.stopPropagation();setDragId(itemDragId);e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",itemDragId);}:undefined}
               onDragEnd={canDrag?(e)=>{setDragId(null);setDragOverDate(null);}:undefined}
-              onClick={(e)=>{e.stopPropagation();if(editable&&onEdit&&item._kind==="event"){onEdit(item);}else{setExpandedItem(item);}}} style={{
+              onClick={(e)=>{e.stopPropagation();if(editable&&onEdit&&item._kind==="event"){onEdit(item._original||item);}else{setExpandedItem(item);}}} style={{
               background:item.color,
               color:"#ffffff",
               opacity:isBeingDragged?0.4:1,
+              userSelect:"none",
+              WebkitUserSelect:"none",
+              MozUserSelect:"none",
               fontSize:10,
               padding:"3px 7px",
               borderRadius:isMulti?(isStart&&isEnd?5:isStart?"5px 0 0 5px":isEnd?"0 5px 5px 0":0):5,
@@ -1668,702 +1673,54 @@ function ClientPortalV2({jobs,logs,clientMode=false,onSignOut}){
   </div>;
 }
 
-// ── RECEIPTS ─────────────────────────────────────────────────────────────────
-const RECEIPT_CATEGORIES = ["Materials","Subs","Disposal","Equipment","Admin","Fuel","Tools","Other"];
-const CAT_COLORS = {
-  Materials:"#3B82F6", Subs:"#22C55E", Disposal:"#F97316", Equipment:"#A855F7",
-  Admin:"#6B7280", Fuel:"#EAB308", Tools:"#06B6D4", Other:"#94A3B8"
-};
-
-function Receipts({jobs}){
-  const [activeJobId, setActiveJobId] = useState("");
-  const [receipts, setReceipts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [parsing, setParsing] = useState(false);
-  const [pendingReceipt, setPendingReceipt] = useState(null);
-  const [filterJob, setFilterJob] = useState("active"); // active / all / unassigned / specific job id
-  // Kiosk mode = chain-task receipt scanning. After each confirm the camera
-  // auto-reopens. Auto-enables when arriving from the Today scan tile so the
-  // common "burn the stack" path is friction-free; user can flip it off any time.
-  const [kiosk, setKiosk] = useState(false);
-  const [chainCount, setChainCount] = useState(0);
-  const fileRef = useRef(null);
-  // QB CSV export state
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [exportFrom, setExportFrom] = useState(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10);});
-  const [exportTo, setExportTo] = useState(()=>new Date().toISOString().slice(0,10));
-  const [includeExported, setIncludeExported] = useState(false);
-  const [exporting, setExporting] = useState(false);
-
-  // Load active job + recent receipts on mount
-  useEffect(()=>{
-    Promise.all([
-      supabase.from("settings").select("value").eq("key","active_job").maybeSingle(),
-      supabase.from("receipts").select("*, jobs(id, name)").order("created_at",{ascending:false}).limit(100),
-    ]).then(([s, r])=>{
-      const jobId = s.data?.value?.job_id || "";
-      setActiveJobId(jobId);
-      setReceipts(r.data || []);
-      setLoading(false);
-    });
-    // ── Auto-open camera when arriving here from Today's scan tile. ──
-    try{
-      if(localStorage.getItem("tgb_scan_intent")){
-        localStorage.removeItem("tgb_scan_intent");
-        setKiosk(true); // arrived in "burn the stack" mode — chain on by default
-        // Slight delay so the file input has rendered before we click it.
-        setTimeout(()=>{try{fileRef.current&&fileRef.current.click();}catch(e){}},150);
-      }
-    }catch(e){}
-  },[]);
-
-  async function reloadReceipts(){
-    const {data} = await supabase.from("receipts").select("*, jobs(id, name)").order("created_at",{ascending:false}).limit(100);
-    setReceipts(data || []);
-  }
-
-  async function setActiveJob(jobId){
-    setActiveJobId(jobId);
-    await supabase.from("settings").upsert({key:"active_job", value:{job_id: jobId||null}}, {onConflict:"key"});
-  }
-
-  function fileToBase64(file){
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = e => resolve(e.target.result.split(",")[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  async function handlePhoto(e){
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if(!file) return;
-    setUploading(true);
-
-    // 1. Upload photo to Supabase Storage
-    const safeName = (file.name || "receipt.jpg").replace(/[^a-zA-Z0-9._-]/g, "-");
-    const path = `${Date.now()}-${safeName}`;
-    const {error: upErr} = await supabase.storage.from("receipts").upload(path, file, {cacheControl:"3600", upsert:false});
-    if(upErr){
-      alert("Photo upload failed: "+upErr.message);
-      setUploading(false);
-      return;
-    }
-    const {data:{publicUrl}} = supabase.storage.from("receipts").getPublicUrl(path);
-
-    // 2. Create a pending receipt row
-    const {data: row, error: insErr} = await supabase.from("receipts").insert({
-      photo_url: publicUrl,
-      storage_path: path,
-      job_id: activeJobId || null,
-      ai_confidence: "pending"
-    }).select("*, jobs(id, name)").single();
-
-    setUploading(false);
-    if(insErr || !row){
-      alert("Database insert failed: " + (insErr?.message || "no row returned"));
-      return;
-    }
-
-    // 3. Add to list immediately so user sees something happened
-    setReceipts(prev => [row, ...prev]);
-
-    // 4. Send to Claude vision to parse
-    await parseReceipt(row, file);
-  }
-
-  async function parseReceipt(row, file){
-    setParsing(true);
-    setPendingReceipt({...row, _parsing: true});
-
-    try {
-      const base64 = await fileToBase64(file);
-      const mediaType = file.type && file.type.startsWith("image/") ? file.type : "image/jpeg";
-
-      const res = await fetch("/.netlify/functions/claude", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 800,
-          messages: [{
-            role: "user",
-            content: [
-              {type: "image", source: {type:"base64", media_type: mediaType, data: base64}},
-              {type: "text", text: `Extract the following from this receipt photo. Return ONLY valid JSON, no markdown.
-
-{
-  "vendor": "store name",
-  "amount": 0.00,
-  "receipt_date": "YYYY-MM-DD",
-  "category": "Materials",
-  "description": "short summary of items",
-  "gst_amount": 0.00,
-  "pst_amount": 0.00,
-  "payment_method": "Visa 4321"
-}
-
-CATEGORY MUST BE ONE OF: Materials, Subs, Disposal, Equipment, Admin, Fuel, Tools, Other.
-
-Category guide for Tall Guy Builds Inc. (construction contractor in Regina SK):
-- Materials: lumber, drywall, fasteners, paint, tile, hardware (Home Depot, Rona, Fries Tallman, Castle, Windsor Plywood, Lowe's)
-- Subs: payments to subtrades (Danko, TNT Tile, Chris Murray Cabinets, VJ Authentic Stone, Flooring Superstores, Southern Coring)
-- Disposal: dump fees, landfill (Regina Landfill, Greenway Disposal, Loraas)
-- Equipment: rentals, machine rentals (Cooper Equipment, Rentaurant, United Rentals)
-- Admin: office supplies, software, business fees, parking, banking
-- Fuel: gas stations (Petro-Canada, Co-op, Shell, Esso, 7-Eleven, Husky)
-- Tools: durable tool purchases (DeWalt, Milwaukee, Lee Valley, Princess Auto, Acklands)
-- Other: anything that doesn't fit
-
-amount = total INCLUDING all taxes shown.
-gst_amount = GST line if shown, else 0.
-pst_amount = PST line if shown, else 0.
-payment_method = last 4 digits of card if visible (e.g. "Visa 4321"), or "Cash" / "Debit" / "E-transfer". null if can't tell.
-receipt_date = YYYY-MM-DD format. null if can't read.
-
-If a field is unreadable, use null. Be accurate, not creative.`}
-            ]
-          }]
-        })
-      });
-
-      const rawText = await res.text();
-      if(!res.ok){
-        throw new Error(`API ${res.status}: ${rawText.slice(0, 200)}`);
-      }
-      const data = JSON.parse(rawText);
-      const text = data.content?.find(b => b.type === "text")?.text || "";
-      const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
-
-      // Build the updated row but don't save yet — user will confirm
-      const updated = {
-        ...row,
-        vendor: parsed.vendor || null,
-        amount: parsed.amount || null,
-        receipt_date: parsed.receipt_date || null,
-        category: parsed.category && RECEIPT_CATEGORIES.includes(parsed.category) ? parsed.category : "Other",
-        description: parsed.description || null,
-        gst_amount: parsed.gst_amount || 0,
-        pst_amount: parsed.pst_amount || 0,
-        payment_method: parsed.payment_method || null,
-        ai_confidence: "parsed",
-        raw_ai_response: data,
-        _parsing: false
-      };
-      setPendingReceipt(updated);
-
-      // Also write the parsed fields to the DB so a refresh doesn't lose them
-      await supabase.from("receipts").update({
-        vendor: updated.vendor, amount: updated.amount, receipt_date: updated.receipt_date,
-        category: updated.category, description: updated.description,
-        gst_amount: updated.gst_amount, pst_amount: updated.pst_amount,
-        payment_method: updated.payment_method,
-        ai_confidence: "parsed", raw_ai_response: data
-      }).eq("id", row.id);
-      reloadReceipts();
-    } catch(e){
-      console.warn("Receipt parse error:", e);
-      await supabase.from("receipts").update({ai_confidence: "failed"}).eq("id", row.id);
-      setPendingReceipt({...row, ai_confidence: "failed", _parsing: false, _error: e.message});
-      reloadReceipts();
-    }
-    setParsing(false);
-  }
-
-  async function exportToQBCSV(){
-    setExporting(true);
-    try {
-      // Pull receipts in range
-      let q = supabase.from("receipts").select("*, jobs(id, name)")
-        .gte("receipt_date", exportFrom)
-        .lte("receipt_date", exportTo)
-        .order("receipt_date", {ascending: true});
-      if(!includeExported) q = q.eq("is_qb_exported", false);
-      const {data: rows, error} = await q;
-      if(error){ alert("Export failed: "+error.message); setExporting(false); return; }
-      if(!rows || rows.length===0){ alert("No receipts to export in this range."); setExporting(false); return; }
-
-      // Build CSV — header + rows
-      const esc = v => {
-        if(v==null) return "";
-        const str = String(v);
-        return /[",\n]/.test(str) ? `"${str.replace(/"/g,'""')}"` : str;
-      };
-      const headers = ["Date","Vendor","Category","Description","Project","Amount","GST","PST","Net (pre-tax)","Payment Method","Receipt ID","Photo URL"];
-      const lines = [headers.join(",")];
-      let totalAmt = 0, totalGst = 0, totalPst = 0;
-      for(const r of rows){
-        const net = Math.max(0, Number(r.amount||0) - Number(r.gst_amount||0) - Number(r.pst_amount||0));
-        totalAmt += Number(r.amount||0); totalGst += Number(r.gst_amount||0); totalPst += Number(r.pst_amount||0);
-        lines.push([
-          esc(r.receipt_date), esc(r.vendor), esc(r.category), esc(r.description),
-          esc(r.jobs?.name || "Unassigned"),
-          esc(Number(r.amount||0).toFixed(2)),
-          esc(Number(r.gst_amount||0).toFixed(2)),
-          esc(Number(r.pst_amount||0).toFixed(2)),
-          esc(net.toFixed(2)),
-          esc(r.payment_method),
-          esc(r.id),
-          esc(r.photo_url)
-        ].join(","));
-      }
-      // Totals row
-      lines.push(["","","","","TOTAL",totalAmt.toFixed(2),totalGst.toFixed(2),totalPst.toFixed(2),(totalAmt-totalGst-totalPst).toFixed(2),"","",""].join(","));
-
-      // Download
-      const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8;"});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `tgb-receipts-${exportFrom}-to-${exportTo}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-
-      // Mark as exported
-      const ids = rows.map(r=>r.id);
-      await supabase.from("receipts").update({is_qb_exported: true}).in("id", ids);
-
-      // Refresh list
-      reloadReceipts();
-      setShowExportModal(false);
-      alert(`Exported ${rows.length} receipts · Total ${"$"+totalAmt.toFixed(2)} · GST ${"$"+totalGst.toFixed(2)}\n\nThe CSV downloaded to your browser. Import it into QuickBooks under Banking > File Upload, or use it as a reference for your bookkeeper.`);
-    } catch(e){
-      alert("Export error: "+e.message);
-    }
-    setExporting(false);
-  }
-
-  function patchPending(field, value){
-    setPendingReceipt(p => p ? {...p, [field]: value} : p);
-  }
-
-  async function confirmReceipt(){
-    if(!pendingReceipt) return;
-    const r = pendingReceipt;
-    await supabase.from("receipts").update({
-      vendor: r.vendor || null,
-      amount: Number(r.amount) || null,
-      receipt_date: r.receipt_date || null,
-      category: r.category || "Other",
-      description: r.description || null,
-      gst_amount: Number(r.gst_amount) || 0,
-      pst_amount: Number(r.pst_amount) || 0,
-      payment_method: r.payment_method || null,
-      job_id: r.job_id || null,
-      ai_confidence: "confirmed",
-    }).eq("id", r.id);
-    setPendingReceipt(null);
-    reloadReceipts();
-    // Kiosk: keep the chain going — reopen the camera after a short beat.
-    // Close/discard paths don't pass through here, so the chain only advances
-    // on real confirms (which is exactly the behaviour we want for streaks).
-    if(kiosk){
-      setChainCount(c => c + 1);
-      setTimeout(()=>{try{fileRef.current&&fileRef.current.click();}catch(e){}},500);
-    }
-  }
-
-  async function deleteReceipt(id, storagePath){
-    if(!confirm("Delete this receipt? This can't be undone.")) return;
-    if(storagePath) await supabase.storage.from("receipts").remove([storagePath]);
-    await supabase.from("receipts").delete().eq("id", id);
-    if(pendingReceipt?.id === id) setPendingReceipt(null);
-    reloadReceipts();
-  }
-
-  function openCamera(){
-    if(fileRef.current) fileRef.current.click();
-  }
-
-  // Filtered list
-  const filteredReceipts = receipts.filter(r => {
-    if(filterJob === "all") return true;
-    if(filterJob === "active") return r.job_id === activeJobId;
-    if(filterJob === "unassigned") return !r.job_id;
-    return r.job_id === filterJob;
-  });
-
-  const activeJob = jobs.find(j => j.id === activeJobId);
-
-  // Totals
-  const totalAmount = filteredReceipts.reduce((s, r) => s + Number(r.amount || 0), 0);
-  const totalGst = filteredReceipts.reduce((s, r) => s + Number(r.gst_amount || 0), 0);
-
+function DashboardView({jobs,leads,logs,setPage}){
+  const active=jobs.filter(j=>j.status==="Active");
+  const pipe=leads.filter(l=>!["Won","Lost"].includes(l.stage)).reduce((s,l)=>s+(l.value||0),0);
+  const out=jobs.reduce((s,j)=>s+((j.value||0)-(j.paid||0)),0);
+  const won=leads.filter(l=>l.stage==="Won").reduce((s,l)=>s+(l.value||0),0);
+  const recentLogs=[...logs].sort((a,b)=>b.date?.localeCompare(a.date)).slice(0,3);
   return <div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
-      <h1 style={{fontFamily:fbHero,color:LC.text,fontSize:30,margin:0,fontWeight:800,letterSpacing:"-0.025em"}}>Receipts</h1>
-      <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={handlePhoto}/>
-    </div>
-    <p style={{color:LC.textMuted,fontSize:13,marginTop:0,marginBottom:18}}>Snap a receipt, AI reads it, files it. No typing.</p>
-
-    {/* Active project picker */}
-    <div style={{background:LC.surface,border:`1px solid ${activeJobId?LC.gold:LC.border}`,borderRadius:12,padding:"14px 18px",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
-      <div style={{fontSize:10,color:LC.textMuted,textTransform:"uppercase",letterSpacing:0.8,marginBottom:6,fontWeight:700}}>Active Project</div>
-      <select value={activeJobId} onChange={e => setActiveJob(e.target.value)} style={{
-        width:"100%",background:LC.bg,border:`1px solid ${LC.border}`,borderRadius:7,
-        padding:"10px 12px",color:activeJobId?LC.text:LC.textMuted,fontSize:14,fontFamily:fb,outline:"none",fontWeight:600,boxSizing:"border-box"
-      }}>
-        <option value="">— Not on any job — receipts go to "unassigned"</option>
-        {jobs.filter(j=>j.status!=="Completed").map(j => <option key={j.id} value={j.id}>{j.name}{j.client?` (${j.client})`:""}</option>)}
-      </select>
-      <div style={{fontSize:11,color:LC.textMuted,marginTop:6}}>
-        {activeJob ? `New receipts auto-attach to ${activeJob.name}. Change at the start of each workday.` : "Pick a job — every receipt you snap today gets filed against it automatically."}
-      </div>
-    </div>
-
-    {/* Big snap button */}
-    <button onClick={openCamera} disabled={uploading} style={{
-      width:"100%", padding:"24px 18px", marginBottom:18,
-      background: uploading ? LC.bg : `linear-gradient(135deg, ${LC.gold}, #E2BE82)`,
-      color: LC.text, border: "none", borderRadius: 14, fontFamily: fb, fontSize: 18, fontWeight: 800,
-      cursor: uploading ? "wait" : "pointer", letterSpacing: "-0.01em",
-      boxShadow: uploading ? "none" : `0 4px 14px ${LC.gold}55`,
-      display:"flex",alignItems:"center",justifyContent:"center",gap:10
-    }}>
-      {uploading ? "⏳ Uploading..." : <>📷 <span>Snap Receipt</span></>}
-    </button>
-
-    {/* Kiosk toggle + Export row */}
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:10,flexWrap:"wrap"}}>
-      <button onClick={()=>{const next=!kiosk;setKiosk(next);if(!next)setChainCount(0);}} title="When on, the camera auto-reopens after each confirmed receipt. Tap to stop." style={{
-        background:kiosk?LC.gold+"22":"transparent",
-        border:`1px solid ${kiosk?LC.gold:LC.border}`,
-        color:kiosk?LC.text:LC.textMuted,
-        borderRadius:20,padding:"7px 14px",fontSize:12,fontWeight:kiosk?700:500,cursor:"pointer",fontFamily:fb,
-        display:"flex",alignItems:"center",gap:6,whiteSpace:"nowrap"
-      }}>
-        <span style={{fontSize:13}}>🔄</span>
-        <span>Keep scanning{kiosk&&chainCount>0?` · ${chainCount} in a row`:kiosk?" · on":""}</span>
-      </button>
-      <Btn variant="ghost" onClick={()=>setShowExportModal(true)}>📊 Export to QB CSV</Btn>
-    </div>
-
-    {/* QB Export modal */}
-    {showExportModal && <Modal title="Export Receipts to QB CSV" onClose={()=>setShowExportModal(false)}>
-      <div style={{fontSize:12,color:LC.textMuted,marginBottom:14}}>Generate a categorized CSV of receipts ready to hand to a bookkeeper or import into QuickBooks.</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9,marginBottom:12}}>
-        <Inp label="From Date" type="date" value={exportFrom} onChange={setExportFrom}/>
-        <Inp label="To Date" type="date" value={exportTo} onChange={setExportTo}/>
-      </div>
-      <label style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:LC.bg,border:`1px solid ${LC.border}`,borderRadius:8,marginBottom:14,cursor:"pointer"}}>
-        <input type="checkbox" checked={includeExported} onChange={e=>setIncludeExported(e.target.checked)} style={{accentColor:LC.gold,cursor:"pointer"}}/>
-        <div>
-          <div style={{fontSize:13,color:LC.text,fontWeight:600}}>Include already-exported receipts</div>
-          <div style={{fontSize:11,color:LC.textMuted,marginTop:2}}>Off = first-time-only (safe default, prevents double-import). On = re-export everything in the range.</div>
-        </div>
-      </label>
-      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-        <Btn variant="ghost" onClick={()=>setShowExportModal(false)}>Cancel</Btn>
-        <Btn onClick={exportToQBCSV} style={{opacity:exporting?0.6:1}}>{exporting?"Exporting…":"Export CSV"}</Btn>
-      </div>
-    </Modal>}
-
-    {/* Pending receipt review */}
-    {pendingReceipt && <PendingReceiptCard
-      receipt={pendingReceipt}
-      jobs={jobs}
-      parsing={parsing}
-      onPatch={patchPending}
-      onConfirm={confirmReceipt}
-      onDiscard={()=>deleteReceipt(pendingReceipt.id, pendingReceipt.storage_path)}
-      onClose={()=>setPendingReceipt(null)}
-    />}
-
-    {/* Filter chips */}
-    <div style={{display:"flex",gap:6,marginTop:18,marginBottom:12,flexWrap:"wrap"}}>
-      {[
-        {id:"active", lbl: activeJob ? `On ${activeJob.name}` : "Active job"},
-        {id:"all", lbl:"All"},
-        {id:"unassigned", lbl:"Unassigned"},
-      ].map(f => (
-        <button key={f.id} onClick={()=>setFilterJob(f.id)} style={{
-          padding:"6px 13px",borderRadius:20,border:`1px solid ${filterJob===f.id?LC.gold:LC.border}`,
-          background:filterJob===f.id?LC.gold+"22":"transparent",
-          color:filterJob===f.id?LC.gold:LC.textMuted,
-          fontFamily:fb,fontSize:12,fontWeight:filterJob===f.id?700:500,cursor:"pointer"
-        }}>{f.lbl}</button>
+    <div style={{fontSize:12,color:LC.textMuted,letterSpacing:"0.05em",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Today</div>
+    <h1 style={{fontFamily:fbHero,color:LC.text,fontSize:42,marginTop:0,marginBottom:0,fontWeight:800,letterSpacing:"-0.03em",lineHeight:1.05}}>What needs attention?</h1>
+    <p style={{color:LC.textMuted,marginTop:12,marginBottom:26,fontSize:14,lineHeight:1.5}}>Active jobs, recent activity, and what&apos;s waiting on you.</p>
+    <div className="tgb-stat-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10,marginBottom:22}}>
+      {[{label:"Active Jobs",value:active.length,sub:"in progress",color:C.gold},{label:"Pipeline",value:fmt$(pipe),sub:"open leads",color:"#3B82F6"},{label:"Remaining",value:fmt$(out),sub:"to invoice",color:C.warn},{label:"Won",value:fmt$(won),sub:"closed",color:"#16A34A"}].map(k=>(
+        <Card key={k.label} style={{padding:"20px 22px"}}><div style={{fontSize:12,color:LC.textMuted,marginBottom:10,fontWeight:500}}>{k.label}</div><div className="tgb-stat-num" style={{fontSize:32,fontFamily:fbHero,color:k.color,marginBottom:8,fontWeight:800,letterSpacing:"-0.025em",lineHeight:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{k.value}</div><div style={{fontSize:11,color:LC.textMuted}}>{k.sub}</div></Card>
       ))}
     </div>
-
-    {/* Totals header */}
-    {filteredReceipts.length > 0 && <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:LC.bg,border:`1px solid ${LC.border}`,borderRadius:8,marginBottom:10}}>
-      <div style={{fontSize:12,color:LC.textMuted,fontWeight:500}}>{filteredReceipts.length} receipt{filteredReceipts.length===1?"":"s"}</div>
-      <div style={{fontSize:14,color:LC.text,fontWeight:700}}>{fmt$(totalAmount)} <span style={{fontSize:11,color:LC.textMuted,fontWeight:500}}>(GST {fmt$(totalGst)})</span></div>
-    </div>}
-
-    {/* Receipt list */}
-    {loading && <div style={{textAlign:"center",padding:30,color:LC.textMuted,fontSize:13}}>Loading receipts…</div>}
-    {!loading && filteredReceipts.length===0 && <div style={{background:LC.surface,border:`1px dashed ${LC.borderStrong}`,borderRadius:12,padding:40,textAlign:"center",color:LC.textMuted,fontSize:13}}>
-      No receipts in this filter yet. <strong style={{color:LC.text}}>Snap one</strong> to get started.
-    </div>}
-
-    <div style={{display:"grid",gap:8}}>
-      {filteredReceipts.map(r => <ReceiptRow key={r.id} r={r} onClick={()=>setPendingReceipt(r)}/>)}
-    </div>
-  </div>;
-}
-
-function ReceiptRow({r, onClick}){
-  const cat = r.category || "Other";
-  const color = CAT_COLORS[cat] || LC.textMuted;
-  const isPending = r.ai_confidence === "pending" || r.ai_confidence === "parsed";
-  const isFailed = r.ai_confidence === "failed";
-  return <Card onClick={onClick} style={{padding:"12px 14px",borderLeft:`4px solid ${color}`}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}>
-      <div style={{display:"flex",gap:10,flex:1,minWidth:200,alignItems:"flex-start"}}>
-        {r.photo_url && <img src={r.photo_url} alt="" style={{width:48,height:48,objectFit:"cover",borderRadius:6,border:`1px solid ${LC.border}`,flexShrink:0}}/>}
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:2,flexWrap:"wrap"}}>
-            <span style={{fontWeight:700,color:LC.text,fontSize:14}}>{r.vendor || (isFailed ? "Couldn't read" : "Pending…")}</span>
-            <span style={{fontSize:10,padding:"2px 8px",borderRadius:10,background:color+"22",color,fontWeight:700,letterSpacing:0.3}}>{cat}</span>
-            {isPending && r.ai_confidence==="pending" && <span style={{fontSize:10,color:LC.warn,fontWeight:600}}>⏳ AI reading…</span>}
-            {r.ai_confidence==="parsed" && <span style={{fontSize:10,color:LC.warn,fontWeight:600}}>· Needs review</span>}
-            {isFailed && <span style={{fontSize:10,color:LC.danger,fontWeight:600}}>· Failed — tap to edit</span>}
+    <h2 style={{fontFamily:fbHero,color:LC.text,fontSize:22,fontWeight:800,letterSpacing:"-0.02em",marginBottom:14,marginTop:18}}>Active Projects</h2>
+    <div style={{display:"grid",gap:9,marginBottom:22}}>
+      {active.length===0&&<div style={{color:C.muted,fontSize:12}}>No active projects.</div>}
+      {active.map(job=>(
+        <Card key={job.id} onClick={()=>setPage("jobs")} style={{borderLeft:`3px solid ${LC.gold}`,paddingLeft:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:7}}>
+            <div><div style={{fontWeight:700,color:LC.text,fontSize:15,letterSpacing:"-0.01em"}}>{job.name}</div><div style={{color:LC.textMuted,fontSize:11,marginTop:2}}>{job.client} · {job.address}</div></div>
+            <Badge label={job.status}/>
           </div>
-          <div style={{fontSize:11,color:LC.textMuted}}>
-            {r.receipt_date ? fmtDate(r.receipt_date) : "(no date)"}
-            {r.jobs?.name && <> · 📁 <span style={{color:LC.gold,fontWeight:600}}>{r.jobs.name}</span></>}
-            {!r.jobs?.name && <> · <span style={{color:LC.danger}}>Unassigned</span></>}
-            {r.description && <> · {r.description}</>}
+          <div style={{marginTop:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:LC.textMuted,marginBottom:3}}><span>{job.progress||0}% complete</span></div>
+            <div style={{background:LC.border,borderRadius:4,height:5}}><div style={{background:LC.gold,borderRadius:4,height:5,width:`${job.progress||0}%`,transition:"width 0.5s"}}/></div>
           </div>
-        </div>
-      </div>
-      <div style={{textAlign:"right",flexShrink:0}}>
-        <div style={{color:LC.text,fontWeight:800,fontSize:16,fontFamily:fbHero,letterSpacing:"-0.01em"}}>{r.amount ? fmt$(r.amount) : "—"}</div>
-        {r.payment_method && <div style={{fontSize:10,color:LC.textMuted}}>{r.payment_method}</div>}
-      </div>
-    </div>
-  </Card>;
-}
-
-function PendingReceiptCard({receipt, jobs, parsing, onPatch, onConfirm, onDiscard, onClose}){
-  const isParsing = receipt._parsing || parsing;
-  const isFailed = receipt.ai_confidence === "failed";
-  return <div style={{background:LC.surface,border:`2px solid ${LC.gold}`,borderRadius:14,padding:18,marginBottom:16,boxShadow:"0 4px 20px rgba(200,169,106,0.25)"}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-      <div style={{fontSize:13,color:LC.gold,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase"}}>
-        {isParsing ? "🤖 AI Reading…" : isFailed ? "⚠️ Couldn't Auto-Read — Enter Manually" : "✓ Review & Confirm"}
-      </div>
-      <button onClick={onClose} style={{background:"transparent",border:"none",color:LC.textMuted,fontSize:22,cursor:"pointer",lineHeight:1,padding:"0 6px"}}>×</button>
-    </div>
-
-    <div style={{display:"grid",gridTemplateColumns:"160px 1fr",gap:14,alignItems:"flex-start"}} className="receipt-review-grid">
-      {/* Photo */}
-      {receipt.photo_url && <a href={receipt.photo_url} target="_blank" rel="noopener noreferrer">
-        <img src={receipt.photo_url} alt="receipt" style={{width:"100%",borderRadius:8,border:`1px solid ${LC.border}`,display:"block"}}/>
-      </a>}
-
-      {/* Fields */}
-      <div style={{display:"grid",gap:9}}>
-        {isParsing && <div style={{padding:"12px 0",color:LC.textMuted,fontSize:13,textAlign:"center"}}>Claude is reading the receipt…</div>}
-        {!isParsing && <>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 110px",gap:9}}>
-            <Inp label="Vendor" value={receipt.vendor||""} onChange={v=>onPatch("vendor",v)} placeholder="e.g. Home Depot"/>
-            <Inp label="Amount ($)" type="number" value={receipt.amount||""} onChange={v=>onPatch("amount",v)}/>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"140px 1fr",gap:9}}>
-            <Inp label="Date" type="date" value={receipt.receipt_date||""} onChange={v=>onPatch("receipt_date",v)}/>
-            <Sel label="Category" value={receipt.category||"Other"} onChange={v=>onPatch("category",v)} options={RECEIPT_CATEGORIES}/>
-          </div>
-          <Inp label="Description" value={receipt.description||""} onChange={v=>onPatch("description",v)} placeholder="What was bought"/>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9}}>
-            <Inp label="GST" type="number" value={receipt.gst_amount||""} onChange={v=>onPatch("gst_amount",v)}/>
-            <Inp label="PST" type="number" value={receipt.pst_amount||""} onChange={v=>onPatch("pst_amount",v)}/>
-            <Inp label="Payment" value={receipt.payment_method||""} onChange={v=>onPatch("payment_method",v)} placeholder="Visa 4321"/>
-          </div>
-          <Sel label="Project" value={receipt.job_id||""} onChange={v=>onPatch("job_id", v||null)} options={["",...jobs.map(j=>j.id)]} display={["(Unassigned)",...jobs.map(j=>j.name)]}/>
-        </>}
-      </div>
-    </div>
-
-    {!isParsing && <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14,flexWrap:"wrap"}}>
-      <Btn variant="danger" onClick={onDiscard}>🗑 Discard</Btn>
-      <Btn variant="ghost" onClick={onClose}>Save Draft</Btn>
-      <Btn onClick={onConfirm}>✓ Confirm & File</Btn>
-    </div>}
-
-    <style>{`
-      @media (max-width: 600px) {
-        .receipt-review-grid { grid-template-columns: 1fr !important; }
-      }
-    `}</style>
-  </div>;
-}
-
-// ── DASHBOARD "TODAY" VIEW ───────────────────────────────────────────────────
-// Profit OS-style landing page. Pure derivation from props (jobs/leads/logs) —
-// no new tables. Surfaces a daily score, the next 3-5 moves, and a green/yellow/
-// red heat map of every live job. Wire change_orders into props later to light
-// up an explicit "unbilled CO" move; today's CO proxy is Completed jobs with an
-// unpaid balance.
-function DashboardView({jobs,leads,logs,setPage}){
-  const today=todayStr();
-  const daysSince=ds=>{if(!ds)return 9999;const a=new Date(ds+"T12:00:00").getTime();const b=new Date(today+"T12:00:00").getTime();return Math.floor((b-a)/86400000);};
-  // ── Receipts scan stats — fuels the 1-tap scan tile + the "last scan" move. ─
-  const [recState,setRecState]=useState({scanned7d:0,lastScan:null,loaded:false});
-  useEffect(()=>{
-    let cancelled=false;
-    const cutoff=new Date(Date.now()-30*86400000).toISOString();
-    supabase.from("receipts").select("id,created_at").gte("created_at",cutoff).order("created_at",{ascending:false}).limit(200).then(({data})=>{
-      if(cancelled)return;
-      const weekAgo=new Date(Date.now()-7*86400000).toISOString();
-      const scanned7d=(data||[]).filter(r=>r.created_at>=weekAgo).length;
-      const lastScan=(data||[])[0]?.created_at||null;
-      setRecState({scanned7d,lastScan,loaded:true});
-    }).catch(()=>{if(!cancelled)setRecState({scanned7d:0,lastScan:null,loaded:true});});
-    return()=>{cancelled=true;};
-  },[]);
-  const dSinceScan=recState.lastScan?Math.floor((Date.now()-new Date(recState.lastScan).getTime())/86400000):9999;
-  const fireScan=()=>{try{localStorage.setItem("tgb_scan_intent","1");}catch(e){}setPage("receipts");};
-
-  // ── Per-job signals (single pass, reused by moves + heat map + score) ────
-  const signals=jobs.map(j=>{
-    const ps=Array.isArray(j.payment_schedule)?j.payment_schedule:[];
-    const overduePayments=ps.filter(p=>!p.paid&&p.due_date&&daysSince(p.due_date)>0);
-    const jobLogs=logs.filter(l=>l.job_id===j.id);
-    const lastLog=jobLogs.sort((a,b)=>(b.date||"").localeCompare(a.date||""))[0];
-    const daysQuiet=lastLog?daysSince(lastLog.date):9999;
-    const hoursLogged=jobLogs.reduce((s,l)=>s+(+l.hours||0),0);
-    const remaining=(+j.value||0)-(+j.paid||0);
-    // Labour burn: brother sub rate ($75) as honest proxy until Profit OS port lands.
-    const labourBurn=j.status==="Active"&&remaining>0&&(hoursLogged*75)>remaining*0.6;
-    const stale=j.status==="Active"&&daysQuiet>=10;
-    const finalOverdue=j.status==="Active"&&j.end_date&&daysSince(j.end_date)>0&&remaining>=2000;
-    const noStart=j.status==="Active"&&(j.progress||0)===0&&j.start_date&&daysSince(j.start_date)>=7;
-    const unbilledClose=j.status==="Completed"&&remaining>=500;
-    let heat="green";
-    if(j.status==="On Hold"||overduePayments.length>0||daysQuiet>=14||finalOverdue)heat="red";
-    else if(j.status==="Active"&&(daysQuiet>=7||labourBurn||noStart))heat="yellow";
-    if(j.status==="Completed")heat=unbilledClose?"yellow":"grey";
-    return {j,ps,overduePayments,daysQuiet,hoursLogged,remaining,labourBurn,stale,finalOverdue,noStart,unbilledClose,heat};
-  });
-
-  // ── Top moves (sorted by priority, cap 5) ────────────────────────────────
-  const moves=[];
-  signals.forEach(s=>s.overduePayments.forEach(p=>moves.push({pri:1,icon:"💰",label:`Collect ${p.label||"payment"} — ${s.j.name}`,detail:`${fmt$(p.amount)} · due ${fmtDate(p.due_date)} (${daysSince(p.due_date)}d late)`,page:"jobs"})));
-  signals.filter(s=>s.finalOverdue).forEach(s=>moves.push({pri:2,icon:"📤",label:`Final invoice — ${s.j.name}`,detail:`${fmt$(s.remaining)} outstanding · ended ${fmtDate(s.j.end_date)}`,page:"jobs"}));
-  signals.filter(s=>s.unbilledClose).forEach(s=>moves.push({pri:2,icon:"📋",label:`Unbilled balance — ${s.j.name}`,detail:`${fmt$(s.remaining)} not collected on completed job`,page:"jobs"}));
-  signals.filter(s=>s.labourBurn).forEach(s=>moves.push({pri:3,icon:"🔥",label:`Labour burn — ${s.j.name}`,detail:`${s.hoursLogged.toFixed(1)}h logged · ${fmt$(s.hoursLogged*75)} projected vs ${fmt$(s.remaining)} remaining`,page:"logs"}));
-  signals.filter(s=>s.stale&&s.overduePayments.length===0).forEach(s=>moves.push({pri:4,icon:"📍",label:`Check in — ${s.j.name}`,detail:`No site log in ${s.daysQuiet>=9999?"ever":s.daysQuiet+" days"}`,page:"logs"}));
-  leads.filter(l=>["Quoted","Follow-up"].includes(l.stage)&&l.date&&daysSince(l.date)>=14).forEach(l=>moves.push({pri:5,icon:"📞",label:`Follow up — ${l.name}`,detail:`${l.stage} ${daysSince(l.date)}d ago · ${fmt$(l.value)}`,page:"leads"}));
-  if(recState.loaded&&dSinceScan>=5)moves.push({pri:3,icon:"📸",label:`Receipts — last scan ${dSinceScan>=9999?"never":dSinceScan+"d ago"}`,detail:`Tap to fire the camera. ${recState.scanned7d} scanned this week.`,onClick:fireScan});
-  const topMoves=moves.sort((a,b)=>a.pri-b.pri).slice(0,5);
-
-  // ── Daily score (100 minus capped demerits) ──────────────────────────────
-  let dem=0;
-  dem+=Math.min(30,signals.reduce((s,x)=>s+x.overduePayments.length*6,0));
-  dem+=Math.min(20,signals.filter(x=>x.stale).length*4);
-  dem+=Math.min(20,signals.filter(x=>x.labourBurn).length*5);
-  dem+=Math.min(15,leads.filter(l=>["Quoted","Follow-up"].includes(l.stage)&&l.date&&daysSince(l.date)>=14).length*3);
-  dem+=Math.min(25,Math.floor(signals.filter(x=>x.finalOverdue||x.unbilledClose).reduce((s,x)=>s+x.remaining,0)/1000));
-  const score=Math.max(0,Math.min(100,100-dem));
-  const sColor=score>=80?LC.success:score>=50?LC.warn:LC.danger;
-  const sLabel=score>=80?"On track":score>=50?"Watch list":"Needs attention";
-
-  // ── Heat map ─────────────────────────────────────────────────────────────
-  const heatJobs=signals.filter(s=>s.j.status!=="Completed"||s.unbilledClose);
-  const heatColor=h=>h==="green"?LC.success:h==="yellow"?LC.warn:h==="red"?LC.danger:LC.textMuted;
-  const greens=heatJobs.filter(s=>s.heat==="green").length;
-  const yellows=heatJobs.filter(s=>s.heat==="yellow").length;
-  const reds=heatJobs.filter(s=>s.heat==="red").length;
-
-  // ── Header KPIs (cashflow context, kept from prior view) ─────────────────
-  const outstanding=jobs.reduce((s,j)=>s+((+j.value||0)-(+j.paid||0)),0);
-  const pipeline=leads.filter(l=>!["Won","Lost"].includes(l.stage)).reduce((s,l)=>s+(+l.value||0),0);
-  const activeCount=jobs.filter(j=>j.status==="Active").length;
-  const todayLabel=new Date().toLocaleDateString("en-CA",{weekday:"long",month:"long",day:"numeric"});
-
-  return <div>
-    <div style={{fontSize:12,color:LC.textMuted,letterSpacing:"0.05em",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Today · {todayLabel}</div>
-    <h1 style={{fontFamily:fbHero,color:LC.text,fontSize:42,marginTop:0,marginBottom:0,fontWeight:800,letterSpacing:"-0.03em",lineHeight:1.05}}>What needs you first?</h1>
-    <p style={{color:LC.textMuted,marginTop:12,marginBottom:22,fontSize:14,lineHeight:1.5}}>One score, the next five moves, and the colour of every live job.</p>
-
-    {/* ── Score + headline KPIs ──────────────────────────────────────────── */}
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10,marginBottom:24}}>
-      <Card style={{padding:"20px 22px",borderLeft:`4px solid ${sColor}`}}>
-        <div style={{fontSize:12,color:LC.textMuted,marginBottom:10,fontWeight:500}}>Daily Score</div>
-        <div style={{display:"flex",alignItems:"baseline",gap:8}}>
-          <div style={{fontSize:42,fontFamily:fbHero,color:sColor,fontWeight:800,letterSpacing:"-0.03em",lineHeight:1}}>{score}</div>
-          <div style={{fontSize:13,color:LC.textMuted,fontWeight:600}}>/ 100</div>
-        </div>
-        <div style={{fontSize:12,color:sColor,fontWeight:700,marginTop:6}}>{sLabel}</div>
-      </Card>
-      {[
-        {label:"Active",value:activeCount,sub:"jobs running",color:LC.gold},
-        {label:"Outstanding",value:fmt$(outstanding),sub:"to invoice",color:LC.warn},
-        {label:"Pipeline",value:fmt$(pipeline),sub:"open leads",color:LC.info},
-      ].map(k=>(
-        <Card key={k.label} style={{padding:"20px 22px"}}>
-          <div style={{fontSize:12,color:LC.textMuted,marginBottom:10,fontWeight:500}}>{k.label}</div>
-          <div className="tgb-stat-num" style={{fontSize:28,fontFamily:fbHero,color:k.color,marginBottom:8,fontWeight:800,letterSpacing:"-0.025em",lineHeight:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{k.value}</div>
-          <div style={{fontSize:11,color:LC.textMuted}}>{k.sub}</div>
         </Card>
       ))}
     </div>
-
-    {/* ── Scan-a-receipt tile (1-tap camera, kills the 3-tap path) ───────── */}
-    <Card onClick={fireScan} style={{padding:"14px 18px",marginBottom:24,display:"flex",alignItems:"center",gap:14,borderLeft:`4px solid ${LC.gold}`,cursor:"pointer"}}>
-      <div style={{fontSize:30,lineHeight:1,flexShrink:0}}>📸</div>
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:14,fontWeight:700,color:LC.text,letterSpacing:"-0.005em"}}>Scan a receipt</div>
-        <div style={{fontSize:12,color:LC.textMuted,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-          {recState.loaded?`${recState.scanned7d} scanned this week · ${recState.lastScan?(dSinceScan===0?"last scan today":dSinceScan===1?"last scan yesterday":`last scan ${dSinceScan}d ago`):"no scans yet"}`:"Loading…"}
-        </div>
-      </div>
-      <div style={{background:LC.gold,color:LC.text,padding:"9px 16px",borderRadius:8,fontSize:13,fontWeight:700,flexShrink:0,whiteSpace:"nowrap"}}>Tap to scan</div>
-    </Card>
-
-    {/* ── Top moves today ────────────────────────────────────────────────── */}
-    <h2 style={{fontFamily:fbHero,color:LC.text,fontSize:22,fontWeight:800,letterSpacing:"-0.02em",marginBottom:14,marginTop:6}}>Top moves today</h2>
-    <Card style={{padding:0,marginBottom:24,overflow:"hidden"}}>
-      {topMoves.length===0&&<div style={{padding:"28px 22px",color:LC.textMuted,fontSize:13,textAlign:"center"}}>🎯 Inbox zero. Nothing flagged.</div>}
-      {topMoves.map((m,i)=>(
-        <div key={i} onClick={m.onClick||(()=>setPage(m.page))} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px",borderBottom:i<topMoves.length-1?`1px solid ${LC.border}`:"none",cursor:"pointer",transition:"background 0.1s"}} onMouseEnter={e=>e.currentTarget.style.background=LC.surfaceAlt} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-          <div style={{fontSize:22,lineHeight:1,flexShrink:0}}>{m.icon}</div>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:14,fontWeight:700,color:LC.text,letterSpacing:"-0.005em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.label}</div>
-            <div style={{fontSize:12,color:LC.textMuted,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.detail}</div>
-          </div>
-          <div style={{fontSize:20,color:LC.textMuted,fontWeight:300,flexShrink:0}}>›</div>
-        </div>
+    {recentLogs.length>0&&<><h2 style={{fontFamily:fbHero,color:LC.text,fontSize:22,fontWeight:800,letterSpacing:"-0.02em",marginBottom:14,marginTop:18}}>Recent Site Logs</h2>
+    <div style={{display:"grid",gap:9,marginBottom:22}}>
+      {recentLogs.map(log=>(
+        <Card key={log.id} onClick={()=>setPage("logs")} style={{padding:13}}>
+          <div style={{fontWeight:700,color:LC.text,fontSize:13}}>{log.job_name||"General"}</div>
+          <div style={{color:LC.textMuted,fontSize:11,marginTop:2}}>{fmtDate(log.date)} · {log.weather} · {log.crew} crew · {log.hours}h</div>
+          <div style={{color:LC.textBody,fontSize:11,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:280}}>{log.notes}</div>
+        </Card>
       ))}
-    </Card>
-
-    {/* ── Heat map ───────────────────────────────────────────────────────── */}
-    <h2 style={{fontFamily:fbHero,color:LC.text,fontSize:22,fontWeight:800,letterSpacing:"-0.02em",marginBottom:8,marginTop:6}}>Job heat map</h2>
-    <div style={{fontSize:12,color:LC.textMuted,marginBottom:12,display:"flex",gap:14,flexWrap:"wrap"}}>
-      <span style={{display:"flex",alignItems:"center",gap:6}}><span style={{width:9,height:9,borderRadius:99,background:LC.success}}/>{greens} healthy</span>
-      <span style={{display:"flex",alignItems:"center",gap:6}}><span style={{width:9,height:9,borderRadius:99,background:LC.warn}}/>{yellows} watch</span>
-      <span style={{display:"flex",alignItems:"center",gap:6}}><span style={{width:9,height:9,borderRadius:99,background:LC.danger}}/>{reds} attention</span>
-    </div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:9,marginBottom:24}}>
-      {heatJobs.length===0&&<div style={{color:LC.textMuted,fontSize:12}}>No active jobs.</div>}
-      {heatJobs.map(s=>{
-        const c=heatColor(s.heat);
-        const why=[];
-        if(s.overduePayments.length)why.push(`${s.overduePayments.length} overdue pmt${s.overduePayments.length>1?"s":""}`);
-        if(s.j.status==="On Hold")why.push("on hold");
-        if(s.daysQuiet>=14)why.push(`no log ${s.daysQuiet>=9999?"ever":s.daysQuiet+"d"}`);
-        else if(s.daysQuiet>=7&&s.j.status==="Active")why.push(`${s.daysQuiet}d quiet`);
-        if(s.labourBurn)why.push("labour burn");
-        if(s.finalOverdue)why.push("invoice overdue");
-        if(s.unbilledClose)why.push("unbilled close-out");
-        if(s.noStart)why.push("not started");
-        return <Card key={s.j.id} onClick={()=>setPage("jobs")} style={{borderLeft:`4px solid ${c}`,padding:"12px 14px"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-            <span style={{width:10,height:10,borderRadius:99,background:c,flexShrink:0,boxShadow:`0 0 0 3px ${c}22`}}/>
-            <div style={{fontWeight:700,color:LC.text,fontSize:13,letterSpacing:"-0.005em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.j.name}</div>
-          </div>
-          <div style={{fontSize:11,color:LC.textMuted,marginBottom:6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.j.client||"—"}{s.j.address?" · "+s.j.address:""}</div>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:LC.textMuted,marginBottom:3}}><span>{s.j.progress||0}%</span><span>{fmt$(s.remaining)} left</span></div>
-          <div style={{background:LC.border,borderRadius:4,height:4,marginBottom:why.length?8:0}}><div style={{background:c,borderRadius:4,height:4,width:`${s.j.progress||0}%`,transition:"width 0.5s"}}/></div>
-          {why.length>0&&<div style={{fontSize:10,color:c,fontWeight:600,letterSpacing:"0.01em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{why.join(" · ")}</div>}
-        </Card>;
-      })}
-    </div>
+    </div></>}
+    <h2 style={{fontFamily:fbHero,color:LC.text,fontSize:22,fontWeight:800,letterSpacing:"-0.02em",marginBottom:14,marginTop:18}}>Recent Leads</h2>
+    <Card>{leads.slice(0,4).map((l,i)=>(
+      <div key={l.id} onClick={()=>setPage("leads")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:i<3?`1px solid ${LC.border}`:"none",flexWrap:"wrap",gap:7,cursor:"pointer"}}>
+        <div><span style={{color:LC.text,fontWeight:600,fontSize:12}}>{l.name}</span><span style={{color:LC.textMuted,fontSize:11,marginLeft:7}}>{l.type}</span></div>
+        <div style={{display:"flex",gap:9,alignItems:"center"}}><span style={{color:LC.gold,fontWeight:700,fontSize:12}}>{fmt$(l.value)}</span><Badge label={l.stage}/></div>
+      </div>
+    ))}</Card>
   </div>;
 }
 
@@ -3062,7 +2419,7 @@ function EstFieldInput({field,value,onChange}){
 }
 
 function Estimator({jobs=[],leads=[]}){
-  const [estStep,setEstStep]=useState(0); // 0=list, 1=type, 2=AI details, 3=quote editor
+  const [estStep,setEstStep]=useState(1);
   const [projectType,setProjectType]=useState("");
   const [clientName,setClientName]=useState("");
   const [address,setAddress]=useState("");
@@ -3072,97 +2429,32 @@ function Estimator({jobs=[],leads=[]}){
   const [editingItem,setEditingItem]=useState(null);
   const [markup,setMarkup]=useState(20);
   const [drawMode,setDrawMode]=useState(false);
-
-  // v2 state
-  const [loadedEstimateId,setLoadedEstimateId]=useState(null);
-  const [manualMode,setManualMode]=useState(false);
-  const [savedEstimates,setSavedEstimates]=useState([]);
-  const [loadingList,setLoadingList]=useState(false);
-  const [listFilter,setListFilter]=useState("all");
-
-  // Save modal state
+  // Save Estimate state
   const [showSaveModal,setShowSaveModal]=useState(false);
-  const [saveTarget,setSaveTarget]=useState("lead");
+  const [saveTarget,setSaveTarget]=useState("lead"); // "lead" | "job"
   const [saveTargetId,setSaveTargetId]=useState("");
   const [saving,setSaving]=useState(false);
   const [savedMsg,setSavedMsg]=useState("");
-
-  // Reload list when returning to step 0
-  useEffect(()=>{
-    if(estStep!==0)return;
-    setLoadingList(true);
-    supabase.from("estimates").select("*").order("created_at",{ascending:false}).limit(100).then(({data})=>{
-      setSavedEstimates(data||[]);
-      setLoadingList(false);
-    });
-  },[estStep]);
-
   function setField(k,v){setInputs(p=>({...p,[k]:v}));}
-
-  function resetEst(){
-    setEstStep(0);
-    setProjectType("");setClientName("");setAddress("");
-    setInputs({});setQuote(null);setEditingItem(null);
-    setSavedMsg("");setLoadedEstimateId(null);setManualMode(false);
-    setMarkup(20);
-  }
-
-  function loadEstimate(est){
-    setLoadedEstimateId(est.id);
-    setProjectType(est.project_type||"");
-    setClientName(est.client_name||"");
-    setAddress(est.address||"");
-    setMarkup(Number(est.markup_pct)||20);
-    setQuote({
-      summary: est.summary||"",
-      lineItems: est.line_items||[],
-      estimatedDays: est.estimated_days||0,
-      assumptions: est.assumptions||[],
-      exclusions: est.exclusions||[],
-    });
-    setManualMode(false); // we don't know which mode it was — irrelevant once loaded
-    setSavedMsg("");
-    setEstStep(3);
-  }
-
-  function startManual(){
-    setManualMode(true);
-    setLoadedEstimateId(null);
-    setQuote({summary:projectType?(projectType+" — manual entry"):"Manual estimate",lineItems:[],estimatedDays:0,assumptions:[],exclusions:[]});
-    setEstStep(3);
-  }
+  function resetEst(){setEstStep(1);setProjectType("");setClientName("");setAddress("");setInputs({});setQuote(null);setEditingItem(null);setSavedMsg("");}
 
   async function saveEstimate(){
-    if(!loadedEstimateId && !saveTargetId){
-      alert("Pick a project or lead to attach this estimate to.");return;
-    }
+    if(!saveTargetId){alert("Please select a project or lead to attach this estimate to.");return;}
     setSaving(true);
     const payload={
-      project_type:projectType||null,
-      client_name:clientName||null,
-      address:address||null,
-      summary:quote.summary||"",
-      line_items:quote.lineItems||[],
-      estimated_days:quote.estimatedDays||0,
-      assumptions:quote.assumptions||[],
-      exclusions:quote.exclusions||[],
-      markup_pct:markup,
-      subtotal,markup_amt:markupAmt,gst,pst_amount:pst,total,
+      project_type:projectType,client_name:clientName||null,address:address||null,
+      summary:quote.summary,line_items:quote.lineItems,estimated_days:quote.estimatedDays,
+      assumptions:quote.assumptions||[],exclusions:quote.exclusions||[],
+      markup_pct:markup,subtotal,markup_amt:markupAmt,gst,total,
+      job_id:saveTarget==="job"?saveTargetId:null,
+      lead_id:saveTarget==="lead"?saveTargetId:null,
     };
-    if(loadedEstimateId){
-      const {error}=await supabase.from("estimates").update(payload).eq("id",loadedEstimateId);
-      setSaving(false);
-      if(error){alert("Update failed: "+error.message);return;}
-    } else {
-      payload.job_id = saveTarget==="job"?saveTargetId:null;
-      payload.lead_id = saveTarget==="lead"?saveTargetId:null;
-      const {data,error}=await supabase.from("estimates").insert(payload).select().single();
-      setSaving(false);
-      if(error){alert("Save failed: "+error.message);return;}
-      if(data)setLoadedEstimateId(data.id);
-    }
+    const {error}=await supabase.from("estimates").insert(payload);
+    setSaving(false);
+    if(error){alert("Could not save estimate: "+error.message);return;}
+    setSavedMsg("Estimate saved!");setSavedMsg("");
     setShowSaveModal(false);
-    setSavedMsg("✓ Saved");
+    setTimeout(()=>setSavedMsg("✓ Saved"),100);
     setTimeout(()=>setSavedMsg(""),3000);
   }
 
@@ -3172,16 +2464,68 @@ function Estimator({jobs=[],leads=[]}){
     const summary=fields.map(f=>`${f.label}: ${inputs[f.key]||"not specified"}`).join("\n");
     try{
       const res=await fetch("/.netlify/functions/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,messages:[{role:"user",content:`You are an expert construction estimator for Tall Guy Builds Inc. in Regina, Saskatchewan.
+
 CRITICAL RULES:
-- Calculate ALL quantities mathematically from the dimensions provided.
-- Price ALL labour as FLAT RATES per scope of work — NEVER use hourly billing.
-- All labour items: qty:1, unit:"ls". Materials: qty + unit.
+- Calculate ALL quantities mathematically from the dimensions provided. Do NOT guess or round up wildly.
+- For a deck: perimeter = 2×(length+width). Fascia = perimeter lf. Decking boards = area (sqft). Joists = every 16" across width. Posts = every 8ft along perimeter.
+- For a garage: floor area = length×width. Framing lumber based on actual wall heights and stud spacing.
+- For a basement: all quantities must be derived from the square footage provided.
+- Price ALL labour as FLAT RATES per scope of work — NEVER use hourly billing. Hourly billing penalizes efficiency and undervalues skilled work.- Each labour line item is one complete deliverable (e.g. "Framing &amp; structure", "Decking installation", "Stair build and landing", "Demo &amp; haul-away"). Price what that scope is WORTH in the Regina SK market, not hours spent.- Regina SK flat-rate labour benchmarks (2025-2026): Minor task $400–900 | Mid scope $1,200–3,500 | Large scope $4,000–12,000+. Price at full market value for quality craftsmanship.- DECK-SPECIFIC LABOUR RATES (labour component, apply whether labour-only or supply+install): Deck framing $6.50/sqft | Composite inlay decking $6/sqft | Composite border/picture frame $7/sqft | Stairs (fully enclosed supply+install — stringers, treads, risers, fascia, enclosed sides): $275 per linear foot of stair WIDTH (e.g. 6ft wide = $1,650 / 6ft10in wide = $1,869). Width is the main cost driver. For labour-only stair jobs use ~$800/set | Aluminum railing install $25/linear ft | Glass railing install $40/linear ft | Fascia install $5-6/linear ft (NOT sqft — fascia is priced per linear foot of deck perimeter). For supply+install jobs add materials + 20% markup on top of these labour rates. For labour-only jobs charge labour rates only.- TUDS MARKET BENCHMARKS (Regina SK, use to sanity-check deck quotes): ~263 sqft low deck (2–3 ft off grade, mid composite, single picture frame, aluminum railing): TUDS managed install $9,879–$10,918, total project $15,404–$17,024. ~288 sqft elevated deck (helical piles, mid composite, double picture frame, aluminum+glass railing): TUDS managed install $9,506–$11,049, total project $27,726–$32,232. Target 5–15% below TUDS total to be competitive.- NEVER output labour items with unit "hrs". All labour must be qty:1, unit:"ls" (lump sum). This is non-negotiable.
+
+MATERIAL PRICING — use these exact prices from Fries Tallman Lumber Regina (contractor pricing, September 2025):
+
+PRESSURE TREATED FRAMING LUMBER (Fries Tallman contractor prices):
+- 2x8x10 PT: $21.69/board
+- 2x8x16 PT: $34.71/board
+- 2x10x16 PT: $45.85/board
+- 2x12x12 PT (stair stringers): $48.39/board
+- 4x4x8 PT post: $16.95/board
+- Scale other sizes proportionally (e.g. 2x8x12 ~$26, 2x8x20 ~$43, 4x4x12 ~$25)
+- Simpson LUS28Z 2x8 joist hanger (galvanized): $2.37/ea
+
+COMPOSITE DECKING — Trex Transcend (high end, Fries Tallman contractor prices):
+- 16ft grooved board: $159.98/board = $10.00/lf
+- 20ft square edge board: $202.77/board = $10.14/lf
+- 1x12 fascia 12ft board: $203.63/board
+- Fascia boards come in 12ft or 20ft — always round perimeter UP to nearest full board length
+- Cortex fascia fastener kit (100lf): $124.15/box
+- Cortex field fastener kit (100lf): $156.19/box
+
+COMPOSITE DECKING — Trex Enhance Naturals (mid grade, TUDS retail minus 15%):
+- 16ft grooved: ~$79/board = $4.94/lf
+- 20ft solid/grooved: ~$98/board
+- 12ft grooved: ~$59/board
+- 7.25" riser: ~$114/board
+- 12" fascia (12ft): ~$183/board — round perimeter to nearest full board
+
+COMPOSITE DECKING — Eva-Last Apex Plus (premium, TUDS retail minus 15%):
+- 12ft grooved: ~$109/board = $9.08/lf
+- 16ft grooved: ~$145/board
+- 20ft solid/grooved: ~$181/board
+- 7.25" riser: ~$139/board
+- 12" fascia (12ft): ~$209/board — round perimeter to nearest full board
+
+GLASS RAILING:
+- Matelux tempered 6mm glass panels: $24.50/panel (Fries Tallman)
+- Typical panel coverage ~6" wide, calculate panels from linear footage
+
+ALUMINUM RAILING (Vista or Regal textured black — most common):
+- Supply only: ~$55-70/lf
+
+GENERAL RULES:
+- Always round board counts UP — never partial boards
+- Calculate ALL quantities mathematically from dimensions first
+- For fascia: perimeter = 2x(length+width), round up to board lengths
+- For decking: area = length x width, add 10% waste factor
+- For joists: quantity = (deck width / 16") + 1, use nearest available board length
 - Keep line items concise — 8-15 items max. Group similar work together.
+
 Project: ${projectType}
 Client: ${clientName||"TBD"}, Address: ${address||"TBD"}
 Details:
 ${summary}
-Return ONLY valid JSON:
+
+Return ONLY valid JSON, no markdown, no explanation:
 {"summary":"one sentence scope","estimatedDays":5,"lineItems":[{"category":"Labour","description":"item","qty":1,"unit":"ls","rate":4500,"total":4500},{"category":"Materials","description":"item","qty":20,"unit":"ea","rate":25.00,"total":500}],"assumptions":["string"],"exclusions":["string"]}`}]})});
       const rawText=await res.text();
       if(!res.ok){alert("API error "+res.status+": "+rawText.slice(0,200));setLoading(false);return;}
@@ -3193,26 +2537,23 @@ Return ONLY valid JSON:
     setLoading(false);
   }
 
-  function updateItem(idx,field,val){setQuote(q=>{const items=[...q.lineItems];items[idx]={...items[idx],[field]:(field==="description"||field==="unit"||field==="category")?val:parseFloat(val)||0};if(field==="qty"||field==="rate")items[idx].total=items[idx].qty*items[idx].rate;return{...q,lineItems:items};});}
+  function updateItem(idx,field,val){setQuote(q=>{const items=[...q.lineItems];items[idx]={...items[idx],[field]:field==="description"||field==="unit"?val:parseFloat(val)||0};if(field==="qty"||field==="rate")items[idx].total=items[idx].qty*items[idx].rate;return{...q,lineItems:items};});}
   function removeItem(idx){setQuote(q=>({...q,lineItems:q.lineItems.filter((_,i)=>i!==idx)}));}
-  function addItem(cat){setQuote(q=>({...q,lineItems:[...(q?.lineItems||[]),{category:cat,description:"New item",qty:1,unit:"ls",rate:0,total:0}]}));}
+  function addItem(cat){setQuote(q=>({...q,lineItems:[...q.lineItems,{category:cat,description:"New item",qty:1,unit:"ls",rate:0,total:0}]}));}
 
-  // ── Totals with PST ─────────────────────────────────────────────────
   const subtotal=quote?.lineItems?.reduce((s,i)=>s+i.total,0)||0;
   const markupAmt=subtotal*(markup/100);
   const gst=(subtotal+markupAmt)*0.05;
-  const pst=(subtotal+markupAmt)*0.06; // SK PST
-  const total=subtotal+markupAmt+gst+pst;
+  const total=subtotal+markupAmt+gst;
   const fmt$=n=>"$"+n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,",");
 
   function printQuote(){
     const w=window.open("","_blank");
     const today=new Date().toLocaleDateString("en-CA");
-    const estNum=loadedEstimateId?savedEstimates.find(e=>e.id===loadedEstimateId)?.estimate_number:null;
     const labourItems=quote.lineItems.filter(i=>i.category==="Labour");
     const matItems=quote.lineItems.filter(i=>i.category==="Materials");
     const tr=items=>items.map(i=>i.unit==="ls"?`<tr><td>${i.description}</td><td colspan="3" style="color:#C8A96A;font-size:11px;font-weight:700;letter-spacing:0.5px">FLAT RATE</td><td style="font-weight:700">${fmt$(i.total)}</td></tr>`:`<tr><td>${i.description}</td><td>${i.qty}</td><td>${i.unit}</td><td>${fmt$(i.rate)}</td><td style="font-weight:700">${fmt$(i.total)}</td></tr>`).join("");
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Estimate${estNum?" #"+estNum:""} — ${clientName||projectType}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#1F2A37}.hdr{background:#1F2A37;padding:28px 40px}.co{font-size:22px;font-weight:700;color:#C8A96A}.sub{font-size:11px;color:#aaa;margin-top:4px}.body{padding:28px 40px}.meta{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;background:#f5f5f5;padding:16px;border-radius:8px;margin-bottom:24px}.ml{font-size:10px;text-transform:uppercase;color:#888;margin-bottom:2px}.mv{font-size:13px;font-weight:600}h3{font-size:12px;text-transform:uppercase;color:#C8A96A;margin:20px 0 8px;border-bottom:2px solid #C8A96A;padding-bottom:4px}table{width:100%;border-collapse:collapse}th{background:#1F2A37;color:#fff;padding:8px 10px;font-size:11px;text-align:left}td{padding:8px 10px;font-size:12px;border-bottom:1px solid #eee}tr:nth-child(even) td{background:#fafafa}.totals{display:flex;justify-content:flex-end;margin-top:20px}.tbox{min-width:300px}.trow{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px solid #eee}.tfinal{display:flex;justify-content:space-between;padding:10px 0 0;font-size:17px;font-weight:700;border-top:2px solid #C8A96A;margin-top:4px}.notes{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px}.nbox{background:#f5f5f5;padding:14px;border-radius:6px}.nbox h4{font-size:10px;text-transform:uppercase;color:#888;margin-bottom:8px}.nbox li{font-size:11px;color:#555;margin-bottom:4px;list-style:disc;margin-left:14px}.disc{margin-top:24px;background:#fff8ee;border:1px solid #C8A96A;border-radius:6px;padding:12px;font-size:11px;color:#777}.ftr{background:#1F2A37;color:#888;text-align:center;padding:14px;font-size:11px;margin-top:32px}.ftr span{color:#C8A96A}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><div class="hdr"><div class="co">TALL GUY BUILDS INC.</div><div class="sub">Built Right. Designed to Last. | tallguybuilds.ca | 306-737-5407 | Regina, SK</div></div><div class="body"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><div><div style="font-size:22px;font-weight:700">ESTIMATE${estNum?` <span style="color:#C8A96A">#${estNum}</span>`:""}</div><div style="color:#666;font-size:13px;margin-top:4px">${quote.summary||""}</div></div><div style="text-align:right"><div style="font-size:10px;color:#888">Date</div><div style="font-weight:600">${today}</div></div></div><div class="meta"><div><div class="ml">Client</div><div class="mv">${clientName||"—"}</div></div><div><div class="ml">Address</div><div class="mv">${address||"—"}</div></div><div><div class="ml">Project</div><div class="mv">${projectType||"—"}</div></div><div><div class="ml">Duration</div><div class="mv">${quote.estimatedDays||"—"}${quote.estimatedDays?" working days":""}</div></div></div>${labourItems.length?`<h3>Labour</h3><table><thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Rate</th><th>Total</th></tr></thead><tbody>${tr(labourItems)}</tbody></table>`:""}${matItems.length?`<h3>Materials</h3><table><thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Rate</th><th>Total</th></tr></thead><tbody>${tr(matItems)}</tbody></table>`:""}<div class="totals"><div class="tbox"><div class="trow"><span>Subtotal</span><span>${fmt$(subtotal)}</span></div><div class="trow"><span>Overhead &amp; Profit (${markup}%)</span><span>${fmt$(markupAmt)}</span></div><div class="trow"><span>GST (5%)</span><span>${fmt$(gst)}</span></div><div class="trow"><span>PST (6% SK)</span><span>${fmt$(pst)}</span></div><div class="tfinal"><span>TOTAL</span><span>${fmt$(total)}</span></div></div></div><div class="notes">${quote.assumptions?.length?`<div class="nbox"><h4>Assumptions</h4><ul>${quote.assumptions.map(a=>`<li>${a}</li>`).join("")}</ul></div>`:""}${quote.exclusions?.length?`<div class="nbox"><h4>Exclusions</h4><ul>${quote.exclusions.map(e=>`<li>${e}</li>`).join("")}</ul></div>`:""}</div><div class="disc"><strong>Note:</strong> Preliminary estimate only. Final pricing subject to site visit. Valid 30 days. All prices CAD.</div></div><div class="ftr"><span>Tall Guy Builds Inc.</span> | Regina, SK | 306-737-5407 | tallguybuilds.ca | @tallguybuildssk</div><script>window.onload=()=>window.print();</script></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Estimate — ${clientName||projectType}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#1F2A37}.hdr{background:#1F2A37;padding:28px 40px}.co{font-size:22px;font-weight:700;color:#C8A96A}.sub{font-size:11px;color:#aaa;margin-top:4px}.body{padding:28px 40px}.meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;background:#f5f5f5;padding:16px;border-radius:8px;margin-bottom:24px}.ml{font-size:10px;text-transform:uppercase;color:#888;margin-bottom:2px}.mv{font-size:13px;font-weight:600}h3{font-size:12px;text-transform:uppercase;color:#C8A96A;margin:20px 0 8px;border-bottom:2px solid #C8A96A;padding-bottom:4px}table{width:100%;border-collapse:collapse}th{background:#1F2A37;color:#fff;padding:8px 10px;font-size:11px;text-align:left}td{padding:8px 10px;font-size:12px;border-bottom:1px solid #eee}tr:nth-child(even) td{background:#fafafa}.totals{display:flex;justify-content:flex-end;margin-top:20px}.tbox{min-width:280px}.trow{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px solid #eee}.tfinal{display:flex;justify-content:space-between;padding:10px 0 0;font-size:17px;font-weight:700;border-top:2px solid #C8A96A;margin-top:4px}.notes{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px}.nbox{background:#f5f5f5;padding:14px;border-radius:6px}.nbox h4{font-size:10px;text-transform:uppercase;color:#888;margin-bottom:8px}.nbox li{font-size:11px;color:#555;margin-bottom:4px;list-style:disc;margin-left:14px}.disc{margin-top:24px;background:#fff8ee;border:1px solid #C8A96A;border-radius:6px;padding:12px;font-size:11px;color:#777}.ftr{background:#1F2A37;color:#888;text-align:center;padding:14px;font-size:11px;margin-top:32px}.ftr span{color:#C8A96A}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><div class="hdr"><div class="co">TALL GUY BUILDS INC.</div><div class="sub">Built Right. Designed to Last. | tallguybuilds.ca | 306-737-5407 | Regina, SK</div></div><div class="body"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><div><div style="font-size:22px;font-weight:700">ESTIMATE</div><div style="color:#666;font-size:13px;margin-top:4px">${quote.summary}</div></div><div style="text-align:right"><div style="font-size:10px;color:#888">Date</div><div style="font-weight:600">${today}</div></div></div><div class="meta"><div><div class="ml">Client</div><div class="mv">${clientName||"—"}</div></div><div><div class="ml">Address</div><div class="mv">${address||"—"}</div></div><div><div class="ml">Project</div><div class="mv">${projectType}</div></div><div><div class="ml">Duration</div><div class="mv">${quote.estimatedDays} working days</div></div></div>${labourItems.length?`<h3>Labour</h3><table><thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Rate</th><th>Total</th></tr></thead><tbody>${tr(labourItems)}</tbody></table>`:""}${matItems.length?`<h3>Materials</h3><table><thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Rate</th><th>Total</th></tr></thead><tbody>${tr(matItems)}</tbody></table>`:""}<div class="totals"><div class="tbox"><div class="trow"><span>Subtotal</span><span>${fmt$(subtotal)}</span></div><div class="trow"><span>Overhead &amp; Profit (${markup}%)</span><span>${fmt$(markupAmt)}</span></div><div class="trow"><span>GST (5%)</span><span>${fmt$(gst)}</span></div><div class="tfinal"><span>TOTAL</span><span>${fmt$(total)}</span></div></div></div><div class="notes">${quote.assumptions?.length?`<div class="nbox"><h4>Assumptions</h4><ul>${quote.assumptions.map(a=>`<li>${a}</li>`).join("")}</ul></div>`:""}${quote.exclusions?.length?`<div class="nbox"><h4>Exclusions</h4><ul>${quote.exclusions.map(e=>`<li>${e}</li>`).join("")}</ul></div>`:""}</div><div class="disc"><strong>Note:</strong> Preliminary estimate only. Final pricing subject to site visit. Valid 30 days. All prices CAD.</div></div><div class="ftr"><span>Tall Guy Builds Inc.</span> | Regina, SK | 306-737-5407 | tallguybuilds.ca | @tallguybuildssk</div><script>window.onload=()=>window.print();</script></body></html>`);
     w.document.close();
   }
 
@@ -3220,188 +2561,102 @@ Return ONLY valid JSON:
   const TYPES=["Deck","Basement Development","Garage"];
   const ICONS={"Deck":"🪵","Basement Development":"🏗️","Garage":"🚗"};
 
-  const filteredSaved = listFilter==="all" ? savedEstimates :
-                        listFilter==="unattached" ? savedEstimates.filter(e=>!e.job_id&&!e.lead_id) :
-                        savedEstimates.filter(e=>(e.status||"draft")===listFilter);
-
   return <div>
-    {/* ── Header ── */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
       <h1 style={{fontFamily:fbHero,color:LC.text,fontSize:30,margin:0,fontWeight:800,letterSpacing:"-0.025em"}}>Estimator</h1>
-      {estStep>=1&&<div style={{display:"flex",gap:6,alignItems:"center"}}>
+      {estStep>1&&<div style={{display:"flex",gap:6,alignItems:"center"}}>
         {["Type","Details","Quote"].map((s,i)=><div key={s} style={{display:"flex",alignItems:"center",gap:5}}>
           <div style={{width:22,height:22,borderRadius:"50%",background:estStep>=i+1?C.gold:C.border,color:estStep>=i+1?C.navy:C.muted,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700}}>{estStep>i+1?"✓":i+1}</div>
           <span style={{fontSize:11,color:estStep===i+1?C.gold:C.muted}}>{s}</span>
           {i<2&&<span style={{color:C.border,fontSize:10}}>›</span>}
         </div>)}
       </div>}
-      <div style={{display:"flex",gap:8}}>
-        {estStep!==0&&<Btn variant="ghost" onClick={resetEst}>📋 Saved Estimates</Btn>}
-        {estStep===0&&<Btn onClick={()=>{setLoadedEstimateId(null);setQuote(null);setManualMode(false);setProjectType("");setEstStep(1);}}>+ New Estimate</Btn>}
-      </div>
+      {estStep>1&&<Btn variant="ghost" onClick={resetEst}>+ New Estimate</Btn>}
     </div>
 
-    {/* ── STEP 0: SAVED ESTIMATES LIST ── */}
-    {estStep===0&&<div>
-      <p style={{color:LC.textMuted,fontSize:13,marginBottom:16}}>Your saved estimates. Click any to reopen and edit.</p>
-      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
-        {[
-          {id:"all",lbl:"All"},
-          {id:"draft",lbl:"Draft"},
-          {id:"sent",lbl:"Sent"},
-          {id:"accepted",lbl:"Accepted"},
-          {id:"unattached",lbl:"Unattached"},
-        ].map(f=>(
-          <button key={f.id} onClick={()=>setListFilter(f.id)} style={{
-            padding:"6px 13px",borderRadius:20,border:`1px solid ${listFilter===f.id?LC.gold:LC.border}`,
-            background:listFilter===f.id?LC.gold+"22":"transparent",
-            color:listFilter===f.id?LC.gold:LC.textMuted,
-            fontFamily:fb,fontSize:12,fontWeight:listFilter===f.id?700:500,cursor:"pointer"
-          }}>{f.lbl}</button>
-        ))}
-      </div>
-
-      {loadingList&&<div style={{textAlign:"center",padding:30,color:LC.textMuted,fontSize:13}}>Loading…</div>}
-      {!loadingList&&filteredSaved.length===0&&<div style={{background:LC.surface,border:`1px dashed ${LC.borderStrong}`,borderRadius:12,padding:40,textAlign:"center",color:LC.textMuted,fontSize:13}}>
-        No saved estimates match this filter. Click <strong style={{color:LC.text}}>+ New Estimate</strong> to start one.
-      </div>}
-      <div style={{display:"grid",gap:8}}>
-        {filteredSaved.map(est=>{
-          const linkedJob=est.job_id?jobs.find(j=>j.id===est.job_id):null;
-          const linkedLead=est.lead_id?leads.find(l=>l.id===est.lead_id):null;
-          const linked=linkedJob?.name||linkedLead?.name||null;
-          return <Card key={est.id} onClick={()=>loadEstimate(est)}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}>
-              <div style={{flex:1,minWidth:200}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3,flexWrap:"wrap"}}>
-                  <span style={{fontWeight:700,color:LC.text,fontSize:14}}>#{est.estimate_number||"—"}</span>
-                  <span style={{color:LC.textBody,fontSize:14,fontWeight:600}}>{est.client_name||"(no client)"}</span>
-                  {est.status&&<Badge label={est.status==="draft"?"Draft":est.status==="sent"?"Sent":est.status==="accepted"?"Won":est.status==="declined"?"Lost":est.status}/>}
-                </div>
-                <div style={{color:LC.textMuted,fontSize:11}}>
-                  {est.project_type||"—"}
-                  {linked&&<> · <span style={{color:LC.gold,fontWeight:600}}>📁 {linked}</span></>}
-                  {est.address&&<> · {est.address}</>}
-                </div>
-                <div style={{color:LC.textMuted,fontSize:11,marginTop:3}}>
-                  Created {fmtDate((est.created_at||"").slice(0,10))}
-                  {est.updated_at&&est.updated_at!==est.created_at&&<> · Updated {fmtDate((est.updated_at||"").slice(0,10))}</>}
-                </div>
-              </div>
-              <div style={{textAlign:"right"}}>
-                <div style={{color:LC.text,fontWeight:800,fontSize:17,fontFamily:fbHero,letterSpacing:"-0.01em"}}>{fmt$(Number(est.total)||0)}</div>
-                <div style={{color:LC.textMuted,fontSize:10}}>incl. tax</div>
-              </div>
-            </div>
-          </Card>;
-        })}
-      </div>
-    </div>}
-
-    {/* ── STEP 1: TYPE PICKER + manual/AI choice ── */}
     {estStep===1&&<div>
-      <p style={{color:C.muted,fontSize:13,marginBottom:20}}>Pick a project type — then either use AI to draft or build manually.</p>
-      <div style={{marginBottom:20,maxWidth:420}}>
-        <label style={{display:"block",fontSize:11,color:LC.textMuted,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>Project Type</label>
-        <select value={projectType} onChange={e=>setProjectType(e.target.value)} style={{width:"100%",background:LC.surface,border:`1px solid ${projectType?LC.gold:LC.border}`,borderRadius:8,padding:"10px 14px",color:projectType?LC.text:LC.textMuted,fontSize:14,fontFamily:fb,outline:"none",boxSizing:"border-box",cursor:"pointer",fontWeight:600}}>
-          <option value="">— Pick one (or skip and use Manual) —</option>
-          {TYPES.map(type=><option key={type} value={type}>{type}</option>)}
-        </select>
-        <div style={{fontSize:11,color:LC.textMuted,marginTop:6}}>Only matters for AI drafting. Manual mode works for any project.</div>
+      <p style={{color:C.muted,fontSize:13,marginBottom:20}}>Select a project type to get started</p>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:24}}>
+        {TYPES.map(type=><div key={type} onClick={()=>setProjectType(type)} style={{background:projectType===type?C.navyLight:C.navy,border:`2px solid ${projectType===type?C.gold:C.border}`,borderRadius:12,padding:"24px 16px",cursor:"pointer",textAlign:"center",transition:"all 0.15s"}}>
+          <div style={{fontSize:32,marginBottom:10}}>{ICONS[type]}</div>
+          <div style={{color:C.white,fontWeight:700,fontSize:14,marginBottom:4}}>{type}</div>
+        </div>)}
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:20}}>
         <div><label style={{color:C.muted,fontSize:11,fontWeight:700,display:"block",marginBottom:5,textTransform:"uppercase"}}>Client Name (optional)</label><input value={clientName} onChange={e=>setClientName(e.target.value)} placeholder="e.g. John Smith" style={IS()}/></div>
         <div><label style={{color:C.muted,fontSize:11,fontWeight:700,display:"block",marginBottom:5,textTransform:"uppercase"}}>Project Address (optional)</label><input value={address} onChange={e=>setAddress(e.target.value)} placeholder="e.g. 123 Main St, Regina" style={IS()}/></div>
       </div>
-      <div style={{display:"flex",justifyContent:"flex-end",gap:8,flexWrap:"wrap"}}>
-        <Btn variant="ghost" onClick={startManual}>✏️ Build Manually</Btn>
-        <Btn onClick={()=>setEstStep(2)} disabled={!projectType}>✨ Use AI to Draft →</Btn>
-      </div>
-      <div style={{marginTop:12,fontSize:11,color:LC.textMuted,textAlign:"right",lineHeight:1.6}}>
-        <strong style={{color:LC.text}}>Manual</strong> = empty editor, plug in sub quotes directly. Use when subs have given you real numbers.<br/>
-        <strong style={{color:LC.text}}>AI</strong> = Claude drafts line items from a few dimensions. Use for early ballpark.
-      </div>
+      <div style={{display:"flex",justifyContent:"flex-end"}}><Btn onClick={()=>setEstStep(2)} disabled={!projectType}>Next: Project Details →</Btn></div>
     </div>}
 
-    {/* ── STEP 2: AI DETAILS ── */}
     {estStep===2&&<div>
       <div style={{marginBottom:20}}>
         <button onClick={()=>setEstStep(1)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,padding:0,marginBottom:8}}>← Back</button>
         <h2 style={{color:C.white,fontFamily:font,fontSize:20,margin:"0 0 4px"}}>{projectType}</h2>
-        <p style={{color:C.muted,fontSize:13,margin:0}}>Fill in what you know — AI will estimate anything left blank.</p>
+        <p style={{color:C.muted,fontSize:13,margin:0}}>Fill in what you know — AI will estimate anything left blank</p>
       </div>
-      {projectType==="Deck"&&(drawMode?<DeckDrawingTool onApply={({sqft,perimeter,stairCount})=>{setField('sqft',String(sqft));setField('perimeter',String(perimeter));setField('stairs',stairCount>0?stairCount+' set'+(stairCount>1?'s':''):'None');setDrawMode(false);}} onCancel={()=>setDrawMode(false)}/>:<button onClick={()=>setDrawMode(true)} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,width:'100%',padding:'10px 16px',background:'#0f1f35',border:'1px dashed #3b82f6',borderRadius:8,color:'#93c5fd',fontSize:13,fontWeight:600,cursor:'pointer',marginBottom:12}}>✏ Draw custom shape — auto-calc sq ft, perimeter & stairs</button>)}
+      {projectType==="Deck"&&(drawMode?<DeckDrawingTool onApply={({sqft,perimeter,stairCount})=>{setField('sqft',String(sqft));setField('perimeter',String(perimeter));setField('stairs',stairCount>0?stairCount+' set'+(stairCount>1?'s':''):'None');setDrawMode(false);}} onCancel={()=>setDrawMode(false)}/>:<button onClick={()=>setDrawMode(true)} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,width:'100%',padding:'10px 16px',background:'#0f1f35',border:'1px dashed #3b82f6',borderRadius:8,color:'#93c5fd',fontSize:13,fontWeight:600,cursor:'pointer',marginBottom:12}}>&#x270F; Draw custom shape — auto-calc sq ft, perimeter &amp; stairs</button>)}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-        {(EST_FIELDS[projectType]||[]).map(field=><div key={field.key} style={field.type==="textarea"?{gridColumn:"1 / -1"}:{}}>
+        {EST_FIELDS[projectType].map(field=><div key={field.key} style={field.type==="textarea"?{gridColumn:"1 / -1"}:{}}>
           <label style={{color:C.muted,fontSize:11,fontWeight:700,display:"block",marginBottom:5,textTransform:"uppercase"}}>{field.label}</label>
           <EstFieldInput field={field} value={inputs[field.key]} onChange={setField}/>
         </div>)}
       </div>
-      <div style={{display:"flex",justifyContent:"space-between",marginTop:24,gap:8,flexWrap:"wrap"}}>
+      <div style={{display:"flex",justifyContent:"space-between",marginTop:24}}>
         <Btn variant="ghost" onClick={()=>setEstStep(1)}>← Back</Btn>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          <Btn variant="ghost" onClick={startManual}>✏️ Skip AI — Build Manually</Btn>
-          <Btn onClick={generate} disabled={loading} style={{minWidth:200}}>{loading?"⚙️ Generating...":"✨ Generate Estimate"}</Btn>
-        </div>
+        <Btn onClick={generate} disabled={loading} style={{minWidth:200}}>{loading?"⚙️ Generating...":"✨ Generate Estimate"}</Btn>
       </div>
     </div>}
 
-    {/* ── STEP 3: QUOTE EDITOR ── */}
     {estStep===3&&quote&&<div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18,flexWrap:"wrap",gap:10}}>
         <div>
-          <button onClick={()=>setEstStep(loadedEstimateId?0:(manualMode?1:2))} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,padding:0,marginBottom:6}}>← {loadedEstimateId?"Back to list":"Edit Details"}</button>
-          <h2 style={{color:C.white,fontFamily:font,fontSize:20,margin:"0 0 4px"}}>
-            {loadedEstimateId?`Estimate #${savedEstimates.find(e=>e.id===loadedEstimateId)?.estimate_number||""}`:`${projectType||"New"} Estimate`}
-            {manualMode&&<span style={{fontSize:11,color:LC.gold,marginLeft:8,fontWeight:600,letterSpacing:0.5}}>· MANUAL</span>}
-          </h2>
-          <p style={{color:C.muted,fontSize:12,margin:0}}>{quote.summary||"(no summary)"}</p>
+          <button onClick={()=>setEstStep(2)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,padding:0,marginBottom:6}}>← Edit Details</button>
+          <h2 style={{color:C.white,fontFamily:font,fontSize:20,margin:"0 0 4px"}}>{projectType} Estimate</h2>
+          <p style={{color:C.muted,fontSize:12,margin:0}}>{quote.summary}</p>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-          {!manualMode&&!loadedEstimateId&&<Btn variant="ghost" onClick={generate} disabled={loading}>{loading?"...":"↺ Regenerate"}</Btn>}
-          <Btn variant="ghost" onClick={()=>setShowSaveModal(true)}>💾 {loadedEstimateId?"Update":"Save"}</Btn>
+          <Btn variant="ghost" onClick={generate} disabled={loading}>{loading?"...":"↺ Regenerate"}</Btn>
+          <Btn variant="ghost" onClick={()=>setShowSaveModal(true)}>💾 Save Estimate</Btn>
           <Btn onClick={printQuote}>🖨 Print / PDF</Btn>
           {savedMsg&&<span style={{color:"#4ade80",fontSize:12,fontFamily:fb}}>{savedMsg}</span>}
         </div>
       </div>
 
-      {showSaveModal&&<Modal title={loadedEstimateId?"Update Estimate":"Save Estimate"} onClose={()=>setShowSaveModal(false)}>
-        {loadedEstimateId
-          ? <div style={{fontSize:13,color:LC.textBody,marginBottom:14}}>Save changes to estimate <strong>#{savedEstimates.find(e=>e.id===loadedEstimateId)?.estimate_number}</strong>?</div>
-          : <>
-            <div style={{fontSize:12,color:C.muted,marginBottom:14}}>Attach this estimate to a lead or project so you can find it later.</div>
-            <div style={{display:"flex",gap:8,marginBottom:14}}>
-              {["lead","job"].map(t=>(
-                <button key={t} onClick={()=>{setSaveTarget(t);setSaveTargetId("");}} style={{flex:1,padding:"9px 0",borderRadius:8,border:`2px solid ${saveTarget===t?C.gold:C.border}`,background:saveTarget===t?C.gold+"22":"transparent",color:saveTarget===t?C.gold:C.muted,fontFamily:fb,fontSize:13,fontWeight:saveTarget===t?700:400,cursor:"pointer"}}>
-                  {t==="lead"?"📋 Lead / Pipeline":"⬡ Active Project"}
-                </button>
-              ))}
-            </div>
-            {saveTarget==="lead"&&<>
-              <label style={{display:"block",fontSize:11,color:C.muted,marginBottom:5,textTransform:"uppercase"}}>Select Lead</label>
-              <select value={saveTargetId} onChange={e=>setSaveTargetId(e.target.value)} style={{width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:saveTargetId?C.white:C.muted,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",marginBottom:14}}>
-                <option value="">Choose a lead…</option>
-                {leads.map(l=><option key={l.id} value={l.id}>{l.name}{l.type?` — ${l.type}`:""}</option>)}
-              </select>
-            </>}
-            {saveTarget==="job"&&<>
-              <label style={{display:"block",fontSize:11,color:C.muted,marginBottom:5,textTransform:"uppercase"}}>Select Project</label>
-              <select value={saveTargetId} onChange={e=>setSaveTargetId(e.target.value)} style={{width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:saveTargetId?C.white:C.muted,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",marginBottom:14}}>
-                <option value="">Choose a project…</option>
-                {jobs.map(j=><option key={j.id} value={j.id}>{j.name}{j.client?` — ${j.client}`:""}</option>)}
-              </select>
-            </>}
-          </>}
+      {/* ── Save Estimate Modal ── */}
+      {showSaveModal&&<Modal title="Save Estimate" onClose={()=>setShowSaveModal(false)}>
+        <div style={{fontSize:12,color:C.muted,marginBottom:14}}>Attach this estimate to a lead or project so you can find it later.</div>
+        <div style={{display:"flex",gap:8,marginBottom:14}}>
+          {["lead","job"].map(t=>(
+            <button key={t} onClick={()=>{setSaveTarget(t);setSaveTargetId("");}} style={{flex:1,padding:"9px 0",borderRadius:8,border:`2px solid ${saveTarget===t?C.gold:C.border}`,background:saveTarget===t?C.gold+"22":"transparent",color:saveTarget===t?C.gold:C.muted,fontFamily:fb,fontSize:13,fontWeight:saveTarget===t?700:400,cursor:"pointer"}}>
+              {t==="lead"?"📋 Lead / Pipeline":"⬡ Active Project"}
+            </button>
+          ))}
+        </div>
+        {saveTarget==="lead"&&<>
+          <label style={{display:"block",fontSize:11,color:C.muted,marginBottom:5,textTransform:"uppercase"}}>Select Lead</label>
+          <select value={saveTargetId} onChange={e=>setSaveTargetId(e.target.value)} style={{width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:saveTargetId?C.white:C.muted,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",marginBottom:14}}>
+            <option value="">Choose a lead…</option>
+            {leads.map(l=><option key={l.id} value={l.id}>{l.name}{l.type?` — ${l.type}`:""}</option>)}
+          </select>
+        </>}
+        {saveTarget==="job"&&<>
+          <label style={{display:"block",fontSize:11,color:C.muted,marginBottom:5,textTransform:"uppercase"}}>Select Project</label>
+          <select value={saveTargetId} onChange={e=>setSaveTargetId(e.target.value)} style={{width:"100%",background:C.navy,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 11px",color:saveTargetId?C.white:C.muted,fontSize:13,fontFamily:fb,outline:"none",boxSizing:"border-box",marginBottom:14}}>
+            <option value="">Choose a project…</option>
+            {jobs.map(j=><option key={j.id} value={j.id}>{j.name}{j.client?` — ${j.client}`:""}</option>)}
+          </select>
+        </>}
         <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
           <Btn variant="ghost" onClick={()=>setShowSaveModal(false)}>Cancel</Btn>
-          <Btn onClick={saveEstimate} style={{opacity:saving?0.6:1}}>{saving?"Saving…":(loadedEstimateId?"Update":"Save Estimate")}</Btn>
+          <Btn onClick={saveEstimate} style={{opacity:saving?0.6:1}}>{saving?"Saving…":"Save Estimate"}</Btn>
         </div>
       </Modal>}
 
       {(clientName||address)&&<div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 16px",marginBottom:16,display:"flex",gap:24,flexWrap:"wrap"}}>
         {clientName&&<div><div style={{fontSize:10,color:C.muted,textTransform:"uppercase",marginBottom:1}}>Client</div><div style={{color:C.white,fontSize:13,fontWeight:600}}>{clientName}</div></div>}
         {address&&<div><div style={{fontSize:10,color:C.muted,textTransform:"uppercase",marginBottom:1}}>Address</div><div style={{color:C.white,fontSize:13,fontWeight:600}}>{address}</div></div>}
-        {quote.estimatedDays>0&&<div><div style={{fontSize:10,color:C.muted,textTransform:"uppercase",marginBottom:1}}>Duration</div><div style={{color:C.white,fontSize:13,fontWeight:600}}>{quote.estimatedDays} working days</div></div>}
+        <div><div style={{fontSize:10,color:C.muted,textTransform:"uppercase",marginBottom:1}}>Duration</div><div style={{color:C.white,fontSize:13,fontWeight:600}}>{quote.estimatedDays} working days</div></div>
       </div>}
 
       {["Labour","Materials"].map(cat=>{
@@ -3412,7 +2667,7 @@ Return ONLY valid JSON:
             <div style={{display:"grid",gridTemplateColumns:"3fr 70px 70px 90px 100px 50px",padding:"7px 12px",background:C.navy}}>
               {["Description","Qty","Unit","Rate","Total",""].map(h=><div key={h} style={{color:C.muted,fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
             </div>
-            {items.length===0&&<div style={{padding:"12px",color:C.muted,fontSize:12}}>No items — click "+ Add {cat} Line" below to add one.</div>}
+            {items.length===0&&<div style={{padding:"12px",color:C.muted,fontSize:12}}>No items</div>}
             {items.map(item=>{
               const gi=quote.lineItems.indexOf(item);
               const isE=editingItem===gi;
@@ -3443,9 +2698,8 @@ Return ONLY valid JSON:
         </div>;
       })}
 
-      {/* ── TOTALS BLOCK (includes PST) ── */}
       <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}>
-        <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:18,minWidth:320}}>
+        <div style={{background:C.navyLight,border:`1px solid ${C.border}`,borderRadius:12,padding:18,minWidth:290}}>
           <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:13,color:C.white}}><span>Subtotal</span><span>{fmt$(subtotal)}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:13,color:C.white}}>
             <span>Overhead & Profit</span>
@@ -3456,7 +2710,6 @@ Return ONLY valid JSON:
             </div>
           </div>
           <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:13,color:C.white}}><span>GST (5%)</span><span>{fmt$(gst)}</span></div>
-          <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:13,color:C.white}}><span>PST (6% SK)</span><span>{fmt$(pst)}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0 0",fontSize:18,fontWeight:700,color:C.gold}}><span>TOTAL</span><span>{fmt$(total)}</span></div>
         </div>
       </div>
@@ -3545,7 +2798,17 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
   function openEdit(e){setForm({...e,job_id:e.job_id||""});setSel(e);setShowM(true);}
 
   async function save(){
-    const u={...form,job_id:form.job_id||null,date_end:form.date_end||null,color:form.color||null};
+    // Whitelist only real event columns — form may carry _original/_kind from the calendar
+    // click-to-edit path, and PostgREST silently rejects updates with unknown columns.
+    const u={
+      title:form.title||"",
+      job_id:form.job_id||null,
+      date:form.date||null,
+      date_end:form.date_end||null,
+      time:form.time||"09:00",
+      type:form.type||"site",
+      color:form.color||null
+    };
     if(sel){
       const {data,error}=await supabase.from("events").update(u).eq("id",sel.id).select().single();
       if(error){alert("Save failed: "+error.message);return;}
@@ -4187,7 +3450,6 @@ const NAV=[
   {id:"schedule",label:"Schedule",icon:"▦"},
   {id:"subs",label:"Subtrades",icon:"◆"},
   {id:"logs",label:"Daily Log",icon:"📋"},
-  {id:"receipts",label:"Receipts",icon:"🧾"},
   {id:"portal",label:"Client Portal",icon:"◈"},
   {id:"estimator",label:"Estimator",icon:"💲"},
   {id:"settings",label:"Settings",icon:"⚙"},
@@ -4216,11 +3478,24 @@ export default function App(){
     supabase.auth.getSession().then(({data:{session}})=>setSession(session));
     const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{
       setSession(session);
-      // Magic-link race: when SIGNED_IN fires from hash processing, React state can desync
-      // (user sees Login screen until manual refresh). Force a clean reload — once.
-      if(event==="SIGNED_IN"&&window.location.hash.includes("access_token")){
-        window.history.replaceState(null,"",window.location.pathname+window.location.search);
-        window.location.reload();
+      // Post-sign-in reload: React state can desync after any sign-in method
+      // (magic link OR password). Reload ONCE per tab-session to guarantee a
+      // clean mount. sessionStorage flag prevents loops from TOKEN_REFRESHED.
+      if(event==="SIGNED_IN"){
+        // Clean any magic-link hash out of the URL first
+        if(window.location.hash){
+          window.history.replaceState(null,"",window.location.pathname+window.location.search);
+        }
+        try{
+          const already=sessionStorage.getItem("tgb_signin_reloaded");
+          if(!already){
+            sessionStorage.setItem("tgb_signin_reloaded","1");
+            window.location.reload();
+          }
+        }catch(e){/* sessionStorage blocked — skip reload */}
+      }
+      if(event==="SIGNED_OUT"){
+        try{sessionStorage.removeItem("tgb_signin_reloaded");}catch(e){}
       }
     });
     return ()=>subscription.unsubscribe();
@@ -4258,6 +3533,27 @@ export default function App(){
     }
     load();
   },[session]);
+
+  // ── LOADING WATCHDOG ──
+  // If we end up signed in but stuck on the loading screen for more than 6 seconds
+  // (sometimes happens after a Supabase pause/restore, or first cold mount), force a
+  // single clean reload. A second mount comes up with a warm Supabase client.
+  useEffect(()=>{
+    if(!session||!loading)return;
+    const tripped={current:false};
+    const t=setTimeout(()=>{
+      tripped.current=true;
+      try{sessionStorage.setItem("tgb_watchdog_count",String((+sessionStorage.getItem("tgb_watchdog_count")||0)+1));}catch(e){}
+      const count=+(sessionStorage.getItem("tgb_watchdog_count")||0);
+      // Bail out if we've already reloaded twice — something else is wrong, don't loop forever
+      if(count<=2){console.warn("Loading watchdog tripped — reloading once to recover");window.location.reload();}
+      else{console.warn("Watchdog already tried twice, giving up");try{sessionStorage.removeItem("tgb_watchdog_count");}catch(e){}}
+    },6000);
+    return ()=>{if(!tripped.current)clearTimeout(t);};
+  },[session,loading]);
+
+  // Clear watchdog counter once we've successfully loaded
+  useEffect(()=>{if(session&&!loading){try{sessionStorage.removeItem("tgb_watchdog_count");}catch(e){}}},[session,loading]);
 
   async function handleSignOut(){await supabase.auth.signOut();setIsClient(false);setClientMode(false);}
 
@@ -4314,7 +3610,6 @@ export default function App(){
         {page==="schedule"&&<Schedule events={events} setEvents={setEvents} jobs={jobs} milestones={milestones} setMilestones={setMilestones}/>}
         {page==="subs"&&<Subs subs={subs} setSubs={setSubs}/>}
         {page==="logs"&&<DailyLog logs={logs} setLogs={setLogs} jobs={jobs}/>}
-        {page==="receipts"&&<Receipts jobs={jobs}/>}
         {page==="portal"&&(usePortalV2()?<ClientPortalV2 jobs={jobs} logs={logs}/>:<ClientPortal jobs={jobs} logs={logs} milestones={milestones}/>)}
         {page==="estimator"&&<Estimator jobs={jobs} leads={leads}/>}
         {page==="settings"&&<Settings/>}
