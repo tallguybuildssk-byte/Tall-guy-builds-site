@@ -1999,7 +1999,7 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[],logs=[]}){
         <Inp label="Address" value={form.address||""} onChange={v=>f("address",v)}/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
           <Inp label="Type" value={form.type||""} onChange={v=>f("type",v)} placeholder="Basement, Deck, Garage..."/>
-          <Sel label="Status" value={form.status||"Upcoming"} onChange={v=>f("status",v)} options={JOB_STATUSES}/>
+          <Sel label="Status" value={form.status||"Upcoming"} onChange={v=>{f("status",v);if(v==="Completed")f("progress",100);}} options={JOB_STATUSES}/>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
           <Inp label="Contract Value ($)" type="number" value={form.value||""} onChange={v=>f("value",v)}/>
