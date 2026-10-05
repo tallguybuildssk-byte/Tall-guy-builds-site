@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "./supabase";
 import DeckDesigner from './DeckDesigner';
+import ContractSourcePanel from './ContractSourcePanel';
 
 const C={navy:"#1F2A37",navyLight:"#2C3E50",gold:"#C8A96A",muted:"#6B7280",border:"#2E3D4F",warn:"#F59E0B",danger:"#EF4444",white:"#FFFFFF",bg:"#16212E",success:"#4CAF50"};
 // ── LIGHT COLOR PALETTE (Hybrid theme — used by V2 portal & redesigned admin pages) ──
@@ -1971,7 +1972,7 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[],logs=[]}){
 
     {showM&&<Modal title={sel?"Edit Project":"New Project"} onClose={()=>setShowM(false)} wide>
       <div style={{display:"flex",gap:6,marginBottom:16,borderBottom:`1px solid ${LC.border}`,paddingBottom:8,flexWrap:"wrap"}}>
-        {["details","milestones","payments","documents","messages"].map(t=>(
+        {["details","contract source","schedule","milestones","payments","documents","messages"].map(t=>(
           <button key={t} onClick={()=>{
             if((t==="milestones"||t==="payments"||t==="messages"||t==="documents")&&!sel){save(true);}
             else if(t==="milestones"){save(true);}
@@ -2075,6 +2076,8 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[],logs=[]}){
       </>}
       {tab==="milestones"&&sel&&<Milestones jobId={sel.id} job={{...sel,...form}} onAdd={m=>setMilestonesGlobal&&setMilestonesGlobal(prev=>[...prev,m])} onDelete={id=>setMilestonesGlobal&&setMilestonesGlobal(prev=>prev.filter(m=>m.id!==id))}/>}
       {tab==="milestones"&&!sel&&<div style={{color:C.muted,fontSize:12,padding:"20px 0",textAlign:"center"}}>Save the project first, then add milestones.</div>}
+      {tab==="contract source"&&<ContractSourcePanel client={supabase} job={jobs.find(j=>j.id===sel?.id)||sel||{}}/>}
+      {tab==="schedule"&&<ContractSourcePanel client={supabase} job={jobs.find(j=>j.id===sel?.id)||sel||{}} view="schedule"/>}
       {tab==="payments"&&<PaymentScheduleEditor schedule={form.payment_schedule||[]} contractValue={+form.value||0} onChange={v=>f("payment_schedule",v)}/>}
       {tab==="documents"&&<DocumentsAdmin jobId={sel?.id} jobName={sel?.name}/>}
       {tab==="messages"&&sel&&<>
@@ -2082,7 +2085,8 @@ function Jobs({jobs,setJobs,leads,setMilestonesGlobal,clients=[],logs=[]}){
         <MessageThread jobId={sel.id} senderType="admin" senderName="Tall Guy Builds" onRead={refreshUnread}/>
       </>}
       {tab==="messages"&&!sel&&<div style={{color:C.muted,fontSize:12,padding:"20px 0",textAlign:"center"}}>Save the project first to enable messaging.</div>}
-      {tab!=="messages"&&<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:14}}>
+      {["contract source","schedule"].includes(tab)&&<div style={{textAlign:"right"}}><Btn variant="ghost" onClick={()=>setShowM(false)}>Close</Btn></div>}
+      {!["messages","contract source","schedule"].includes(tab)&&<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:14}}>
         {sel&&<Btn variant="danger" onClick={del}>Delete</Btn>}
         <Btn variant="ghost" onClick={()=>setShowM(false)}>Cancel</Btn>
         <Btn onClick={()=>save()}>Save</Btn>
@@ -2922,6 +2926,8 @@ function Schedule({events,setEvents,jobs,milestones=[],setMilestones}){
     </div>
 
     {/* ── LIST VIEW ── */}
+    {filterJob&&<ContractSourcePanel key={filterJob} client={supabase} job={jobs.find(j=>j.id===filterJob)||{id:filterJob}} view="schedule"/>}
+    {!filterJob&&<p style={{fontSize:12,color:LC.textMuted}}>Select a project to review its private contract schedule draft alongside scheduled events.</p>}
     {view==="list"&&<>
       {allUpcoming.length===0&&<div style={{color:C.muted,textAlign:"center",padding:"28px 0",fontSize:13}}>No upcoming events.</div>}
       <div style={{display:"grid",gap:8,marginBottom:24}}>
@@ -3200,20 +3206,14 @@ function DailyLog({logs,setLogs,jobs}){
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
 function Settings(){
   const [ej,setEj]=useState({});
-  const [qb,setQb]=useState({});
   const [saved,setSaved]=useState(false);
-  const [qbSaved,setQbSaved]=useState(false);
   const [loading,setLoading]=useState(true);
 
   useEffect(()=>{
     async function loadSettings(){
-      const [ejRow,qbRow]=await Promise.all([
-        supabase.from("settings").select("value").eq("key","emailjs").maybeSingle(),
-        supabase.from("settings").select("value").eq("key","quickbooks").maybeSingle(),
-      ]);
+      const ejRow=await supabase.from("settings").select("value").eq("key","emailjs").maybeSingle();
       if(ejRow.data?.value){setEj(ejRow.data.value);localStorage.setItem("tgb_emailjs",JSON.stringify(ejRow.data.value));}
       else{const local=JSON.parse(localStorage.getItem("tgb_emailjs")||"{}");setEj(local);}
-      if(qbRow.data?.value)setQb(qbRow.data.value);
       setLoading(false);
     }
     loadSettings();
@@ -3223,10 +3223,6 @@ function Settings(){
     await supabase.from("settings").upsert({key:"emailjs",value:ej},{onConflict:"key"});
     localStorage.setItem("tgb_emailjs",JSON.stringify(ej));
     setSaved(true);setTimeout(()=>setSaved(false),2500);
-  }
-  async function saveQb(){
-    await supabase.from("settings").upsert({key:"quickbooks",value:qb},{onConflict:"key"});
-    setQbSaved(true);setTimeout(()=>setQbSaved(false),2500);
   }
   async function handleSignOut(){await supabase.auth.signOut();window.location.href="/";}
 
@@ -3262,33 +3258,12 @@ function Settings(){
       </div>
     </Card>
 
-    {/* QuickBooks Integration */}
+    {/* QuickBooks source status; no browser credential access */}
     <Card style={{marginBottom:16}}>
-      <div style={{fontWeight:700,color:C.white,fontSize:15,marginBottom:4}}>🟢 QuickBooks Integration</div>
-      <div style={{fontSize:11,color:C.muted,marginBottom:14,lineHeight:1.7}}>
-        When an invoice is marked paid in QuickBooks, the matching payment automatically updates to ✅ Paid in the client portal.
-        <br/><strong style={{color:C.gold}}>Step 1:</strong> Create a free account at <a href="https://developer.intuit.com" target="_blank" rel="noreferrer" style={{color:C.gold}}>developer.intuit.com</a> → New App → get your Client ID + Secret.
-        <br/><strong style={{color:C.gold}}>Step 2:</strong> In your QB app settings, add a webhook subscription. Set the endpoint URL to the one below.
-        <br/><strong style={{color:C.gold}}>Step 3:</strong> Paste your Verifier Token below and save. QB will start sending payment events automatically.
-      </div>
-      {loading?<div style={{color:LC.textMuted,fontSize:12}}>Loading…</div>:<>
-        <div style={{background:LC.bg,borderRadius:8,padding:"10px 14px",marginBottom:14,border:`1px solid ${LC.border}`}}>
-          <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Webhook Endpoint (paste this in QuickBooks)</div>
-          <div style={{fontSize:12,color:LC.gold,fontFamily:"monospace",wordBreak:"break-all",userSelect:"all"}}>https://ptczgktyxifzbaxcsqan.supabase.co/functions/v1/qb-webhook</div>
-        </div>
-        <Inp label="Verifier Token (from QuickBooks developer dashboard)" value={qb.verifier_token||""} onChange={v=>setQb(p=>({...p,verifier_token:v}))} placeholder="Paste your QB verifier token"/>
-        <Inp label="Client ID" value={qb.client_id||""} onChange={v=>setQb(p=>({...p,client_id:v}))} placeholder="QB App Client ID"/>
-        <Inp label="Client Secret" value={qb.client_secret||""} onChange={v=>setQb(p=>({...p,client_secret:v}))} placeholder="QB App Client Secret"/>
-        <div style={{display:"flex",alignItems:"center",gap:10,marginTop:4}}>
-          <Btn onClick={saveQb}>Save QB Settings</Btn>
-          {qbSaved&&<span style={{color:"#4ade80",fontSize:12}}>✓ Saved</span>}
-          {qb.verifier_token&&<span style={{fontSize:11,color:"#4ade80"}}>● Connected</span>}
-          {!qb.verifier_token&&<span style={{fontSize:11,color:C.muted}}>○ Not configured</span>}
-        </div>
-      </>}
-      <div style={{marginTop:12,padding:"10px 14px",background:LC.bg,borderRadius:8,fontSize:11,color:C.muted,lineHeight:1.6}}>
-        💡 Payment items matched by <strong style={{color:C.white}}>amount + project</strong>. When QB marks an invoice line paid, the matching payment in that project's schedule gets auto-checked. The client sees ✅ Paid in their portal immediately.
-      </div>
+      <h2 style={{fontSize:16,color:LC.text,margin:'0 0 10px'}}>QuickBooks estimates</h2>
+      <p style={{fontSize:13,color:LC.text,lineHeight:1.7}}>Reviewed estimate links appear in each project's Contract source tab. Draft tasks appear in its Schedule tab and in Schedule when a project is selected.</p>
+      <p style={{fontSize:13,color:LC.textMuted,lineHeight:1.7}}><strong>Automatic checks are not enabled in this release.</strong> Linked estimates are saved snapshots. This portal does not verify the assistant's current QuickBooks connection.</p>
+      <p style={{fontSize:12,color:LC.textMuted,lineHeight:1.7}}>Payments remain the amounts recorded on each project. Invoice payment synchronization is not enabled.</p>
     </Card>
 
     <Card>
@@ -3457,7 +3432,7 @@ const NAV=[
   {id:"deck-designer",label:"Deck Designer",icon:"📐"}];
 
 export default function App(){
-  const [page,setPage]=useState("dashboard");
+  const [page,setPage]=useState("schedule");
   const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>{try{return localStorage.getItem("tgb_sidebar_collapsed")==="1";}catch(e){return false;}});
   const toggleSidebar=()=>{const n=!sidebarCollapsed;setSidebarCollapsed(n);try{localStorage.setItem("tgb_sidebar_collapsed",n?"1":"0");}catch(e){}};
   const [session,setSession]=useState(undefined);
