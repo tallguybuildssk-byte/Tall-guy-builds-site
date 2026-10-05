@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { supabase } from "./supabase";
 import DeckDesigner from './DeckDesigner';
 import ContractSourcePanel from './ContractSourcePanel';
+import AutoImportStatus from './AutoImportStatus';
 
 const C={navy:"#1F2A37",navyLight:"#2C3E50",gold:"#C8A96A",muted:"#6B7280",border:"#2E3D4F",warn:"#F59E0B",danger:"#EF4444",white:"#FFFFFF",bg:"#16212E",success:"#4CAF50"};
 // ── LIGHT COLOR PALETTE (Hybrid theme — used by V2 portal & redesigned admin pages) ──
@@ -3262,7 +3263,8 @@ function Settings(){
     <Card style={{marginBottom:16}}>
       <h2 style={{fontSize:16,color:LC.text,margin:'0 0 10px'}}>QuickBooks estimates</h2>
       <p style={{fontSize:13,color:LC.text,lineHeight:1.7}}>Reviewed estimate links appear in each project's Contract source tab. Draft tasks appear in its Schedule tab and in Schedule when a project is selected.</p>
-      <p style={{fontSize:13,color:LC.textMuted,lineHeight:1.7}}><strong>Automatic checks are not enabled in this release.</strong> Linked estimates are saved snapshots. This portal does not verify the assistant's current QuickBooks connection.</p>
+      <AutoImportStatus client={supabase}/>
+      <p style={{fontSize:12,color:LC.textMuted,lineHeight:1.7}}>Linked estimates are saved snapshots. The check history above reports the assistant workflow; it is not a direct QuickBooks login from this portal.</p>
       <p style={{fontSize:12,color:LC.textMuted,lineHeight:1.7}}>Payments remain the amounts recorded on each project. Invoice payment synchronization is not enabled.</p>
     </Card>
 

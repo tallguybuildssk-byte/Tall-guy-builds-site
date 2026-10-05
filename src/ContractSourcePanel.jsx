@@ -1,5 +1,6 @@
 import React,{useEffect,useState} from 'react';
 import {loadContractSource,money,displayDate} from './operations/contract-source.mjs';
+import AutoImportStatus from './AutoImportStatus';
 const box={background:'#fff',border:'1px solid #E5E7EB',borderRadius:12,padding:18,marginBottom:16,color:'#1F2937',fontSize:13,lineHeight:1.6,overflowWrap:'anywhere'};
 const muted={color:'#596273',fontSize:12};
 const grid={display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,150px),1fr))',gap:12,margin:'14px 0'};
@@ -67,7 +68,7 @@ export function ContractSourceView({state,job={},view='contract',onRetry}){
     <ul>{state.revisions.map(r=><li key={r.revision}>Revision {r.revision}: {money(r.total_cents,{cents:true})} · {r.status||'Status not recorded'} · received {displayDate(r.recorded_at)}</li>)}</ul>
     {state.revisionCount>state.revisions.length&&<p>Showing the latest {state.revisions.length} saved revisions.</p>}
     <p>The original linked contract and project values have not been replaced.</p>
-   </details>:<p style={muted}>No additional source revisions are saved. Automatic QuickBooks checks are not enabled in this release.</p>}
+   </details>:<p style={muted}>No additional source revisions are saved.</p>}
  </section>;
 }
 
@@ -79,5 +80,6 @@ export default function ContractSourcePanel({client,job,view='contract'}){
    .catch(()=>{if(active)setState({status:'unavailable',jobId});});
   return()=>{active=false;};
  },[client,jobId,attempt]);
- return <ContractSourceView state={state.jobId===jobId?state:{status:'loading'}} job={job} view={view} onRetry={()=>setAttempt(n=>n+1)}/>;
+ return <><ContractSourceView state={state.jobId===jobId?state:{status:'loading'}} job={job} view={view} onRetry={()=>setAttempt(n=>n+1)}/>
+  {state.jobId===jobId&&state.status==='linked'&&<AutoImportStatus client={client}/>}</>;
 }
